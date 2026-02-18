@@ -1,6 +1,6 @@
 # Chris Assistant
 
-A personal AI assistant powered by Claude, accessible through Telegram. Built with the Claude Agent SDK using a Max subscription — no per-message API costs.
+A personal AI assistant accessible through Telegram. Supports multiple AI providers (Claude, MiniMax) with persistent memory stored in GitHub.
 
 ## How It Works
 
@@ -9,8 +9,8 @@ Telegram message
   → grammY bot (guards to your user ID only)
   → Loads identity + memory from GitHub private repo
   → Builds system prompt with personality, knowledge, conversation history
-  → Claude Agent SDK query() via Max subscription OAuth token
-  → Claude can call update_memory tool to persist what it learns
+  → Routes to active provider (Claude Agent SDK or MiniMax via OpenAI API)
+  → AI can call update_memory tool to persist what it learns
   → Response sent back to Telegram
 ```
 
@@ -25,12 +25,17 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   ├── index.ts              # Bot entry point
 │   ├── config.ts             # Environment config
 │   ├── telegram.ts           # Telegram bot with user guard
-│   ├── claude.ts             # Claude Agent SDK integration
 │   ├── conversation.ts       # Short-term in-memory chat history
+│   ├── providers/
+│   │   ├── types.ts          # Provider interface
+│   │   ├── shared.ts         # System prompt caching
+│   │   ├── claude.ts         # Claude Agent SDK provider
+│   │   ├── minimax.ts        # MiniMax provider (OpenAI-compatible)
+│   │   └── index.ts          # Provider router
 │   ├── memory/
 │   │   ├── github.ts         # Read/write memory files via GitHub API
 │   │   ├── loader.ts         # Assembles system prompt from memory
-│   │   └── tools.ts          # MCP tool: lets Claude update its own memory
+│   │   └── tools.ts          # update_memory tool (MCP + OpenAI function formats)
 │   └── cli/
 │       ├── index.ts           # Commander.js program entry point
 │       ├── pm2-helper.ts      # pm2 connection helper and constants
@@ -195,12 +200,14 @@ chris config get <key>   # Get a specific value
 chris config set <k> <v> # Set a value in .env (run chris restart to apply)
 ```
 
-### Model
+### Model / Provider
 
 ```bash
-chris model              # Show current model and available shortcuts
-chris model set <name>   # Switch model (e.g. opus, sonnet, haiku, sonnet-4-5, or full ID)
+chris model              # Show current model, provider, and available shortcuts
+chris model set <name>   # Switch model (e.g. sonnet, minimax, opus, or full model ID)
 ```
+
+Available shortcuts: `opus`, `sonnet`, `haiku`, `sonnet-4-5` (Claude), `minimax`, `minimax-fast` (MiniMax)
 
 ### Diagnostics
 
@@ -236,10 +243,10 @@ chris logs -f            # Watch logs in real-time
 ## Tech Stack
 
 - **Runtime**: Node.js 22+ / TypeScript
-- **AI**: Claude Agent SDK with Max subscription OAuth
+- **AI (Claude)**: Claude Agent SDK with Max subscription OAuth
+- **AI (MiniMax)**: OpenAI SDK with custom baseURL (`api.minimax.io`)
 - **Telegram**: grammY
 - **Memory**: GitHub API via Octokit
-- **Memory tools**: MCP (Model Context Protocol) in-process server
 - **CLI**: Commander.js
 - **Process management**: pm2
 - **Dev**: tsx (TypeScript execution without build step)

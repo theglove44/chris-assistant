@@ -1,6 +1,6 @@
 import { Bot, Context } from "grammy";
 import { config } from "./config.js";
-import { chat } from "./claude.js";
+import { chat } from "./providers/index.js";
 import { addMessage, clearHistory } from "./conversation.js";
 
 const bot = new Bot(config.telegram.botToken);

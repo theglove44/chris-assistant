@@ -9,12 +9,19 @@ const ENV_PATH = resolve(__dirname, "../../..", ".env");
 const DEFAULT_MODEL = "claude-sonnet-4-5-20250929";
 
 /** Well-known model IDs for quick reference */
-const KNOWN_MODELS: Record<string, string> = {
-  "opus": "claude-opus-4-6",
-  "sonnet": "claude-sonnet-4-6",
-  "haiku": "claude-haiku-4-5-20251001",
-  "sonnet-4-5": "claude-sonnet-4-5-20250929",
+const KNOWN_MODELS: Record<string, { id: string; provider: string }> = {
+  "opus": { id: "claude-opus-4-6", provider: "claude" },
+  "sonnet": { id: "claude-sonnet-4-6", provider: "claude" },
+  "haiku": { id: "claude-haiku-4-5-20251001", provider: "claude" },
+  "sonnet-4-5": { id: "claude-sonnet-4-5-20250929", provider: "claude" },
+  "minimax": { id: "MiniMax-M2.5", provider: "minimax" },
+  "minimax-fast": { id: "MiniMax-M2.5-highspeed", provider: "minimax" },
 };
+
+function providerForModel(model: string): string {
+  if (model.startsWith("MiniMax")) return "minimax";
+  return "claude";
+}
 
 function getCurrentModel(): string {
   if (!existsSync(ENV_PATH)) return DEFAULT_MODEL;
@@ -60,15 +67,16 @@ function setModel(modelId: string): void {
 export function registerModelCommand(program: Command) {
   const model = program
     .command("model")
-    .description("View or change the Claude model")
+    .description("View or change the AI model and provider")
     .action(() => {
       const current = getCurrentModel();
-      console.log("Current model: %s", current);
+      const provider = providerForModel(current);
+      console.log("Current model: %s (%s)", current, provider);
       console.log("");
       console.log("Shortcuts:");
-      for (const [alias, id] of Object.entries(KNOWN_MODELS)) {
-        const marker = id === current ? " ← active" : "";
-        console.log("  %s %s%s", alias.padEnd(12), id, marker);
+      for (const [alias, info] of Object.entries(KNOWN_MODELS)) {
+        const marker = info.id === current ? " ← active" : "";
+        console.log("  %s %s %s%s", alias.padEnd(14), info.provider.padEnd(8), info.id, marker);
       }
       console.log("");
       console.log('Change with: chris model set <name-or-id>');
@@ -76,11 +84,13 @@ export function registerModelCommand(program: Command) {
 
   model
     .command("set <model>")
-    .description("Set the Claude model (use a shortcut like 'opus' or a full model ID)")
+    .description("Set the AI model (use a shortcut like 'minimax' or a full model ID)")
     .action((input: string) => {
-      const modelId = KNOWN_MODELS[input.toLowerCase()] || input;
+      const known = KNOWN_MODELS[input.toLowerCase()];
+      const modelId = known ? known.id : input;
+      const provider = providerForModel(modelId);
       setModel(modelId);
-      console.log("Model set to: %s", modelId);
+      console.log("Model set to: %s (%s)", modelId, provider);
       console.log('Run "chris restart" for this to take effect.');
     });
 }

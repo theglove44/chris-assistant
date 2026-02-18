@@ -9,8 +9,9 @@ function required(name: string): string {
 }
 
 export const config = {
-  claude: {
-    model: process.env.CLAUDE_MODEL || "claude-sonnet-4-5-20250929",
+  model: process.env.CLAUDE_MODEL || "claude-sonnet-4-5-20250929",
+  minimax: {
+    apiKey: process.env.MINIMAX_API_KEY || "",
   },
   telegram: {
     botToken: required("TELEGRAM_BOT_TOKEN"),

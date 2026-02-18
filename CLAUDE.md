@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A personal AI assistant for Chris Taylor, powered by Claude via the Agent SDK, accessible through Telegram. Memory and identity are stored as markdown in a separate private GitHub repo (`theglove44/chris-assistant-memory`).
+A personal AI assistant for Chris Taylor, accessible through Telegram. Supports multiple AI providers (Claude, MiniMax). Memory and identity are stored as markdown in a separate private GitHub repo (`theglove44/chris-assistant-memory`).
 
 ## Architecture
 
@@ -13,12 +13,17 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   ├── index.ts              # Bot entry point (starts Telegram long-polling)
 │   ├── config.ts             # Loads .env, exports typed config object
 │   ├── telegram.ts           # grammY bot — message handler, user guard, typing indicator
-│   ├── claude.ts             # Agent SDK query() — builds prompt, calls Claude, streams result
 │   ├── conversation.ts       # In-memory short-term history (last 20 messages, resets on restart)
+│   ├── providers/
+│   │   ├── types.ts          # Provider interface ({ name, chat() })
+│   │   ├── shared.ts         # System prompt caching (used by all providers)
+│   │   ├── claude.ts         # Claude Agent SDK provider
+│   │   ├── minimax.ts        # MiniMax provider (OpenAI-compatible API)
+│   │   └── index.ts          # Provider router — model string determines provider
 │   ├── memory/
 │   │   ├── github.ts         # Octokit wrapper — read/write/append files in memory repo
 │   │   ├── loader.ts         # Loads identity + knowledge + memory files, builds system prompt
-│   │   └── tools.ts          # MCP tool: update_memory (Claude updates its own brain)
+│   │   └── tools.ts          # update_memory tool (MCP format + OpenAI function format)
 │   └── cli/
 │       ├── index.ts           # Commander.js program — registers all subcommands
 │       ├── pm2-helper.ts      # pm2 connection helper, process info, constants
@@ -31,7 +36,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 │           ├── memory.ts      # chris memory status|show|edit|search
 │           ├── identity.ts    # chris identity [edit] — view/edit SOUL.md
 │           ├── config.ts      # chris config [get|set] — manage .env
-│           ├── model.ts       # chris model [set] — view/change Claude model
+│           ├── model.ts       # chris model [set] — view/change AI model + provider
 │           ├── doctor.ts      # chris doctor — diagnostic checks
 │           └── setup.ts       # chris setup — interactive first-time wizard
 
@@ -49,10 +54,11 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 
 ## Key Design Decisions
 
-- **Authentication**: Uses `CLAUDE_CODE_OAUTH_TOKEN` from a Max subscription (via `claude setup-token`). No per-call API costs.
-- **Memory storage**: Markdown files in a private GitHub repo. Every assistant memory update is a git commit — fully auditable and rollback-able.
-- **Memory tool**: Claude has an MCP tool (`update_memory`) to persist what it learns. Categories: about-chris, preferences, projects, people, decisions, learnings.
-- **System prompt caching**: Memory files are loaded from GitHub and cached for 5 minutes to avoid excessive API calls. Cache invalidates after any conversation (in case memory was updated).
+- **Multi-provider**: The model string determines the provider. `MiniMax-*` → MiniMax, everything else → Claude. No separate "provider" config key.
+- **Authentication**: Claude uses `CLAUDE_CODE_OAUTH_TOKEN` from a Max subscription. MiniMax uses `MINIMAX_API_KEY` from a Coding Plan subscription.
+- **Memory tool**: Both providers support `update_memory`. Claude uses MCP (in-process server). MiniMax uses OpenAI-format function calling. Both delegate to the same `executeMemoryTool()` function.
+- **Memory storage**: Markdown files in a private GitHub repo. Every update is a git commit — fully auditable and rollback-able.
+- **System prompt caching**: Memory files are loaded from GitHub and cached for 5 minutes. Cache invalidates after any conversation (in case memory was updated). Shared across providers via `providers/shared.ts`.
 - **User guard**: Only responds to `TELEGRAM_ALLOWED_USER_ID`. All other users are silently ignored.
 - **pm2 process management**: The bot runs as a pm2 process. The CLI uses pm2's programmatic API. pm2 can't find `tsx` via PATH so we use the absolute path from `node_modules/.bin/tsx` as the interpreter.
 - **CLI global install**: `npm link` creates a global `chris` command. The `bin/chris` shell wrapper follows symlinks to resolve the real project root and finds tsx from node_modules.
@@ -60,7 +66,8 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 ## Tech Stack
 
 - **Runtime**: Node.js 22+ / TypeScript
-- **AI**: `@anthropic-ai/claude-agent-sdk` with Max subscription OAuth token
+- **AI (Claude)**: `@anthropic-ai/claude-agent-sdk` with Max subscription OAuth token
+- **AI (MiniMax)**: `openai` npm package with custom baseURL (`https://api.minimax.io/v1`)
 - **Telegram**: grammY
 - **Memory**: `@octokit/rest` for GitHub API
 - **CLI**: Commander.js
@@ -76,7 +83,8 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 | `TELEGRAM_ALLOWED_USER_ID` | Your numeric Telegram user ID |
 | `GITHUB_TOKEN` | Fine-grained PAT with Contents read/write on memory repo only |
 | `GITHUB_MEMORY_REPO` | `theglove44/chris-assistant-memory` |
-| `CLAUDE_MODEL` | Optional override, defaults to `claude-sonnet-4-5-20250929` |
+| `CLAUDE_MODEL` | Model ID — determines provider. Defaults to `claude-sonnet-4-5-20250929` |
+| `MINIMAX_API_KEY` | MiniMax Coding Plan API key (only needed if using MiniMax models) |
 
 ## Common Operations
 
@@ -90,6 +98,11 @@ chris start              # Start (or restart) the bot via pm2
 chris status             # Check if running, uptime, memory usage
 chris logs -f            # Live tail logs
 chris stop               # Stop the bot
+
+# Model / provider
+chris model              # Show current model, provider, and shortcuts
+chris model set minimax  # Switch to MiniMax M2.5
+chris model set sonnet   # Switch back to Claude Sonnet
 
 # Memory management
 chris memory status      # List files with sizes
@@ -125,3 +138,4 @@ npx tsx src/cli/index.ts # Run CLI directly without global install
 - **Telegram message limit**: 4096 characters max. `telegram.ts` has a `splitMessage()` function that breaks at paragraph then sentence boundaries.
 - **Memory cache**: System prompt is cached 5 minutes. After any conversation the cache is invalidated. Manually edited memory files via `chris memory edit` won't be picked up until the cache expires or the bot restarts.
 - **GitHub fine-grained PAT expiry**: Max 1 year. Set a reminder to rotate.
+- **Adding new providers**: Create `src/providers/<name>.ts` implementing the `Provider` interface, add a prefix check in `src/providers/index.ts`, and add model shortcuts to `src/cli/commands/model.ts`. If the provider supports tool calling, use `executeMemoryTool()` from `src/memory/tools.ts`.
