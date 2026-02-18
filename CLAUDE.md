@@ -31,6 +31,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 │           ├── memory.ts      # chris memory status|show|edit|search
 │           ├── identity.ts    # chris identity [edit] — view/edit SOUL.md
 │           ├── config.ts      # chris config [get|set] — manage .env
+│           ├── model.ts       # chris model [set] — view/change Claude model
 │           ├── doctor.ts      # chris doctor — diagnostic checks
 │           └── setup.ts       # chris setup — interactive first-time wizard
 

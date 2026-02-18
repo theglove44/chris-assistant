@@ -43,6 +43,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 │           ├── memory.ts      # chris memory status|show|edit|search
 │           ├── identity.ts    # chris identity [edit]
 │           ├── config.ts      # chris config [get|set]
+│           ├── model.ts       # chris model [set]
 │           ├── doctor.ts      # chris doctor
 │           └── setup.ts       # chris setup
 
@@ -192,6 +193,13 @@ chris identity edit      # Open SOUL.md in $EDITOR and push changes
 chris config             # Show all config values (secrets are redacted)
 chris config get <key>   # Get a specific value
 chris config set <k> <v> # Set a value in .env (run chris restart to apply)
+```
+
+### Model
+
+```bash
+chris model              # Show current model and available shortcuts
+chris model set <name>   # Switch model (e.g. opus, sonnet, haiku, sonnet-4-5, or full ID)
 ```
 
 ### Diagnostics

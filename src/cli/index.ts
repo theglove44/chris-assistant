@@ -7,6 +7,7 @@ import { registerLogsCommand } from "./commands/logs.js";
 import { registerMemoryCommand } from "./commands/memory.js";
 import { registerIdentityCommand } from "./commands/identity.js";
 import { registerConfigCommand } from "./commands/config.js";
+import { registerModelCommand } from "./commands/model.js";
 import { registerDoctorCommand } from "./commands/doctor.js";
 import { registerSetupCommand } from "./commands/setup.js";
 
@@ -30,6 +31,7 @@ registerIdentityCommand(program);
 
 // Config & diagnostics
 registerConfigCommand(program);
+registerModelCommand(program);
 registerDoctorCommand(program);
 registerSetupCommand(program);
 
