@@ -3,17 +3,23 @@
   "version": "0.1.0",
   "description": "Personal AI assistant powered by Claude, accessible via Telegram",
   "type": "module",
+  "bin": {
+    "chris": "bin/chris"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "chris": "tsx src/cli/index.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.0",
     "@octokit/rest": "^21.0.0",
+    "commander": "^13.0.0",
     "dotenv": "^16.4.0",
     "grammy": "^1.30.0",
+    "pm2": "^6.0.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
