@@ -74,9 +74,36 @@ This generates a long-lived (1 year) token using your Max subscription.
 
 ### 4. Create a GitHub fine-grained PAT
 
-Go to [GitHub Settings → Tokens](https://github.com/settings/tokens?type=beta) and create a fine-grained token with:
-- **Repository access**: Only select `chris-assistant-memory`
-- **Permissions**: Contents → Read and write
+The bot needs a GitHub token to read and write memory files. Use a **fine-grained** token (not classic) so you can lock it down to just the memory repo.
+
+1. Go to [GitHub Settings → Developer settings → Fine-grained tokens](https://github.com/settings/tokens?type=beta)
+2. Click **"Generate new token"**
+3. Fill in the settings:
+
+| Setting | Value |
+|---------|-------|
+| **Token name** | `chris-assistant` (or whatever you like) |
+| **Expiration** | 90 days, or custom — you'll need to rotate it when it expires |
+| **Description** | Optional — e.g. "Memory read/write for personal assistant" |
+| **Resource owner** | Your account (`theglove44`) |
+
+4. Under **Repository access**, select **"Only select repositories"**
+   - Choose **`chris-assistant-memory`** from the dropdown
+   - Do NOT give it access to any other repos
+
+5. Under **Permissions → Repository permissions**, set:
+
+| Permission | Access level |
+|------------|-------------|
+| **Contents** | **Read and write** |
+| Everything else | No access (default) |
+
+   You only need `Contents`. Don't enable `Administration`, `Actions`, `Workflows`, or anything else.
+
+6. Click **"Generate token"**
+7. **Copy the token immediately** — GitHub only shows it once. It starts with `github_pat_`
+
+> **Security note**: This token can only read/write file contents in the memory repo. It cannot delete the repo, manage settings, access other repos, or do anything else. If it leaks, the blast radius is limited to your memory markdown files.
 
 ### 5. Configure environment
 
