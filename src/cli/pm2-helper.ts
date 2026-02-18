@@ -5,6 +5,7 @@ import { dirname, resolve } from "path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const PROJECT_ROOT = resolve(__dirname, "../..");
 export const BOT_SCRIPT = resolve(PROJECT_ROOT, "src/index.ts");
+export const TSX_BIN = resolve(PROJECT_ROOT, "node_modules/.bin/tsx");
 export const PM2_NAME = "chris-assistant";
 
 /** Connect to pm2 daemon, run a callback, then disconnect. */
