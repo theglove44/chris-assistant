@@ -155,6 +155,7 @@ npx tsx src/cli/index.ts # Run CLI directly without global install
 - **pm2 PATH isolation**: pm2 spawns processes in its own daemon. It doesn't inherit your shell PATH. That's why `pm2-helper.ts` exports `TSX_BIN` as an absolute path to `node_modules/.bin/tsx`.
 - **Node.js console.log**: Does not support C-style `%-16s` padding. Use `String.padEnd()` instead.
 - **Telegram message limit**: 4096 characters max. `telegram.ts` has a `splitMessage()` function that breaks at paragraph then sentence boundaries.
+- **Thinking tags**: Reasoning models (o3, MiniMax, etc.) may emit `<think>...</think>` blocks. `telegram.ts` strips these before sending to Telegram.
 - **Memory cache**: System prompt is cached 5 minutes. After any conversation the cache is invalidated. Manually edited memory files via `chris memory edit` won't be picked up until the cache expires or the bot restarts.
 - **GitHub fine-grained PAT expiry**: Max 1 year. Set a reminder to rotate.
 - **Adding new providers**: Create `src/providers/<name>.ts` implementing the `Provider` interface, add a prefix check in `src/providers/index.ts`, and add model shortcuts to `src/cli/commands/model.ts`. If the provider supports tool calling, use `executeMemoryTool()` from `src/memory/tools.ts`.

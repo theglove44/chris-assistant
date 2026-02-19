@@ -49,8 +49,11 @@ bot.on("message:text", async (ctx) => {
     // Record user message
     addMessage(ctx.chat.id, "user", userMessage);
 
-    // Get Claude's response
-    const response = await chat(ctx.chat.id, userMessage);
+    // Get AI response
+    const rawResponse = await chat(ctx.chat.id, userMessage);
+
+    // Strip <think>...</think> blocks (reasoning models emit these)
+    const response = rawResponse.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
 
     // Record assistant response
     addMessage(ctx.chat.id, "assistant", response);
