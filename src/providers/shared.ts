@@ -1,5 +1,6 @@
 import { loadMemory, buildSystemPrompt } from "../memory/loader.js";
 import { config } from "../config.js";
+import { resetLoopDetection } from "../tools/index.js";
 
 let cachedSystemPrompt: string | null = null;
 let lastPromptLoad = 0;
@@ -29,4 +30,5 @@ export async function getSystemPrompt(): Promise<string> {
 
 export function invalidatePromptCache(): void {
   cachedSystemPrompt = null;
+  resetLoopDetection();
 }

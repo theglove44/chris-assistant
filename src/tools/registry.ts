@@ -28,6 +28,47 @@ interface ToolRegistration {
 const tools = new Map<string, ToolRegistration>();
 
 // ---------------------------------------------------------------------------
+// Loop detection
+// ---------------------------------------------------------------------------
+
+const LOOP_THRESHOLD = 3; // consecutive identical calls before breaking
+let recentFingerprints: string[] = [];
+
+/**
+ * Check if a tool call is stuck in a loop. Returns an error message if so,
+ * or null if the call should proceed. A "loop" is N consecutive identical
+ * calls (same tool name + same arguments).
+ */
+function checkLoopDetection(name: string, argsJson: string): string | null {
+  // Fingerprint: tool name + first 500 chars of args (enough to distinguish)
+  const fingerprint = `${name}:${argsJson.slice(0, 500)}`;
+
+  recentFingerprints.push(fingerprint);
+
+  // Only keep the last LOOP_THRESHOLD entries
+  if (recentFingerprints.length > LOOP_THRESHOLD) {
+    recentFingerprints = recentFingerprints.slice(-LOOP_THRESHOLD);
+  }
+
+  // Check if all recent entries are identical
+  if (
+    recentFingerprints.length >= LOOP_THRESHOLD &&
+    recentFingerprints.every((fp) => fp === fingerprint)
+  ) {
+    console.warn("[tools] Loop detected: %s called %d times with same args", name, LOOP_THRESHOLD);
+    recentFingerprints = []; // Reset after breaking
+    return `Loop detected: you've called ${name} with the same arguments ${LOOP_THRESHOLD} times in a row. Try a different approach.`;
+  }
+
+  return null;
+}
+
+/** Reset loop detection state (call between conversations). */
+export function resetLoopDetection(): void {
+  recentFingerprints = [];
+}
+
+// ---------------------------------------------------------------------------
 // Registration
 // ---------------------------------------------------------------------------
 
@@ -64,6 +105,9 @@ export async function dispatchToolCall(
   const t = tools.get(name);
   if (!t) return `Unknown tool: ${name}`;
   try {
+    const loopError = checkLoopDetection(name, argsJson);
+    if (loopError) return loopError;
+
     const args = JSON.parse(argsJson);
     console.log(
       "[%s] Tool call: %s(%s)",
@@ -95,6 +139,14 @@ export function getMcpTools() {
       t.description,
       t.zodSchema,
       async (args: any) => {
+        const argsJson = JSON.stringify(args);
+        const loopError = checkLoopDetection(t.name, argsJson);
+        if (loopError) {
+          return {
+            content: [{ type: "text" as const, text: loopError }],
+            isError: true,
+          };
+        }
         const result = await t.execute(args);
         // Heuristic: any result starting with an error-like keyword signals failure
         const isError = /^(Unknown|Failed|Error|rejected|denied)/i.test(result) || result.includes("rejected:");

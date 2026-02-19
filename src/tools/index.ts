@@ -13,4 +13,5 @@ export {
   dispatchToolCall,
   getMcpTools,
   getMcpAllowedToolNames,
+  resetLoopDetection,
 } from "./registry.js";
