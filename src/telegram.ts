@@ -5,6 +5,7 @@ import type { ImageAttachment } from "./providers/index.js";
 import { addMessage, clearHistory } from "./conversation.js";
 import { checkRateLimit } from "./rate-limit.js";
 import { toMarkdownV2 } from "./markdown.js";
+import { readMemoryFile } from "./memory/github.js";
 
 const bot = new Bot(config.telegram.botToken);
 
@@ -119,6 +120,56 @@ bot.command("clear", async (ctx) => {
   if (!isAllowedUser(ctx)) return;
   clearHistory(ctx.chat.id);
   await ctx.reply("Conversation cleared. Memory is still intact.");
+});
+
+// /model — show current model and provider
+bot.command("model", async (ctx) => {
+  if (!isAllowedUser(ctx)) return;
+  const model = config.model;
+  const m = model.toLowerCase();
+  const provider = m.startsWith("gpt-") || m.startsWith("o3") || m.startsWith("o4-")
+    ? "OpenAI"
+    : model.startsWith("MiniMax")
+      ? "MiniMax"
+      : "Claude";
+  await ctx.reply(`Model: ${model}\nProvider: ${provider}\n\nUse the CLI to switch: chris model set <name>`);
+});
+
+// /memory — show memory file status
+bot.command("memory", async (ctx) => {
+  if (!isAllowedUser(ctx)) return;
+
+  const files = [
+    "identity/SOUL.md", "identity/RULES.md", "identity/VOICE.md",
+    "knowledge/about-chris.md", "knowledge/preferences.md",
+    "knowledge/projects.md", "knowledge/people.md",
+    "memory/decisions.md", "memory/learnings.md",
+  ];
+
+  const results = await Promise.all(
+    files.map(async (path) => {
+      const content = await readMemoryFile(path).catch(() => null);
+      if (!content) return `  ○ ${path} (empty)`;
+      const bytes = Buffer.byteLength(content, "utf-8");
+      const size = bytes < 1024 ? `${bytes}B` : `${(bytes / 1024).toFixed(1)}KB`;
+      return `  ● ${path} (${size})`;
+    }),
+  );
+
+  await ctx.reply(`Memory files:\n\n${results.join("\n")}`);
+});
+
+// /help — list available commands
+bot.command("help", async (ctx) => {
+  if (!isAllowedUser(ctx)) return;
+  await ctx.reply(
+    "Available commands:\n\n" +
+    "/start — Greeting\n" +
+    "/clear — Reset conversation history\n" +
+    "/model — Show current AI model\n" +
+    "/memory — Show memory file status\n" +
+    "/help — This message",
+  );
 });
 
 // Handle text messages

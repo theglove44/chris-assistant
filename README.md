@@ -213,6 +213,9 @@ Message your bot on Telegram. That's it. On first contact, the assistant will in
 
 - `/start` — Initial greeting
 - `/clear` — Reset conversation history (long-term memory is preserved)
+- `/model` — Show current AI model and provider
+- `/memory` — Show memory file status with sizes
+- `/help` — List all available commands
 
 ### How Memory Works
 

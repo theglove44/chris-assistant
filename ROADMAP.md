@@ -31,7 +31,7 @@ How the bot feels to use day-to-day.
 | 2 | 🟠 | ✅ | **Persistent conversation history** | `src/conversation.ts` persists the last 20 messages per chat to `~/.chris-assistant/conversations.json`. Loads lazily on first access, saves after each message. Handles missing/corrupt files gracefully. No new dependencies. |
 | 3 | 🟠 | ✅ | **MarkdownV2 rendering** | `src/markdown.ts` converts standard AI markdown to Telegram MarkdownV2 with proper context-aware escaping (plain text, code, URLs). `telegram.ts` uses `parse_mode: "MarkdownV2"` with plain text fallback. Streaming preview stays plain text. |
 | 4 | 🟡 | ⬜ | **Voice message support** | Telegram voice messages are common on mobile. Transcribe incoming voice via Whisper API or similar, and optionally respond with TTS audio. |
-| 5 | 🟢 | ⬜ | **Telegram commands menu** | Only `/start` and `/clear` exist. Could add `/model` (show/switch model), `/memory` (show memory status), `/forget` (clear a specific memory) accessible directly from Telegram without the CLI. |
+| 5 | 🟢 | ✅ | **Telegram commands menu** | Added `/model` (show current model + provider), `/memory` (list memory files with sizes), `/help` (list all commands). Registered command menu via `setMyCommands` so commands appear in the Telegram bot UI. |
 
 ---
 

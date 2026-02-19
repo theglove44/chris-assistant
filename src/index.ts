@@ -3,6 +3,17 @@ import { startHealthMonitor, stopHealthMonitor } from "./health.js";
 
 console.log("[chris-assistant] Starting up...");
 
+// Register the Telegram command menu so users see commands in the bot UI
+bot.api.setMyCommands([
+  { command: "start", description: "Greeting" },
+  { command: "clear", description: "Reset conversation history" },
+  { command: "model", description: "Show current AI model" },
+  { command: "memory", description: "Show memory file status" },
+  { command: "help", description: "List available commands" },
+]).catch((err: any) => {
+  console.error("[telegram] Failed to set command menu:", err.message);
+});
+
 bot.start({
   onStart: (botInfo) => {
     console.log("[chris-assistant] Bot is live as @%s", botInfo.username);
