@@ -41,7 +41,7 @@ Keeping the bot running and recovering from failures.
 
 | # | Impact | Status | Item | Description |
 |---|--------|--------|------|-------------|
-| 1 | 🔴 | ⬜ | **Health check and alerting** | No monitoring beyond manual `chris status`. If the bot crashes or an API token expires, nobody knows until a message goes unanswered. Add a periodic health ping (e.g. the bot messages you if it restarts, or a cron job that checks pm2 status and alerts via Telegram). |
+| 1 | 🔴 | ✅ | **Health check and alerting** | `src/health.ts` — startup notification via Telegram, periodic checks every 5 min (GitHub repo access, MiniMax/OpenAI token expiry), alert dedup (1 hour re-alert), recovery notifications. Integrated into `index.ts` lifecycle. |
 | 2 | 🟠 | ⬜ | **Graceful error recovery** | If a provider fails mid-conversation (token expired, API down), the bot returns a generic error. Could auto-retry with exponential backoff, or fall back to a different provider. |
 | 3 | 🟡 | ⬜ | **Token expiry monitoring** | MiniMax tokens expire after a few hours with no auto-refresh. OpenAI tokens auto-refresh but the refresh token itself could expire. `chris doctor` checks these, but the bot should proactively warn when tokens are about to expire. |
 | 4 | 🟡 | ⬜ | **Conversation history backup** | In-memory history is lost on crash. Even before building persistent storage, periodically flushing recent conversation to disk (or the memory repo) would prevent total context loss. |

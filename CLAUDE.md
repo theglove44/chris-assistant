@@ -14,6 +14,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   ├── config.ts             # Loads .env, exports typed config object
 │   ├── telegram.ts           # grammY bot — message handler, user guard, rate limiting, typing indicator
 │   ├── rate-limit.ts         # Sliding window rate limiter (10 msgs/min per user)
+│   ├── health.ts             # Periodic health checks + Telegram alerts (startup, token expiry, GitHub)
 │   ├── conversation.ts       # In-memory short-term history (last 20 messages, resets on restart)
 │   ├── providers/
 │   │   ├── types.ts          # Provider interface ({ name, chat() })
@@ -68,6 +69,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 - **User guard**: Only responds to `TELEGRAM_ALLOWED_USER_ID`. All other users are silently ignored.
 - **Rate limiting**: Sliding window limiter (10 messages/minute per user) in `rate-limit.ts`. Checked in `telegram.ts` before processing. Returns retry-after seconds when triggered.
 - **Memory guard**: `validateMemoryContent()` in `memory/tools.ts` defends against prompt injection — 2000 char limit, replace throttle (1 per 5 min per category), injection phrase detection, dangerous shell block detection, path traversal blocking.
+- **Health monitor**: `health.ts` sends a Telegram startup notification, runs health checks every 5 minutes (GitHub access, token expiry), and alerts the owner with dedup (1 hour re-alert) and recovery messages.
 - **pm2 process management**: The bot runs as a pm2 process. The CLI uses pm2's programmatic API. pm2 can't find `tsx` via PATH so we use the absolute path from `node_modules/.bin/tsx` as the interpreter.
 - **CLI global install**: `npm link` creates a global `chris` command. The `bin/chris` shell wrapper follows symlinks to resolve the real project root and finds tsx from node_modules.
 
