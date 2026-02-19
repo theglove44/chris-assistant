@@ -3,6 +3,8 @@
 // tool definitions sent to providers.
 import "./memory.js";
 import "./web-search.js";
+import "./fetch-url.js";
+import "./run-code.js";
 
 // Re-export registry functions so providers only need to import from one place.
 export {

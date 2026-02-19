@@ -30,7 +30,9 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── registry.ts       # Shared tool registry — registerTool(), dispatch, MCP/OpenAI format gen
 │   │   ├── index.ts          # Imports tool modules, re-exports registry functions
 │   │   ├── memory.ts         # Registers update_memory tool with the registry
-│   │   └── web-search.ts     # Brave Search API tool (conditionally registered if API key set)
+│   │   ├── web-search.ts     # Brave Search API tool (conditionally registered if API key set)
+│   │   ├── fetch-url.ts      # URL fetcher tool — strips HTML, 15s timeout, 50KB truncation
+│   │   └── run-code.ts       # Code execution tool — JS/TS/Python/shell, 10s timeout, execFile
 │   ├── memory/
 │   │   ├── github.ts         # Octokit wrapper — read/write/append files in memory repo
 │   │   ├── loader.ts         # Loads identity + knowledge + memory files, builds system prompt
@@ -72,6 +74,8 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 - **Streaming responses**: OpenAI and MiniMax providers stream via `onChunk` callback in the Provider interface. `telegram.ts` sends a "..." placeholder and edits it every 1.5s with accumulated text + cursor (▍). Claude SDK doesn't expose token streaming yet. Final render uses Markdown with plain text fallback.
 - **Image and document handling**: `telegram.ts` handles `message:photo` and `message:document` in addition to `message:text`. Photos are downloaded from Telegram, base64-encoded, and passed via `ImageAttachment` in the Provider interface. OpenAI/MiniMax use `image_url` content parts. Claude Agent SDK only accepts string prompts, so images get a text-only fallback. Text documents are downloaded, read as UTF-8, and prepended to the message (50KB truncation). Unsupported file types get a helpful error.
 - **Web search tool**: `src/tools/web-search.ts` — Brave Search API, conditionally registered only when `BRAVE_SEARCH_API_KEY` is set. Returns top 5 results. No new npm deps (native fetch). All providers pick it up automatically via the tool registry.
+- **URL fetch tool**: `src/tools/fetch-url.ts` — always registered, native `fetch` with 15s timeout (AbortController), HTML stripping (script/style removal, tag stripping, entity decoding), 50KB truncation. No API key needed.
+- **Code execution tool**: `src/tools/run-code.ts` — uses `child_process.execFile` (not `exec`) to avoid shell injection. Supports JS (`node -e`), TS (tsx binary from node_modules), Python (`python3 -c`), shell (`bash -c`). 10s timeout, 1MB buffer, 50KB output truncation. `NODE_NO_WARNINGS=1` suppresses experimental warnings.
 - **Memory tool**: All providers support `update_memory`. Claude uses MCP (in-process server). OpenAI and MiniMax use OpenAI-format function calling. All delegate to the same `executeMemoryTool()` function.
 - **Memory storage**: Markdown files in a private GitHub repo. Every update is a git commit — fully auditable and rollback-able.
 - **Persistent conversation history**: Last 20 messages per chat stored in `~/.chris-assistant/conversations.json`. Loaded lazily on first access, saved synchronously after each message. Survives restarts. `/clear` wipes both memory and disk.

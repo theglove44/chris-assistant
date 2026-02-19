@@ -15,8 +15,8 @@ The bot currently has one tool (`update_memory`). Everything below expands what 
 |---|--------|--------|------|-------------|
 | 1 | 🔴 | ✅ | **Web search tool** | `src/tools/web-search.ts` — Brave Search API tool, conditionally registered when `BRAVE_SEARCH_API_KEY` is set. Returns top 5 results with titles, URLs, and snippets. All three providers pick it up automatically via the tool registry. `chris doctor` checks API key validity. |
 | 2 | 🟠 | ✅ | **Image and document handling** | Photos sent via Telegram are downloaded, base64-encoded, and passed to OpenAI/MiniMax vision APIs. Text-based documents (.txt, .md, .json, .csv, .py, .ts, etc.) are downloaded and prepended to the message. Claude gets a text-only fallback (SDK limitation). Unsupported files get a helpful error listing supported types. |
-| 3 | 🟠 | ⬜ | **File and URL reading** | No ability to fetch a URL you paste in chat or read a file you send. A simple HTTP fetch tool would cover link previews, article summaries, and checking endpoints. |
-| 4 | 🟡 | ⬜ | **Code execution sandbox** | If asked to run code or verify output, the bot can only guess. A sandboxed execution environment (e.g. a Docker container, or a tool that runs code snippets) would let it actually test and validate code. |
+| 3 | 🟠 | ✅ | **File and URL reading** | `src/tools/fetch-url.ts` — fetches any URL via native `fetch`, strips HTML to readable text, 15s timeout, 50KB truncation. Always registered (no API key). |
+| 4 | 🟡 | ✅ | **Code execution sandbox** | `src/tools/run-code.ts` — executes JS, TS, Python, and shell code via `child_process.execFile` (no shell injection). 10s timeout, 50KB output limit. TS uses project's tsx binary. |
 | 5 | 🟢 | ⬜ | **Calendar/reminder integration** | No awareness of time, dates, or schedules. Can't set reminders or check what's on today. Would require an external integration (Google Calendar API, Apple Reminders, etc.). |
 
 ---
