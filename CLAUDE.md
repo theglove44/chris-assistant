@@ -15,7 +15,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   ├── telegram.ts           # grammY bot — message handler, user guard, rate limiting, streaming edits
 │   ├── rate-limit.ts         # Sliding window rate limiter (10 msgs/min per user)
 │   ├── health.ts             # Periodic health checks + Telegram alerts (startup, token expiry, GitHub)
-│   ├── conversation.ts       # In-memory short-term history (last 20 messages, resets on restart)
+│   ├── conversation.ts       # Persistent short-term history (last 20 messages, saved to ~/.chris-assistant/conversations.json)
 │   ├── providers/
 │   │   ├── types.ts          # Provider interface ({ name, chat() })
 │   │   ├── shared.ts         # System prompt caching + model info injection
@@ -72,6 +72,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 - **Web search tool**: `src/tools/web-search.ts` — Brave Search API, conditionally registered only when `BRAVE_SEARCH_API_KEY` is set. Returns top 5 results. No new npm deps (native fetch). All providers pick it up automatically via the tool registry.
 - **Memory tool**: All providers support `update_memory`. Claude uses MCP (in-process server). OpenAI and MiniMax use OpenAI-format function calling. All delegate to the same `executeMemoryTool()` function.
 - **Memory storage**: Markdown files in a private GitHub repo. Every update is a git commit — fully auditable and rollback-able.
+- **Persistent conversation history**: Last 20 messages per chat stored in `~/.chris-assistant/conversations.json`. Loaded lazily on first access, saved synchronously after each message. Survives restarts. `/clear` wipes both memory and disk.
 - **System prompt caching**: Memory files are loaded from GitHub and cached for 5 minutes. Cache invalidates after any conversation (in case memory was updated). Shared across providers via `providers/shared.ts`.
 - **User guard**: Only responds to `TELEGRAM_ALLOWED_USER_ID`. All other users are silently ignored.
 - **Rate limiting**: Sliding window limiter (10 messages/minute per user) in `rate-limit.ts`. Checked in `telegram.ts` before processing. Returns retry-after seconds when triggered.
