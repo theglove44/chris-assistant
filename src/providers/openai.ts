@@ -3,13 +3,13 @@ import { getSystemPrompt, invalidatePromptCache } from "./shared.js";
 import { formatHistoryForPrompt } from "../conversation.js";
 import { getOpenAiToolDefinitions, dispatchToolCall } from "../tools/index.js";
 import { getValidAccessToken } from "./openai-oauth.js";
-import type { Provider } from "./types.js";
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+import type { Provider, ImageAttachment } from "./types.js";
+import type { ChatCompletionMessageParam, ChatCompletionContentPart } from "openai/resources/chat/completions";
 
 export function createOpenAiProvider(model: string): Provider {
   return {
     name: "openai",
-    async chat(chatId, userMessage, onChunk) {
+    async chat(chatId, userMessage, onChunk, image?: ImageAttachment) {
       // Get fresh OAuth token for each request (auto-refreshes if needed)
       const accessToken = await getValidAccessToken();
       const client = new OpenAI({
@@ -23,9 +23,20 @@ export function createOpenAiProvider(model: string): Provider {
         ? `${conversationContext}\n\n${userMessage}`
         : userMessage;
 
+      // Build user content — text only, or text + image when an attachment is present
+      const userContent: ChatCompletionContentPart[] = image
+        ? [
+            { type: "text", text: fullUserMessage },
+            {
+              type: "image_url",
+              image_url: { url: `data:${image.mimeType};base64,${image.base64}` },
+            },
+          ]
+        : [{ type: "text", text: fullUserMessage }];
+
       const messages: ChatCompletionMessageParam[] = [
         { role: "system", content: systemPrompt },
-        { role: "user", content: fullUserMessage },
+        { role: "user", content: userContent },
       ];
 
       try {

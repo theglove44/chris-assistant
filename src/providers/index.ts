@@ -2,8 +2,9 @@ import { config } from "../config.js";
 import { createClaudeProvider } from "./claude.js";
 import { createMiniMaxProvider } from "./minimax.js";
 import { createOpenAiProvider } from "./openai.js";
-import type { Provider } from "./types.js";
+import type { Provider, ImageAttachment } from "./types.js";
 
+export type { ImageAttachment } from "./types.js";
 export { invalidatePromptCache } from "./shared.js";
 
 function isOpenAiModel(model: string): boolean {
@@ -36,6 +37,11 @@ function getProvider(): Provider {
   return activeProvider;
 }
 
-export async function chat(chatId: number, userMessage: string, onChunk?: (accumulated: string) => void): Promise<string> {
-  return getProvider().chat(chatId, userMessage, onChunk);
+export async function chat(
+  chatId: number,
+  userMessage: string,
+  onChunk?: (accumulated: string) => void,
+  image?: ImageAttachment,
+): Promise<string> {
+  return getProvider().chat(chatId, userMessage, onChunk, image);
 }

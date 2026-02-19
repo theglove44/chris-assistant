@@ -12,13 +12,13 @@ chris-assistant/              ← This repo (bot server + CLI)
 ├── src/
 │   ├── index.ts              # Bot entry point (starts Telegram long-polling)
 │   ├── config.ts             # Loads .env, exports typed config object
-│   ├── telegram.ts           # grammY bot — message handler, user guard, rate limiting, streaming edits
+│   ├── telegram.ts           # grammY bot — message handler (text/photo/document), streaming edits
 │   ├── markdown.ts           # Standard markdown → Telegram MarkdownV2 converter
 │   ├── rate-limit.ts         # Sliding window rate limiter (10 msgs/min per user)
 │   ├── health.ts             # Periodic health checks + Telegram alerts (startup, token expiry, GitHub)
 │   ├── conversation.ts       # Persistent short-term history (last 20 messages, saved to ~/.chris-assistant/conversations.json)
 │   ├── providers/
-│   │   ├── types.ts          # Provider interface ({ name, chat() })
+│   │   ├── types.ts          # Provider interface ({ name, chat() }) + ImageAttachment type
 │   │   ├── shared.ts         # System prompt caching + model info injection
 │   │   ├── claude.ts         # Claude Agent SDK provider
 │   │   ├── minimax.ts        # MiniMax provider (OpenAI-compatible API)
@@ -70,6 +70,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 - **Multi-provider**: The model string determines the provider. `gpt-*`/`o3*`/`o4-*` → OpenAI, `MiniMax-*` → MiniMax, everything else → Claude. No separate "provider" config key.
 - **Authentication**: Claude uses `CLAUDE_CODE_OAUTH_TOKEN` from a Max subscription. OpenAI uses Codex OAuth device flow (`chris openai login`) — tokens in `~/.chris-assistant/openai-auth.json` with auto-refresh. MiniMax uses OAuth device flow (`chris minimax login`) — tokens in `~/.chris-assistant/minimax-auth.json`.
 - **Streaming responses**: OpenAI and MiniMax providers stream via `onChunk` callback in the Provider interface. `telegram.ts` sends a "..." placeholder and edits it every 1.5s with accumulated text + cursor (▍). Claude SDK doesn't expose token streaming yet. Final render uses Markdown with plain text fallback.
+- **Image and document handling**: `telegram.ts` handles `message:photo` and `message:document` in addition to `message:text`. Photos are downloaded from Telegram, base64-encoded, and passed via `ImageAttachment` in the Provider interface. OpenAI/MiniMax use `image_url` content parts. Claude Agent SDK only accepts string prompts, so images get a text-only fallback. Text documents are downloaded, read as UTF-8, and prepended to the message (50KB truncation). Unsupported file types get a helpful error.
 - **Web search tool**: `src/tools/web-search.ts` — Brave Search API, conditionally registered only when `BRAVE_SEARCH_API_KEY` is set. Returns top 5 results. No new npm deps (native fetch). All providers pick it up automatically via the tool registry.
 - **Memory tool**: All providers support `update_memory`. Claude uses MCP (in-process server). OpenAI and MiniMax use OpenAI-format function calling. All delegate to the same `executeMemoryTool()` function.
 - **Memory storage**: Markdown files in a private GitHub repo. Every update is a git commit — fully auditable and rollback-able.

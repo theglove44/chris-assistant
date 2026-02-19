@@ -2,7 +2,7 @@ import { query, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
 import { getMcpTools, getMcpAllowedToolNames } from "../tools/index.js";
 import { getSystemPrompt, invalidatePromptCache } from "./shared.js";
 import { formatHistoryForPrompt } from "../conversation.js";
-import type { Provider } from "./types.js";
+import type { Provider, ImageAttachment } from "./types.js";
 
 export function createClaudeProvider(model: string): Provider {
   const toolServer = createSdkMcpServer({
@@ -12,13 +12,19 @@ export function createClaudeProvider(model: string): Provider {
 
   return {
     name: "claude",
-    async chat(chatId, userMessage, _onChunk) {
+    async chat(chatId, userMessage, _onChunk, _image?: ImageAttachment) {
       const systemPrompt = await getSystemPrompt();
       const conversationContext = formatHistoryForPrompt(chatId);
 
-      const fullPrompt = conversationContext
-        ? `${conversationContext}\n\n${userMessage}`
+      // Claude Agent SDK query() only accepts a string prompt — no content blocks.
+      // Prepend an honest note when an image was attached so the response is accurate.
+      const messageWithImageNote = _image
+        ? `[An image was attached but the Claude provider can't process images directly. The user's caption follows.]\n\n${userMessage}`
         : userMessage;
+
+      const fullPrompt = conversationContext
+        ? `${conversationContext}\n\n${messageWithImageNote}`
+        : messageWithImageNote;
 
       let responseText = "";
 
