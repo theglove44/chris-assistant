@@ -10,6 +10,7 @@ import { registerConfigCommand } from "./commands/config.js";
 import { registerModelCommand } from "./commands/model.js";
 import { registerDoctorCommand } from "./commands/doctor.js";
 import { registerSetupCommand } from "./commands/setup.js";
+import { registerMinimaxCommand } from "./commands/minimax-login.js";
 
 const program = new Command();
 
@@ -34,5 +35,8 @@ registerConfigCommand(program);
 registerModelCommand(program);
 registerDoctorCommand(program);
 registerSetupCommand(program);
+
+// Provider management
+registerMinimaxCommand(program);
 
 program.parse();

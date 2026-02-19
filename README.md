@@ -31,6 +31,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── shared.ts         # System prompt caching
 │   │   ├── claude.ts         # Claude Agent SDK provider
 │   │   ├── minimax.ts        # MiniMax provider (OpenAI-compatible)
+│   │   ├── minimax-oauth.ts  # MiniMax OAuth device flow + token storage
 │   │   └── index.ts          # Provider router
 │   ├── memory/
 │   │   ├── github.ts         # Read/write memory files via GitHub API
@@ -50,7 +51,8 @@ chris-assistant/              ← This repo (bot server + CLI)
 │           ├── config.ts      # chris config [get|set]
 │           ├── model.ts       # chris model [set]
 │           ├── doctor.ts      # chris doctor
-│           └── setup.ts       # chris setup
+│           ├── setup.ts       # chris setup
+│           └── minimax-login.ts # chris minimax login|status
 
 chris-assistant-memory/       ← Separate private repo (the brain)
 ├── identity/
@@ -126,7 +128,18 @@ The bot needs a GitHub token to read and write memory files. Use a **fine-graine
 
 > **Security note**: This token can only read/write file contents in the memory repo. It cannot delete the repo, manage settings, access other repos, or do anything else. If it leaks, the blast radius is limited to your memory markdown files.
 
-### 5. Install and set up the CLI
+### 5. (Optional) Set up MiniMax
+
+If you want to use MiniMax models (e.g. `MiniMax-M2.5`), authenticate via OAuth device flow. This uses your MiniMax Coding Plan subscription — no API credits needed.
+
+```bash
+chris minimax login      # Opens browser for OAuth approval
+chris minimax status     # Check token expiry
+```
+
+Tokens are stored in `~/.chris-assistant/minimax-auth.json` and expire after a few hours. Re-run `chris minimax login` when they expire.
+
+### 6. Install and set up the CLI
 
 ```bash
 npm install
@@ -135,7 +148,7 @@ chris setup       # Interactive wizard to create .env
 chris doctor      # Verify all connections are working
 ```
 
-### 6. Start the bot
+### 7. Start the bot
 
 ```bash
 chris start       # Start the bot via pm2
@@ -208,6 +221,13 @@ chris model set <name>   # Switch model (e.g. sonnet, minimax, opus, or full mod
 ```
 
 Available shortcuts: `opus`, `sonnet`, `haiku`, `sonnet-4-5` (Claude), `minimax`, `minimax-fast` (MiniMax)
+
+### MiniMax Provider
+
+```bash
+chris minimax login     # Authenticate via OAuth device flow
+chris minimax status    # Check OAuth token status and expiry
+```
 
 ### Diagnostics
 

@@ -4,6 +4,7 @@ import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { Octokit } from "@octokit/rest";
 import { getBotProcess } from "../pm2-helper.js";
+import { loadTokens } from "../../providers/minimax-oauth.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ENV_PATH = resolve(__dirname, "../../..", ".env");
@@ -142,6 +143,25 @@ export function registerDoctorCommand(program: Command) {
               console.log("    Could not reach Telegram API: %s", err.message);
               return "fail";
             }
+          },
+        },
+        {
+          name: "MiniMax OAuth tokens",
+          run: async () => {
+            const tokens = loadTokens();
+            if (!tokens) {
+              console.log('    Not set up — run "chris minimax login"');
+              return "warn";
+            }
+            const now = Date.now();
+            if (now >= tokens.expires) {
+              console.log('    Token expired — run "chris minimax login"');
+              return "warn";
+            }
+            const remaining = tokens.expires - now;
+            const hours = Math.floor(remaining / 3600000);
+            console.log("    Valid (%dh remaining)", hours);
+            return "pass";
           },
         },
         {

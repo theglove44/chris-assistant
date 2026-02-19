@@ -19,6 +19,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── shared.ts         # System prompt caching (used by all providers)
 │   │   ├── claude.ts         # Claude Agent SDK provider
 │   │   ├── minimax.ts        # MiniMax provider (OpenAI-compatible API)
+│   │   ├── minimax-oauth.ts  # MiniMax OAuth device flow + token storage
 │   │   └── index.ts          # Provider router — model string determines provider
 │   ├── memory/
 │   │   ├── github.ts         # Octokit wrapper — read/write/append files in memory repo
@@ -38,7 +39,8 @@ chris-assistant/              ← This repo (bot server + CLI)
 │           ├── config.ts      # chris config [get|set] — manage .env
 │           ├── model.ts       # chris model [set] — view/change AI model + provider
 │           ├── doctor.ts      # chris doctor — diagnostic checks
-│           └── setup.ts       # chris setup — interactive first-time wizard
+│           ├── setup.ts       # chris setup — interactive first-time wizard
+│           └── minimax-login.ts # chris minimax login|status — OAuth device flow
 
 chris-assistant-memory/       ← Separate private repo (the brain)
 ├── identity/SOUL.md          # Personality, purpose, onboarding instructions
@@ -55,7 +57,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 ## Key Design Decisions
 
 - **Multi-provider**: The model string determines the provider. `MiniMax-*` → MiniMax, everything else → Claude. No separate "provider" config key.
-- **Authentication**: Claude uses `CLAUDE_CODE_OAUTH_TOKEN` from a Max subscription. MiniMax uses `MINIMAX_API_KEY` from a Coding Plan subscription.
+- **Authentication**: Claude uses `CLAUDE_CODE_OAUTH_TOKEN` from a Max subscription. MiniMax uses OAuth device flow (`chris minimax login`) — tokens stored in `~/.chris-assistant/minimax-auth.json`.
 - **Memory tool**: Both providers support `update_memory`. Claude uses MCP (in-process server). MiniMax uses OpenAI-format function calling. Both delegate to the same `executeMemoryTool()` function.
 - **Memory storage**: Markdown files in a private GitHub repo. Every update is a git commit — fully auditable and rollback-able.
 - **System prompt caching**: Memory files are loaded from GitHub and cached for 5 minutes. Cache invalidates after any conversation (in case memory was updated). Shared across providers via `providers/shared.ts`.
@@ -84,7 +86,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 | `GITHUB_TOKEN` | Fine-grained PAT with Contents read/write on memory repo only |
 | `GITHUB_MEMORY_REPO` | `theglove44/chris-assistant-memory` |
 | `CLAUDE_MODEL` | Model ID — determines provider. Defaults to `claude-sonnet-4-5-20250929` |
-| `MINIMAX_API_KEY` | MiniMax Coding Plan API key (only needed if using MiniMax models) |
+| ~~`MINIMAX_API_KEY`~~ | Removed — MiniMax now uses OAuth. Run `chris minimax login` instead |
 
 ## Common Operations
 
@@ -103,6 +105,10 @@ chris stop               # Stop the bot
 chris model              # Show current model, provider, and shortcuts
 chris model set minimax  # Switch to MiniMax M2.5
 chris model set sonnet   # Switch back to Claude Sonnet
+
+# MiniMax OAuth
+chris minimax login      # Authenticate via OAuth device flow (no API key needed)
+chris minimax status     # Check token expiry
 
 # Memory management
 chris memory status      # List files with sizes
@@ -139,3 +145,4 @@ npx tsx src/cli/index.ts # Run CLI directly without global install
 - **Memory cache**: System prompt is cached 5 minutes. After any conversation the cache is invalidated. Manually edited memory files via `chris memory edit` won't be picked up until the cache expires or the bot restarts.
 - **GitHub fine-grained PAT expiry**: Max 1 year. Set a reminder to rotate.
 - **Adding new providers**: Create `src/providers/<name>.ts` implementing the `Provider` interface, add a prefix check in `src/providers/index.ts`, and add model shortcuts to `src/cli/commands/model.ts`. If the provider supports tool calling, use `executeMemoryTool()` from `src/memory/tools.ts`.
+- **MiniMax OAuth API**: The `/oauth/code` endpoint requires `response_type: "code"` in the body. The `expired_in` field is a unix timestamp in **milliseconds** (not a duration). Token poll responses use a `status` field (`"success"` / `"pending"` / `"error"`) — don't rely on HTTP status codes. Tokens are stored in `~/.chris-assistant/minimax-auth.json`.

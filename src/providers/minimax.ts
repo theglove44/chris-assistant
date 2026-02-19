@@ -1,26 +1,25 @@
 import OpenAI from "openai";
-import { config } from "../config.js";
 import { getSystemPrompt, invalidatePromptCache } from "./shared.js";
 import { formatHistoryForPrompt } from "../conversation.js";
 import { executeMemoryTool, MEMORY_TOOL_DEFINITION } from "../memory/tools.js";
+import { getValidAccessToken } from "./minimax-oauth.js";
 import type { Provider } from "./types.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 export function createMiniMaxProvider(model: string): Provider {
-  if (!config.minimax.apiKey) {
-    throw new Error(
-      "MINIMAX_API_KEY is required to use MiniMax models. Set it in .env or run: chris config set MINIMAX_API_KEY <key>",
-    );
-  }
-
-  const client = new OpenAI({
-    apiKey: config.minimax.apiKey,
-    baseURL: "https://api.minimax.io/v1",
-  });
+  // Validate OAuth tokens at startup
+  getValidAccessToken();
 
   return {
     name: "minimax",
     async chat(chatId, userMessage) {
+      // Get fresh OAuth token for each request
+      const accessToken = getValidAccessToken();
+      const client = new OpenAI({
+        apiKey: accessToken,
+        baseURL: "https://api.minimax.io/v1",
+      });
+
       const systemPrompt = await getSystemPrompt();
       const conversationContext = formatHistoryForPrompt(chatId);
 
