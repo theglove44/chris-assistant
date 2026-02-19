@@ -231,10 +231,12 @@ chris config set <k> <v> # Set a value in .env (run chris restart to apply)
 
 ```bash
 chris model              # Show current model, provider, and available shortcuts
-chris model set <name>   # Switch model (e.g. sonnet, minimax, opus, or full model ID)
+chris model set <name>   # Switch model (e.g. sonnet, gpt5, codex, or full model ID)
+chris model search       # List all available models across all providers
+chris model search <q>   # Filter models by name, provider, or description
 ```
 
-Available shortcuts: `opus`, `sonnet`, `haiku`, `sonnet-4-5` (Claude), `gpt4o`, `gpt41`, `o3`, `o4-mini` (OpenAI), `minimax`, `minimax-fast` (MiniMax)
+Available shortcuts: `opus`, `sonnet`, `haiku`, `sonnet-4-5` (Claude), `gpt5`, `codex`, `gpt4o`, `gpt41`, `o3`, `o4-mini` (OpenAI), `minimax`, `minimax-fast` (MiniMax)
 
 ### OpenAI Provider
 

@@ -109,9 +109,11 @@ chris stop               # Stop the bot
 
 # Model / provider
 chris model              # Show current model, provider, and shortcuts
-chris model set gpt4o    # Switch to OpenAI GPT-4o
-chris model set minimax  # Switch to MiniMax M2.5
+chris model set gpt5     # Switch to OpenAI GPT-5.2
+chris model set codex    # Switch to GPT-5.3-Codex
 chris model set sonnet   # Switch back to Claude Sonnet
+chris model search       # List all models across all providers
+chris model search openai # Filter by provider/name/description
 
 # OpenAI OAuth
 chris openai login       # Authenticate via Codex OAuth device flow (uses ChatGPT subscription)
