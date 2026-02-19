@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A personal AI assistant for Chris Taylor, accessible through Telegram. Supports multiple AI providers (Claude, OpenAI, MiniMax). Memory and identity are stored as markdown in a separate private GitHub repo (`theglove44/chris-assistant-memory`).
+A personal AI assistant for Chris Taylor, accessible through Telegram. Supports multiple AI providers (Claude, OpenAI, MiniMax). Memory and identity are stored as markdown in a separate private GitHub repo (configured via `GITHUB_MEMORY_REPO`).
 
 ## Architecture
 
@@ -107,7 +107,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 | `TELEGRAM_BOT_TOKEN` | From @BotFather |
 | `TELEGRAM_ALLOWED_USER_ID` | Your numeric Telegram user ID |
 | `GITHUB_TOKEN` | Fine-grained PAT with Contents read/write on memory repo only |
-| `GITHUB_MEMORY_REPO` | `theglove44/chris-assistant-memory` |
+| `GITHUB_MEMORY_REPO` | `owner/repo` format — your private memory repo |
 | `CLAUDE_MODEL` | Model ID — determines provider. Defaults to `claude-sonnet-4-5-20250929` |
 | `BRAVE_SEARCH_API_KEY` | Optional — Brave Search API key for web search tool. Get free tier at brave.com/search/api |
 | ~~`MINIMAX_API_KEY`~~ | Removed — MiniMax now uses OAuth. Run `chris minimax login` instead |

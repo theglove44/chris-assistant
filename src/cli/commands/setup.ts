@@ -60,7 +60,7 @@ export function registerSetupCommand(program: Command) {
       console.log("\n--- GitHub ---");
       console.log("Create a fine-grained PAT with Contents read/write on your memory repo.");
       const githubToken = await ask(rl, "GITHUB_TOKEN: ");
-      const githubRepo = await ask(rl, "GITHUB_MEMORY_REPO (e.g. theglove44/chris-assistant-memory): ");
+      const githubRepo = await ask(rl, "GITHUB_MEMORY_REPO (e.g. your-username/chris-assistant-memory): ");
 
       rl.close();
 
@@ -77,7 +77,7 @@ export function registerSetupCommand(program: Command) {
       addLine("TELEGRAM_ALLOWED_USER_ID", telegramUserId || "your_numeric_user_id_here");
       envLines.push("");
       addLine("GITHUB_TOKEN", githubToken || "your_github_pat_here", "GitHub memory repo");
-      addLine("GITHUB_MEMORY_REPO", githubRepo || "theglove44/chris-assistant-memory");
+      addLine("GITHUB_MEMORY_REPO", githubRepo || "");
       envLines.push("");
 
       writeFileSync(ENV_PATH, envLines.join("\n") + "\n");

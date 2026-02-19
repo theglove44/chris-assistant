@@ -85,7 +85,7 @@ export function registerDoctorCommand(program: Command) {
           name: "GITHUB_MEMORY_REPO is set",
           run: async () => {
             if (env.GITHUB_MEMORY_REPO) return "pass";
-            console.log("    Set to owner/repo format (e.g. theglove44/chris-assistant-memory)");
+            console.log("    Set to owner/repo format (e.g. your-username/chris-assistant-memory)");
             return "fail";
           },
         },

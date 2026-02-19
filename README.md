@@ -111,7 +111,7 @@ The bot needs a GitHub token to read and write memory files. Use a **fine-graine
 | **Token name** | `chris-assistant` (or whatever you like) |
 | **Expiration** | 90 days, or custom — you'll need to rotate it when it expires |
 | **Description** | Optional — e.g. "Memory read/write for personal assistant" |
-| **Resource owner** | Your account (`theglove44`) |
+| **Resource owner** | Your GitHub account |
 
 4. Under **Repository access**, select **"Only select repositories"**
    - Choose **`chris-assistant-memory`** from the dropdown
