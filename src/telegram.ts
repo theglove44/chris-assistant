@@ -1,3 +1,5 @@
+import * as fs from "fs";
+import * as path from "path";
 import { Bot, Context } from "grammy";
 import { config } from "./config.js";
 import { chat } from "./providers/index.js";
@@ -6,6 +8,7 @@ import { addMessage, clearHistory } from "./conversation.js";
 import { checkRateLimit } from "./rate-limit.js";
 import { toMarkdownV2 } from "./markdown.js";
 import { readMemoryFile } from "./memory/github.js";
+import { getWorkspaceRoot, setWorkspaceRoot } from "./tools/files.js";
 
 const bot = new Bot(config.telegram.botToken);
 
@@ -132,7 +135,7 @@ bot.command("model", async (ctx) => {
     : model.startsWith("MiniMax")
       ? "MiniMax"
       : "Claude";
-  await ctx.reply(`Model: ${model}\nProvider: ${provider}\n\nUse the CLI to switch: chris model set <name>`);
+  await ctx.reply(`Model: ${model}\nProvider: ${provider}\nWorkspace: ${getWorkspaceRoot()}\n\nUse the CLI to switch: chris model set <name>`);
 });
 
 // /memory — show memory file status
@@ -168,8 +171,38 @@ bot.command("help", async (ctx) => {
     "/clear — Reset conversation history\n" +
     "/model — Show current AI model\n" +
     "/memory — Show memory file status\n" +
+    "/project — Show active workspace\n" +
+    "/project <path> — Set active workspace\n" +
     "/help — This message",
   );
+});
+
+// /project — show or set active workspace
+bot.command("project", async (ctx) => {
+  if (!isAllowedUser(ctx)) return;
+
+  const arg = ctx.match?.trim();
+
+  if (!arg) {
+    await ctx.reply(`Active workspace: ${getWorkspaceRoot()}`);
+    return;
+  }
+
+  const resolved = path.resolve(arg);
+
+  try {
+    const stat = fs.statSync(resolved);
+    if (!stat.isDirectory()) {
+      await ctx.reply(`Not a directory: ${resolved}`);
+      return;
+    }
+  } catch {
+    await ctx.reply(`Directory not found: ${resolved}`);
+    return;
+  }
+
+  setWorkspaceRoot(resolved);
+  await ctx.reply(`Workspace set to: ${resolved}`);
 });
 
 // Handle text messages

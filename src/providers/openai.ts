@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { config } from "../config.js";
 import { getSystemPrompt, invalidatePromptCache } from "./shared.js";
 import { formatHistoryForPrompt } from "../conversation.js";
 import { getOpenAiToolDefinitions, dispatchToolCall } from "../tools/index.js";
@@ -40,8 +41,8 @@ export function createOpenAiProvider(model: string): Provider {
       ];
 
       try {
-        // Tool call loop — max 3 rounds (same as Claude and MiniMax)
-        for (let turn = 0; turn < 3; turn++) {
+        // Tool call loop — configurable tool turn limit (see MAX_TOOL_TURNS env var)
+        for (let turn = 0; turn < config.maxToolTurns; turn++) {
           const stream = await client.chat.completions.create({
             model,
             messages,

@@ -82,7 +82,9 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 - **Memory storage**: Markdown files in a private GitHub repo. Every update is a git commit — fully auditable and rollback-able.
 - **Persistent conversation history**: Last 20 messages per chat stored in `~/.chris-assistant/conversations.json`. Loaded lazily on first access, saved synchronously after each message. Survives restarts. `/clear` wipes both memory and disk.
 - **System prompt caching**: Memory files are loaded from GitHub and cached for 5 minutes. Cache invalidates after any conversation (in case memory was updated). Shared across providers via `providers/shared.ts`.
-- **Telegram command menu**: Bot registers `/start`, `/clear`, `/model`, `/memory`, `/help` via `setMyCommands` on startup. Commands appear in Telegram's bot menu. `/model` shows current model/provider. `/memory` lists all memory files with sizes from GitHub.
+- **Tool turn limit**: All three providers share `config.maxToolTurns` (default 15, env `MAX_TOOL_TURNS`). Coding work needs many turns (read → edit → test → fix). The "ran out of processing turns" message fires if exhausted.
+- **Workspace root**: File tools scope to `WORKSPACE_ROOT` (default `~/Projects`). Mutable at runtime via `/project` Telegram command or `setWorkspaceRoot()`. The guard in `resolveSafePath()` reads the live value on each call.
+- **Telegram command menu**: Bot registers `/start`, `/clear`, `/model`, `/memory`, `/project`, `/help` via `setMyCommands` on startup. Commands appear in Telegram's bot menu. `/model` shows current model/provider. `/memory` lists all memory files with sizes from GitHub.
 - **User guard**: Only responds to `TELEGRAM_ALLOWED_USER_ID`. All other users are silently ignored.
 - **Rate limiting**: Sliding window limiter (10 messages/minute per user) in `rate-limit.ts`. Checked in `telegram.ts` before processing. Returns retry-after seconds when triggered.
 - **Memory guard**: `validateMemoryContent()` in `memory/tools.ts` defends against prompt injection — 2000 char limit, replace throttle (1 per 5 min per category), injection phrase detection, dangerous shell block detection, path traversal blocking.
@@ -112,7 +114,8 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 | `GITHUB_MEMORY_REPO` | `owner/repo` format — your private memory repo |
 | `AI_MODEL` | Model ID — determines provider. Defaults to `gpt-4o`. Accepts `CLAUDE_MODEL` for back-compat. |
 | `BRAVE_SEARCH_API_KEY` | Optional — Brave Search API key for web search tool |
-| `WORKSPACE_ROOT` | Optional — root directory for file tools. Defaults to `~/Projects` |
+| `WORKSPACE_ROOT` | Optional — root directory for file tools. Defaults to `~/Projects`. Changeable at runtime via `/project` command. |
+| `MAX_TOOL_TURNS` | Optional — max tool call rounds per message. Defaults to `15`. |
 | `CLAUDE_CODE_OAUTH_TOKEN` | Optional — only needed to use Claude models |
 
 Note: OpenAI and MiniMax use OAuth device flows with tokens stored in `~/.chris-assistant/`. Claude is optional and requires `CLAUDE_CODE_OAUTH_TOKEN` in `.env`.

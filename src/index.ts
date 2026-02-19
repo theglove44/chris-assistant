@@ -9,6 +9,7 @@ bot.api.setMyCommands([
   { command: "clear", description: "Reset conversation history" },
   { command: "model", description: "Show current AI model" },
   { command: "memory", description: "Show memory file status" },
+  { command: "project", description: "Show or set active project directory" },
   { command: "help", description: "List available commands" },
 ]).catch((err: any) => {
   console.error("[telegram] Failed to set command menu:", err.message);

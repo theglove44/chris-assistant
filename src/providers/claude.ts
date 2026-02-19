@@ -1,4 +1,5 @@
 import { query, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
+import { config } from "../config.js";
 import { getMcpTools, getMcpAllowedToolNames } from "../tools/index.js";
 import { getSystemPrompt, invalidatePromptCache } from "./shared.js";
 import { formatHistoryForPrompt } from "../conversation.js";
@@ -34,7 +35,7 @@ export function createClaudeProvider(model: string): Provider {
           options: {
             systemPrompt,
             model,
-            maxTurns: 3,
+            maxTurns: config.maxToolTurns,
             mcpServers: {
               tools: toolServer,
             },

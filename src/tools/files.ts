@@ -8,8 +8,18 @@ import { registerTool } from "./registry.js";
 
 const execFileAsync = promisify(execFile);
 
-const WORKSPACE_ROOT =
+let workspaceRoot =
   process.env.WORKSPACE_ROOT || path.join(os.homedir(), "Projects");
+
+export function getWorkspaceRoot(): string {
+  return workspaceRoot;
+}
+
+export function setWorkspaceRoot(newRoot: string): void {
+  const resolved = path.resolve(newRoot);
+  workspaceRoot = resolved;
+  console.log("[tools] Workspace root changed to: %s", resolved);
+}
 
 const MAX_OUTPUT = 50_000;
 
@@ -22,10 +32,10 @@ const MAX_OUTPUT = 50_000;
  * verifies it stays within that root. Returns null if the path escapes.
  */
 function resolveSafePath(userPath: string): string | null {
-  const resolved = path.resolve(WORKSPACE_ROOT, userPath);
+  const resolved = path.resolve(workspaceRoot, userPath);
   if (
-    !resolved.startsWith(WORKSPACE_ROOT + path.sep) &&
-    resolved !== WORKSPACE_ROOT
+    !resolved.startsWith(workspaceRoot + path.sep) &&
+    resolved !== workspaceRoot
   ) {
     return null;
   }
@@ -298,7 +308,7 @@ registerTool({
         .split("\n")
         .filter(Boolean)
         .slice(0, 200)
-        .map((absPath) => path.relative(WORKSPACE_ROOT, absPath));
+        .map((absPath) => path.relative(workspaceRoot, absPath));
 
       if (lines.length === 0) {
         return "(no files found)";
@@ -394,7 +404,7 @@ registerTool({
           if (colonIdx === -1) return line;
           const absFilePath = line.slice(0, colonIdx);
           const rest = line.slice(colonIdx);
-          const rel = path.relative(WORKSPACE_ROOT, absFilePath);
+          const rel = path.relative(workspaceRoot, absFilePath);
           return rel + rest;
         })
         .join("\n");
@@ -416,4 +426,4 @@ registerTool({
   },
 });
 
-console.log("[tools] File tools registered (workspace: %s)", WORKSPACE_ROOT);
+console.log("[tools] File tools registered (workspace: %s)", workspaceRoot);
