@@ -3,6 +3,7 @@ import { config } from "./config.js";
 import { chat } from "./providers/index.js";
 import { addMessage, clearHistory } from "./conversation.js";
 import { checkRateLimit } from "./rate-limit.js";
+import { toMarkdownV2 } from "./markdown.js";
 
 const bot = new Bot(config.telegram.botToken);
 
@@ -84,26 +85,27 @@ bot.on("message:text", async (ctx) => {
 
     addMessage(ctx.chat.id, "assistant", response);
 
-    // Final render — replace the streaming message with the complete response
-    if (response.length <= 4096) {
-      await ctx.api
-        .editMessageText(chatId, messageId, response, { parse_mode: "Markdown" })
-        .catch(() =>
-          ctx.api.editMessageText(chatId, messageId, response).catch(() => {}),
-        );
-    } else {
-      // For long responses: edit first chunk into existing message, send rest as new messages
-      const chunks = splitMessage(response, 4096);
-      await ctx.api
-        .editMessageText(chatId, messageId, chunks[0], { parse_mode: "Markdown" })
-        .catch(() =>
-          ctx.api.editMessageText(chatId, messageId, chunks[0]).catch(() => {}),
-        );
-      for (let i = 1; i < chunks.length; i++) {
-        await ctx.reply(chunks[i], { parse_mode: "Markdown" }).catch(() =>
-          ctx.reply(chunks[i]),
-        );
-      }
+    // Final render — replace the streaming message with the complete response.
+    // Split on the original text (before MarkdownV2 conversion) so escape
+    // characters don't inflate chunk sizes, then convert each chunk separately.
+    const chunks = response.length <= 4096 ? [response] : splitMessage(response, 4096);
+
+    // First chunk: edit the placeholder message that was sent at the start
+    const firstChunk = chunks[0];
+    await ctx.api
+      .editMessageText(chatId, messageId, toMarkdownV2(firstChunk), {
+        parse_mode: "MarkdownV2",
+      })
+      .catch(() =>
+        ctx.api.editMessageText(chatId, messageId, firstChunk).catch(() => {}),
+      );
+
+    // Remaining chunks: send as new messages
+    for (let i = 1; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      await ctx.reply(toMarkdownV2(chunk), { parse_mode: "MarkdownV2" }).catch(
+        () => ctx.reply(chunk),
+      );
     }
   } catch (error: any) {
     console.error("[telegram] Error handling message:", error);

@@ -29,7 +29,7 @@ How the bot feels to use day-to-day.
 |---|--------|--------|------|-------------|
 | 1 | 🔴 | ✅ | **Streaming responses** | OpenAI and MiniMax providers stream via `onChunk` callback. Telegram handler sends "..." placeholder, then edits it every 1.5s with accumulated text + cursor (▍). Final render replaces with Markdown. Claude SDK doesn't expose token streaming yet — `onChunk` param accepted but unused. |
 | 2 | 🟠 | ✅ | **Persistent conversation history** | `src/conversation.ts` persists the last 20 messages per chat to `~/.chris-assistant/conversations.json`. Loads lazily on first access, saves after each message. Handles missing/corrupt files gracefully. No new dependencies. |
-| 3 | 🟠 | ⬜ | **MarkdownV2 rendering** | Currently using legacy `parse_mode: "Markdown"` which breaks on common characters (`.`, `!`, `-`, `(`, `)`). Many responses silently fall back to plain text via the catch handler. Switching to MarkdownV2 with proper escaping fixes formatting reliability. |
+| 3 | 🟠 | ✅ | **MarkdownV2 rendering** | `src/markdown.ts` converts standard AI markdown to Telegram MarkdownV2 with proper context-aware escaping (plain text, code, URLs). `telegram.ts` uses `parse_mode: "MarkdownV2"` with plain text fallback. Streaming preview stays plain text. |
 | 4 | 🟡 | ⬜ | **Voice message support** | Telegram voice messages are common on mobile. Transcribe incoming voice via Whisper API or similar, and optionally respond with TTS audio. |
 | 5 | 🟢 | ⬜ | **Telegram commands menu** | Only `/start` and `/clear` exist. Could add `/model` (show/switch model), `/memory` (show memory status), `/forget` (clear a specific memory) accessible directly from Telegram without the CLI. |
 

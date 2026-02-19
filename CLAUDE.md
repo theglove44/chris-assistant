@@ -13,6 +13,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   ├── index.ts              # Bot entry point (starts Telegram long-polling)
 │   ├── config.ts             # Loads .env, exports typed config object
 │   ├── telegram.ts           # grammY bot — message handler, user guard, rate limiting, streaming edits
+│   ├── markdown.ts           # Standard markdown → Telegram MarkdownV2 converter
 │   ├── rate-limit.ts         # Sliding window rate limiter (10 msgs/min per user)
 │   ├── health.ts             # Periodic health checks + Telegram alerts (startup, token expiry, GitHub)
 │   ├── conversation.ts       # Persistent short-term history (last 20 messages, saved to ~/.chris-assistant/conversations.json)
@@ -168,7 +169,8 @@ npx tsx src/cli/index.ts # Run CLI directly without global install
 
 - **pm2 PATH isolation**: pm2 spawns processes in its own daemon. It doesn't inherit your shell PATH. That's why `pm2-helper.ts` exports `TSX_BIN` as an absolute path to `node_modules/.bin/tsx`.
 - **Node.js console.log**: Does not support C-style `%-16s` padding. Use `String.padEnd()` instead.
-- **Telegram message limit**: 4096 characters max. `telegram.ts` has a `splitMessage()` function that breaks at paragraph then sentence boundaries.
+- **Telegram MarkdownV2**: `markdown.ts` converts standard AI markdown to MarkdownV2. Key difference: `*bold*` not `**bold**`, `_italic_` not `*italic*`. 18 special chars must be escaped in plain text, fewer in code/URL contexts. If conversion fails, `telegram.ts` falls back to plain text. Streaming preview uses no parse_mode (partial MarkdownV2 would fail).
+- **Telegram message limit**: 4096 characters max. `telegram.ts` has a `splitMessage()` function that breaks at paragraph then sentence boundaries. Splitting happens on original text before MarkdownV2 conversion (escaping inflates length).
 - **Telegram streaming rate limit**: `telegram.ts` rate-limits `editMessageText` calls to one per 1.5 seconds during streaming. Edits are fire-and-forget (`.catch(() => {})`) so failures don't interrupt the stream.
 - **Thinking tags**: Reasoning models (o3, MiniMax, etc.) may emit `<think>...</think>` blocks. `telegram.ts` strips these both during streaming preview and in the final response.
 - **Web search tool is optional**: Only registered when `BRAVE_SEARCH_API_KEY` is set. When absent, the tool definition is not sent to any provider — no dead tools in the API call.
