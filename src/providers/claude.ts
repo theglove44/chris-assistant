@@ -1,14 +1,13 @@
 import { query, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
-import { config } from "../config.js";
-import { updateMemoryTool } from "../memory/tools.js";
+import { getMcpTools, getMcpAllowedToolNames } from "../tools/index.js";
 import { getSystemPrompt, invalidatePromptCache } from "./shared.js";
 import { formatHistoryForPrompt } from "../conversation.js";
 import type { Provider } from "./types.js";
 
 export function createClaudeProvider(model: string): Provider {
-  const memoryServer = createSdkMcpServer({
-    name: "memory",
-    tools: [updateMemoryTool],
+  const toolServer = createSdkMcpServer({
+    name: "tools",
+    tools: getMcpTools(),
   });
 
   return {
@@ -31,9 +30,9 @@ export function createClaudeProvider(model: string): Provider {
             model,
             maxTurns: 3,
             mcpServers: {
-              memory: memoryServer,
+              tools: toolServer,
             },
-            allowedTools: ["mcp__memory__update_memory"],
+            allowedTools: getMcpAllowedToolNames(),
             permissionMode: "bypassPermissions",
             allowDangerouslySkipPermissions: true,
           },

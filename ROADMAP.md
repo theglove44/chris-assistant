@@ -67,6 +67,6 @@ Structural improvements that enable future work.
 
 | # | Impact | Status | Item | Description |
 |---|--------|--------|------|-------------|
-| 1 | 🔴 | ⬜ | **Tool framework** | Currently tools are hardcoded per-provider. Adding a second tool means updating all three providers. Build a shared tool registry so new tools (web search, code exec, etc.) are defined once and automatically available to all providers. |
+| 1 | 🔴 | ✅ | **Tool framework** | `src/tools/registry.ts` — shared tool registry. Tools register once with `registerTool()`, auto-generate both OpenAI and Claude MCP formats. Generic `dispatchToolCall()` replaces per-tool if/else in providers. New tools: create file in `src/tools/`, add import to `src/tools/index.ts`, done. |
 | 2 | 🟡 | ⬜ | **Plugin/middleware system** | Features like rate limiting, input sanitization, logging, and response post-processing (think tag stripping) are all inline in `telegram.ts`. A middleware pipeline would make these composable and testable. |
 | 3 | 🟢 | ⬜ | **Multi-chat support** | The user guard allows one user, but conversation history is keyed by `chatId`. The architecture almost supports group chats or multiple users, but the guard and system prompt assume single-user. Worth deciding if this should be a deliberate constraint or an extensibility point. |

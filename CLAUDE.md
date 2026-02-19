@@ -25,10 +25,14 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── openai.ts         # OpenAI provider (GPT-4o, o3, etc.)
 │   │   ├── openai-oauth.ts   # OpenAI Codex OAuth device flow + token storage
 │   │   └── index.ts          # Provider router — model string determines provider
+│   ├── tools/
+│   │   ├── registry.ts       # Shared tool registry — registerTool(), dispatch, MCP/OpenAI format gen
+│   │   ├── index.ts          # Imports tool modules, re-exports registry functions
+│   │   └── memory.ts         # Registers update_memory tool with the registry
 │   ├── memory/
 │   │   ├── github.ts         # Octokit wrapper — read/write/append files in memory repo
 │   │   ├── loader.ts         # Loads identity + knowledge + memory files, builds system prompt
-│   │   └── tools.ts          # update_memory tool (MCP format + OpenAI function format)
+│   │   └── tools.ts          # Memory tool executor + prompt injection validation
 │   └── cli/
 │       ├── index.ts           # Commander.js program — registers all subcommands
 │       ├── pm2-helper.ts      # pm2 connection helper, process info, constants
@@ -163,6 +167,7 @@ npx tsx src/cli/index.ts # Run CLI directly without global install
 - **Thinking tags**: Reasoning models (o3, MiniMax, etc.) may emit `<think>...</think>` blocks. `telegram.ts` strips these before sending to Telegram.
 - **Memory cache**: System prompt is cached 5 minutes. After any conversation the cache is invalidated. Manually edited memory files via `chris memory edit` won't be picked up until the cache expires or the bot restarts.
 - **GitHub fine-grained PAT expiry**: Max 1 year. Set a reminder to rotate.
-- **Adding new providers**: Create `src/providers/<name>.ts` implementing the `Provider` interface, add a prefix check in `src/providers/index.ts`, and add model shortcuts to `src/cli/commands/model.ts`. If the provider supports tool calling, use `executeMemoryTool()` from `src/memory/tools.ts`.
+- **Adding new tools**: Create `src/tools/<name>.ts` with a `registerTool()` call, then add `import "./<name>.js"` to `src/tools/index.ts`. All three providers pick it up automatically — no provider code changes needed.
+- **Adding new providers**: Create `src/providers/<name>.ts` implementing the `Provider` interface, add a prefix check in `src/providers/index.ts`, and add model shortcuts to `src/cli/commands/model.ts`. For OpenAI-compatible providers, use `getOpenAiToolDefinitions()` and `dispatchToolCall()` from `src/tools/index.ts`.
 - **MiniMax OAuth API**: The `/oauth/code` endpoint requires `response_type: "code"` in the body. The `expired_in` field is a unix timestamp in **milliseconds** (not a duration). Token poll responses use a `status` field (`"success"` / `"pending"` / `"error"`) — don't rely on HTTP status codes. Tokens are stored in `~/.chris-assistant/minimax-auth.json`.
 - **OpenAI Codex OAuth**: Three-step device flow — request user code, poll for auth code (403/404 = pending), exchange auth code for tokens. Server provides PKCE code_verifier in the device auth response (unusual). Tokens auto-refresh via refresh_token grant. Tokens in `~/.chris-assistant/openai-auth.json`.

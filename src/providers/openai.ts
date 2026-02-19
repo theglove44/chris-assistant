@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { getSystemPrompt, invalidatePromptCache } from "./shared.js";
 import { formatHistoryForPrompt } from "../conversation.js";
-import { executeMemoryTool, MEMORY_TOOL_DEFINITION } from "../memory/tools.js";
+import { getOpenAiToolDefinitions, dispatchToolCall } from "../tools/index.js";
 import { getValidAccessToken } from "./openai-oauth.js";
 import type { Provider } from "./types.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
@@ -34,7 +34,7 @@ export function createOpenAiProvider(model: string): Provider {
           const response = await client.chat.completions.create({
             model,
             messages,
-            tools: [MEMORY_TOOL_DEFINITION],
+            tools: getOpenAiToolDefinitions(),
           });
 
           const choice = response.choices[0];
@@ -50,22 +50,16 @@ export function createOpenAiProvider(model: string): Provider {
           // Handle tool calls
           for (const toolCall of assistantMessage.tool_calls) {
             if (toolCall.type !== "function") continue;
-            if (toolCall.function.name === "update_memory") {
-              let result: string;
-              try {
-                const args = JSON.parse(toolCall.function.arguments);
-                result = await executeMemoryTool(args);
-                console.log("[openai] Tool call: update_memory(%s/%s)", args.category, args.action);
-              } catch (parseError: any) {
-                result = `Failed to parse tool arguments: ${parseError.message}`;
-                console.error("[openai] Bad tool call arguments:", toolCall.function.arguments);
-              }
-              messages.push({
-                role: "tool",
-                tool_call_id: toolCall.id,
-                content: result,
-              });
-            }
+            const result = await dispatchToolCall(
+              toolCall.function.name,
+              toolCall.function.arguments,
+              "openai",
+            );
+            messages.push({
+              role: "tool",
+              tool_call_id: toolCall.id,
+              content: result,
+            });
           }
         }
 
