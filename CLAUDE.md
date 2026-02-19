@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A personal AI assistant for Chris Taylor, accessible through Telegram. Supports multiple AI providers (Claude, MiniMax). Memory and identity are stored as markdown in a separate private GitHub repo (`theglove44/chris-assistant-memory`).
+A personal AI assistant for Chris Taylor, accessible through Telegram. Supports multiple AI providers (Claude, OpenAI, MiniMax). Memory and identity are stored as markdown in a separate private GitHub repo (`theglove44/chris-assistant-memory`).
 
 ## Architecture
 
@@ -20,6 +20,8 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── claude.ts         # Claude Agent SDK provider
 │   │   ├── minimax.ts        # MiniMax provider (OpenAI-compatible API)
 │   │   ├── minimax-oauth.ts  # MiniMax OAuth device flow + token storage
+│   │   ├── openai.ts         # OpenAI provider (GPT-4o, o3, etc.)
+│   │   ├── openai-oauth.ts   # OpenAI Codex OAuth device flow + token storage
 │   │   └── index.ts          # Provider router — model string determines provider
 │   ├── memory/
 │   │   ├── github.ts         # Octokit wrapper — read/write/append files in memory repo
@@ -40,7 +42,8 @@ chris-assistant/              ← This repo (bot server + CLI)
 │           ├── model.ts       # chris model [set] — view/change AI model + provider
 │           ├── doctor.ts      # chris doctor — diagnostic checks
 │           ├── setup.ts       # chris setup — interactive first-time wizard
-│           └── minimax-login.ts # chris minimax login|status — OAuth device flow
+│           ├── minimax-login.ts # chris minimax login|status — OAuth device flow
+│           └── openai-login.ts  # chris openai login|status — Codex OAuth device flow
 
 chris-assistant-memory/       ← Separate private repo (the brain)
 ├── identity/SOUL.md          # Personality, purpose, onboarding instructions
@@ -56,9 +59,9 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 
 ## Key Design Decisions
 
-- **Multi-provider**: The model string determines the provider. `MiniMax-*` → MiniMax, everything else → Claude. No separate "provider" config key.
-- **Authentication**: Claude uses `CLAUDE_CODE_OAUTH_TOKEN` from a Max subscription. MiniMax uses OAuth device flow (`chris minimax login`) — tokens stored in `~/.chris-assistant/minimax-auth.json`.
-- **Memory tool**: Both providers support `update_memory`. Claude uses MCP (in-process server). MiniMax uses OpenAI-format function calling. Both delegate to the same `executeMemoryTool()` function.
+- **Multi-provider**: The model string determines the provider. `gpt-*`/`o3*`/`o4-*` → OpenAI, `MiniMax-*` → MiniMax, everything else → Claude. No separate "provider" config key.
+- **Authentication**: Claude uses `CLAUDE_CODE_OAUTH_TOKEN` from a Max subscription. OpenAI uses Codex OAuth device flow (`chris openai login`) — tokens in `~/.chris-assistant/openai-auth.json` with auto-refresh. MiniMax uses OAuth device flow (`chris minimax login`) — tokens in `~/.chris-assistant/minimax-auth.json`.
+- **Memory tool**: All providers support `update_memory`. Claude uses MCP (in-process server). OpenAI and MiniMax use OpenAI-format function calling. All delegate to the same `executeMemoryTool()` function.
 - **Memory storage**: Markdown files in a private GitHub repo. Every update is a git commit — fully auditable and rollback-able.
 - **System prompt caching**: Memory files are loaded from GitHub and cached for 5 minutes. Cache invalidates after any conversation (in case memory was updated). Shared across providers via `providers/shared.ts`.
 - **User guard**: Only responds to `TELEGRAM_ALLOWED_USER_ID`. All other users are silently ignored.
@@ -69,6 +72,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 
 - **Runtime**: Node.js 22+ / TypeScript
 - **AI (Claude)**: `@anthropic-ai/claude-agent-sdk` with Max subscription OAuth token
+- **AI (OpenAI)**: `openai` npm package with Codex OAuth (ChatGPT Plus/Pro subscription)
 - **AI (MiniMax)**: `openai` npm package with custom baseURL (`https://api.minimax.io/v1`)
 - **Telegram**: grammY
 - **Memory**: `@octokit/rest` for GitHub API
@@ -88,6 +92,8 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 | `CLAUDE_MODEL` | Model ID — determines provider. Defaults to `claude-sonnet-4-5-20250929` |
 | ~~`MINIMAX_API_KEY`~~ | Removed — MiniMax now uses OAuth. Run `chris minimax login` instead |
 
+Note: OpenAI and MiniMax do not use env vars for auth. They use OAuth device flows with tokens stored in `~/.chris-assistant/`.
+
 ## Common Operations
 
 ```bash
@@ -103,8 +109,13 @@ chris stop               # Stop the bot
 
 # Model / provider
 chris model              # Show current model, provider, and shortcuts
+chris model set gpt4o    # Switch to OpenAI GPT-4o
 chris model set minimax  # Switch to MiniMax M2.5
 chris model set sonnet   # Switch back to Claude Sonnet
+
+# OpenAI OAuth
+chris openai login       # Authenticate via Codex OAuth device flow (uses ChatGPT subscription)
+chris openai status      # Check token status
 
 # MiniMax OAuth
 chris minimax login      # Authenticate via OAuth device flow (no API key needed)
@@ -146,3 +157,4 @@ npx tsx src/cli/index.ts # Run CLI directly without global install
 - **GitHub fine-grained PAT expiry**: Max 1 year. Set a reminder to rotate.
 - **Adding new providers**: Create `src/providers/<name>.ts` implementing the `Provider` interface, add a prefix check in `src/providers/index.ts`, and add model shortcuts to `src/cli/commands/model.ts`. If the provider supports tool calling, use `executeMemoryTool()` from `src/memory/tools.ts`.
 - **MiniMax OAuth API**: The `/oauth/code` endpoint requires `response_type: "code"` in the body. The `expired_in` field is a unix timestamp in **milliseconds** (not a duration). Token poll responses use a `status` field (`"success"` / `"pending"` / `"error"`) — don't rely on HTTP status codes. Tokens are stored in `~/.chris-assistant/minimax-auth.json`.
+- **OpenAI Codex OAuth**: Three-step device flow — request user code, poll for auth code (403/404 = pending), exchange auth code for tokens. Server provides PKCE code_verifier in the device auth response (unusual). Tokens auto-refresh via refresh_token grant. Tokens in `~/.chris-assistant/openai-auth.json`.

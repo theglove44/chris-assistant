@@ -14,11 +14,16 @@ const KNOWN_MODELS: Record<string, { id: string; provider: string }> = {
   "sonnet": { id: "claude-sonnet-4-6", provider: "claude" },
   "haiku": { id: "claude-haiku-4-5-20251001", provider: "claude" },
   "sonnet-4-5": { id: "claude-sonnet-4-5-20250929", provider: "claude" },
+  "gpt4o": { id: "gpt-4o", provider: "openai" },
+  "gpt41": { id: "gpt-4.1", provider: "openai" },
+  "o3": { id: "o3", provider: "openai" },
+  "o4-mini": { id: "o4-mini", provider: "openai" },
   "minimax": { id: "MiniMax-M2.5", provider: "minimax" },
   "minimax-fast": { id: "MiniMax-M2.5-highspeed", provider: "minimax" },
 };
 
 function providerForModel(model: string): string {
+  if (model.startsWith("gpt-") || model.startsWith("o3") || model.startsWith("o4-")) return "openai";
   if (model.startsWith("MiniMax")) return "minimax";
   return "claude";
 }

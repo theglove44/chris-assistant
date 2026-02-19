@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import { Octokit } from "@octokit/rest";
 import { getBotProcess } from "../pm2-helper.js";
 import { loadTokens } from "../../providers/minimax-oauth.js";
+import { loadTokens as loadOpenaiTokens } from "../../providers/openai-oauth.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ENV_PATH = resolve(__dirname, "../../..", ".env");
@@ -143,6 +144,25 @@ export function registerDoctorCommand(program: Command) {
               console.log("    Could not reach Telegram API: %s", err.message);
               return "fail";
             }
+          },
+        },
+        {
+          name: "OpenAI OAuth tokens",
+          run: async () => {
+            const tokens = loadOpenaiTokens();
+            if (!tokens) {
+              console.log('    Not set up — run "chris openai login"');
+              return "warn";
+            }
+            const now = Date.now();
+            if (now >= tokens.expires) {
+              console.log("    Token expired (will auto-refresh on next API call)");
+              return "pass";
+            }
+            const remaining = tokens.expires - now;
+            const minutes = Math.floor(remaining / 60000);
+            console.log("    Valid (%dm remaining, auto-refreshes)", minutes);
+            return "pass";
           },
         },
         {

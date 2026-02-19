@@ -1,6 +1,6 @@
 # Chris Assistant
 
-A personal AI assistant accessible through Telegram. Supports multiple AI providers (Claude, MiniMax) with persistent memory stored in GitHub.
+A personal AI assistant accessible through Telegram. Supports multiple AI providers (Claude, OpenAI, MiniMax) with persistent memory stored in GitHub.
 
 ## How It Works
 
@@ -9,7 +9,7 @@ Telegram message
   → grammY bot (guards to your user ID only)
   → Loads identity + memory from GitHub private repo
   → Builds system prompt with personality, knowledge, conversation history
-  → Routes to active provider (Claude Agent SDK or MiniMax via OpenAI API)
+  → Routes to active provider (Claude Agent SDK, OpenAI, or MiniMax)
   → AI can call update_memory tool to persist what it learns
   → Response sent back to Telegram
 ```
@@ -32,6 +32,8 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── claude.ts         # Claude Agent SDK provider
 │   │   ├── minimax.ts        # MiniMax provider (OpenAI-compatible)
 │   │   ├── minimax-oauth.ts  # MiniMax OAuth device flow + token storage
+│   │   ├── openai.ts         # OpenAI provider (GPT-4o, o3, etc.)
+│   │   ├── openai-oauth.ts   # OpenAI Codex OAuth device flow + token storage
 │   │   └── index.ts          # Provider router
 │   ├── memory/
 │   │   ├── github.ts         # Read/write memory files via GitHub API
@@ -52,7 +54,8 @@ chris-assistant/              ← This repo (bot server + CLI)
 │           ├── model.ts       # chris model [set]
 │           ├── doctor.ts      # chris doctor
 │           ├── setup.ts       # chris setup
-│           └── minimax-login.ts # chris minimax login|status
+│           ├── minimax-login.ts # chris minimax login|status
+│           └── openai-login.ts  # chris openai login|status
 
 chris-assistant-memory/       ← Separate private repo (the brain)
 ├── identity/
@@ -128,7 +131,18 @@ The bot needs a GitHub token to read and write memory files. Use a **fine-graine
 
 > **Security note**: This token can only read/write file contents in the memory repo. It cannot delete the repo, manage settings, access other repos, or do anything else. If it leaks, the blast radius is limited to your memory markdown files.
 
-### 5. (Optional) Set up MiniMax
+### 5. (Optional) Set up OpenAI
+
+If you want to use OpenAI models (e.g. `gpt-4o`, `o3`), authenticate via Codex OAuth device flow. This uses your ChatGPT Plus/Pro subscription — no API key or prepaid credits needed.
+
+```bash
+chris openai login       # Opens browser for OAuth approval
+chris openai status      # Check token status
+```
+
+Tokens are stored in `~/.chris-assistant/openai-auth.json` and auto-refresh when they expire.
+
+### 5b. (Optional) Set up MiniMax
 
 If you want to use MiniMax models (e.g. `MiniMax-M2.5`), authenticate via OAuth device flow. This uses your MiniMax Coding Plan subscription — no API credits needed.
 
@@ -220,7 +234,14 @@ chris model              # Show current model, provider, and available shortcuts
 chris model set <name>   # Switch model (e.g. sonnet, minimax, opus, or full model ID)
 ```
 
-Available shortcuts: `opus`, `sonnet`, `haiku`, `sonnet-4-5` (Claude), `minimax`, `minimax-fast` (MiniMax)
+Available shortcuts: `opus`, `sonnet`, `haiku`, `sonnet-4-5` (Claude), `gpt4o`, `gpt41`, `o3`, `o4-mini` (OpenAI), `minimax`, `minimax-fast` (MiniMax)
+
+### OpenAI Provider
+
+```bash
+chris openai login      # Authenticate via Codex OAuth device flow
+chris openai status     # Check OAuth token status (auto-refreshes)
+```
 
 ### MiniMax Provider
 
@@ -264,6 +285,7 @@ chris logs -f            # Watch logs in real-time
 
 - **Runtime**: Node.js 22+ / TypeScript
 - **AI (Claude)**: Claude Agent SDK with Max subscription OAuth
+- **AI (OpenAI)**: OpenAI SDK with Codex OAuth (ChatGPT Plus/Pro subscription)
 - **AI (MiniMax)**: OpenAI SDK with custom baseURL (`api.minimax.io`)
 - **Telegram**: grammY
 - **Memory**: GitHub API via Octokit
