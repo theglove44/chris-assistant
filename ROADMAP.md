@@ -35,6 +35,22 @@ How the bot feels to use day-to-day.
 
 ---
 
+## Coding Agent
+
+Giving the bot the ability to read, write, and modify code in local projects — turning it from a chat bot into a coding assistant. Inspired by Claude Code and OpenClaw's approach: primitive file/shell tools + a multi-turn tool loop. All tool calls use the same AI model as the active conversation — no separate model for execution.
+
+| # | Impact | Status | Item | Description |
+|---|--------|--------|------|-------------|
+| 1 | 🔴 | ⬜ | **File tools** | `src/tools/files.ts` — `read_file`, `write_file`, `edit_file`, `list_files`, `search_files`. All paths resolved relative to a workspace root. Uses Node.js `fs` and `child_process`. |
+| 2 | 🔴 | ⬜ | **Workspace root & guard** | Configurable workspace root (default `~/Projects/`). All file tool paths resolved relative to it. Guard wrapper rejects any path that escapes the root (prevents `../../.env` or `/etc/passwd` access). Telegram `/project` command to set active workspace. |
+| 3 | 🔴 | ⬜ | **Increase tool turn limit** | Providers currently cap at 3 tool turns. Coding work needs 10–20+. Increase `maxTurns` in OpenAI, MiniMax, and Claude providers. Add configurable limit. |
+| 4 | 🟠 | ⬜ | **Result truncation** | Large file reads or command outputs need truncation before going back to the AI. Prevent a single `read_file` on a 5MB file from blowing the context window. Configurable per-result limit (e.g. 50KB). |
+| 5 | 🟠 | ⬜ | **Tool loop detection** | Detect when the AI is stuck in a repetitive tool-calling cycle (reading the same file, retrying the same failing command). Break the loop with a helpful message after N repeated identical calls. |
+| 6 | 🟡 | ⬜ | **Project bootstrap files** | Load a `CLAUDE.md` or `AGENTS.md` from the workspace root and inject it into the system prompt. Gives the AI project-specific context (architecture, conventions, gotchas) automatically. |
+| 7 | 🟢 | ⬜ | **Git tools** | `git_status`, `git_diff`, `git_commit`, `git_push`. Let the AI commit its own changes and create PRs. Requires careful confirmation flow — don't auto-push without user approval. |
+
+---
+
 ## Reliability
 
 Keeping the bot running and recovering from failures.
