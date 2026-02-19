@@ -70,7 +70,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 ## Key Design Decisions
 
 - **Multi-provider**: The model string determines the provider. `gpt-*`/`o3*`/`o4-*` → OpenAI, `MiniMax-*` → MiniMax, everything else → Claude. No separate "provider" config key.
-- **Authentication**: Claude uses `CLAUDE_CODE_OAUTH_TOKEN` from a Max subscription. OpenAI uses Codex OAuth device flow (`chris openai login`) — tokens in `~/.chris-assistant/openai-auth.json` with auto-refresh. MiniMax uses OAuth device flow (`chris minimax login`) — tokens in `~/.chris-assistant/minimax-auth.json`.
+- **Authentication**: OpenAI (default) uses Codex OAuth device flow (`chris openai login`) — tokens in `~/.chris-assistant/openai-auth.json` with auto-refresh. MiniMax uses OAuth device flow (`chris minimax login`) — tokens in `~/.chris-assistant/minimax-auth.json`. Claude is optional — requires `CLAUDE_CODE_OAUTH_TOKEN` in `.env` from a Max subscription.
 - **Streaming responses**: OpenAI and MiniMax providers stream via `onChunk` callback in the Provider interface. `telegram.ts` sends a "..." placeholder and edits it every 1.5s with accumulated text + cursor (▍). Claude SDK doesn't expose token streaming yet. Final render uses Markdown with plain text fallback.
 - **Image and document handling**: `telegram.ts` handles `message:photo` and `message:document` in addition to `message:text`. Photos are downloaded from Telegram, base64-encoded, and passed via `ImageAttachment` in the Provider interface. OpenAI/MiniMax use `image_url` content parts. Claude Agent SDK only accepts string prompts, so images get a text-only fallback. Text documents are downloaded, read as UTF-8, and prepended to the message (50KB truncation). Unsupported file types get a helpful error.
 - **Web search tool**: `src/tools/web-search.ts` — Brave Search API, conditionally registered only when `BRAVE_SEARCH_API_KEY` is set. Returns top 5 results. No new npm deps (native fetch). All providers pick it up automatically via the tool registry.
@@ -103,16 +103,15 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 
 | Variable | Purpose |
 |----------|---------|
-| `CLAUDE_CODE_OAUTH_TOKEN` | Max subscription token from `claude setup-token` |
 | `TELEGRAM_BOT_TOKEN` | From @BotFather |
 | `TELEGRAM_ALLOWED_USER_ID` | Your numeric Telegram user ID |
 | `GITHUB_TOKEN` | Fine-grained PAT with Contents read/write on memory repo only |
 | `GITHUB_MEMORY_REPO` | `owner/repo` format — your private memory repo |
-| `CLAUDE_MODEL` | Model ID — determines provider. Defaults to `claude-sonnet-4-5-20250929` |
-| `BRAVE_SEARCH_API_KEY` | Optional — Brave Search API key for web search tool. Get free tier at brave.com/search/api |
-| ~~`MINIMAX_API_KEY`~~ | Removed — MiniMax now uses OAuth. Run `chris minimax login` instead |
+| `AI_MODEL` | Model ID — determines provider. Defaults to `gpt-4o`. Accepts `CLAUDE_MODEL` for back-compat. |
+| `BRAVE_SEARCH_API_KEY` | Optional — Brave Search API key for web search tool |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Optional — only needed to use Claude models |
 
-Note: OpenAI and MiniMax do not use env vars for auth. They use OAuth device flows with tokens stored in `~/.chris-assistant/`.
+Note: OpenAI and MiniMax use OAuth device flows with tokens stored in `~/.chris-assistant/`. Claude is optional and requires `CLAUDE_CODE_OAUTH_TOKEN` in `.env`.
 
 ## Common Operations
 

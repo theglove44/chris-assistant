@@ -5,16 +5,34 @@ A personal AI assistant accessible through Telegram. Supports multiple AI provid
 ## How It Works
 
 ```
-Telegram message
+Telegram message (text, photo, or document)
   → grammY bot (guards to your user ID only)
-  → Loads identity + memory from GitHub private repo
+  → Rate limiter (10 msgs/min)
+  → Loads identity + memory from GitHub private repo (5-min cache)
   → Builds system prompt with personality, knowledge, conversation history
-  → Routes to active provider (Claude Agent SDK, OpenAI, or MiniMax)
-  → AI can call update_memory tool to persist what it learns
-  → Response sent back to Telegram
+  → Routes to active provider (Claude, OpenAI, or MiniMax)
+  → Streams response back to Telegram with live updates
+  → AI can call tools: update_memory, web_search, fetch_url, run_code
+  → Response rendered as Telegram MarkdownV2 (with plain text fallback)
 ```
 
-The assistant has its own identity, personality, and evolving memory. Everything it learns about you is stored as markdown files in a separate private GitHub repo (`chris-assistant-memory`), giving you full visibility and version control over its brain.
+The assistant has its own identity, personality, and evolving memory. Everything it learns about you is stored as markdown files in a separate private GitHub repo, giving you full visibility and version control over its brain.
+
+## Features
+
+- **Multi-provider AI** — Claude (Agent SDK), OpenAI, and MiniMax via a single bot. Switch models with `chris model set <name>`.
+- **Streaming responses** — OpenAI and MiniMax stream tokens in real-time. Telegram message updates every 1.5s with a typing cursor.
+- **Image understanding** — Send a photo and the AI will describe/analyze it (OpenAI and MiniMax). Claude falls back to text-only.
+- **Document reading** — Send text files (.txt, .json, .csv, .md, etc.) and the AI reads the contents inline.
+- **Web search** — AI can search the web via Brave Search API (optional, needs API key).
+- **URL fetching** — AI can read any URL, with HTML stripping and 50KB truncation.
+- **Code execution** — AI can run JavaScript, TypeScript, Python, or shell commands in a sandboxed subprocess.
+- **Persistent memory** — Long-term facts stored as markdown in a GitHub repo. Every update is a git commit.
+- **Persistent conversation history** — Last 20 messages per chat saved to disk. Survives restarts. `/clear` wipes it.
+- **MarkdownV2 rendering** — AI responses are formatted for Telegram with bold, italic, code blocks, and links.
+- **Rate limiting** — Sliding window limiter (10 messages/minute per user).
+- **Health monitoring** — Startup notification, periodic checks (GitHub access, token expiry), alerts with dedup.
+- **Prompt injection defense** — Memory writes are validated for size, rate, and suspicious content.
 
 ## Architecture
 
@@ -24,21 +42,31 @@ chris-assistant/              ← This repo (bot server + CLI)
 ├── src/
 │   ├── index.ts              # Bot entry point
 │   ├── config.ts             # Environment config
-│   ├── telegram.ts           # Telegram bot with user guard
-│   ├── conversation.ts       # Short-term in-memory chat history
+│   ├── telegram.ts           # Telegram bot — text/photo/document handlers, streaming
+│   ├── markdown.ts           # Standard markdown → Telegram MarkdownV2 converter
+│   ├── rate-limit.ts         # Sliding window rate limiter
+│   ├── health.ts             # Periodic health checks + Telegram alerts
+│   ├── conversation.ts       # Persistent conversation history (~/.chris-assistant/)
 │   ├── providers/
-│   │   ├── types.ts          # Provider interface
-│   │   ├── shared.ts         # System prompt caching
+│   │   ├── types.ts          # Provider interface + ImageAttachment type
+│   │   ├── shared.ts         # System prompt caching + model info injection
 │   │   ├── claude.ts         # Claude Agent SDK provider
-│   │   ├── minimax.ts        # MiniMax provider (OpenAI-compatible)
-│   │   ├── minimax-oauth.ts  # MiniMax OAuth device flow + token storage
-│   │   ├── openai.ts         # OpenAI provider (GPT-4o, o3, etc.)
+│   │   ├── openai.ts         # OpenAI provider (streaming, images, tools)
 │   │   ├── openai-oauth.ts   # OpenAI Codex OAuth device flow + token storage
-│   │   └── index.ts          # Provider router
+│   │   ├── minimax.ts        # MiniMax provider (OpenAI-compatible API)
+│   │   ├── minimax-oauth.ts  # MiniMax OAuth device flow + token storage
+│   │   └── index.ts          # Provider router — model string determines provider
+│   ├── tools/
+│   │   ├── registry.ts       # Tool registry — registerTool(), dispatch, MCP/OpenAI format
+│   │   ├── index.ts          # Imports all tool modules, re-exports registry
+│   │   ├── memory.ts         # update_memory tool
+│   │   ├── web-search.ts     # Brave Search API (conditional on API key)
+│   │   ├── fetch-url.ts      # URL fetcher — HTML stripping, 15s timeout
+│   │   └── run-code.ts       # Code execution — JS/TS/Python/shell, 10s timeout
 │   ├── memory/
 │   │   ├── github.ts         # Read/write memory files via GitHub API
 │   │   ├── loader.ts         # Assembles system prompt from memory
-│   │   └── tools.ts          # update_memory tool (MCP + OpenAI function formats)
+│   │   └── tools.ts          # Memory tool executor + prompt injection validation
 │   └── cli/
 │       ├── index.ts           # Commander.js program entry point
 │       ├── pm2-helper.ts      # pm2 connection helper and constants
@@ -51,11 +79,11 @@ chris-assistant/              ← This repo (bot server + CLI)
 │           ├── memory.ts      # chris memory status|show|edit|search
 │           ├── identity.ts    # chris identity [edit]
 │           ├── config.ts      # chris config [get|set]
-│           ├── model.ts       # chris model [set]
+│           ├── model.ts       # chris model [set|search]
 │           ├── doctor.ts      # chris doctor
 │           ├── setup.ts       # chris setup
-│           ├── minimax-login.ts # chris minimax login|status
-│           └── openai-login.ts  # chris openai login|status
+│           ├── openai-login.ts  # chris openai login|status
+│           └── minimax-login.ts # chris minimax login|status
 
 chris-assistant-memory/       ← Separate private repo (the brain)
 ├── identity/
@@ -77,7 +105,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 ### Prerequisites
 
 - Node.js 22+
-- A [Claude Max subscription](https://claude.ai) with Claude Code access
+- A [ChatGPT Plus or Pro subscription](https://chat.openai.com) (for the default OpenAI provider)
 - A Telegram account
 
 ### 1. Create your Telegram bot
@@ -90,15 +118,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 
 Message [@userinfobot](https://t.me/userinfobot) on Telegram — it will reply with your numeric user ID.
 
-### 3. Get your Claude OAuth token
-
-```bash
-claude setup-token
-```
-
-This generates a long-lived (1 year) token using your Max subscription.
-
-### 4. Create a GitHub fine-grained PAT
+### 3. Create a GitHub fine-grained PAT
 
 The bot needs a GitHub token to read and write memory files. Use a **fine-grained** token (not classic) so you can lock it down to just the memory repo.
 
@@ -110,11 +130,10 @@ The bot needs a GitHub token to read and write memory files. Use a **fine-graine
 |---------|-------|
 | **Token name** | `chris-assistant` (or whatever you like) |
 | **Expiration** | 90 days, or custom — you'll need to rotate it when it expires |
-| **Description** | Optional — e.g. "Memory read/write for personal assistant" |
 | **Resource owner** | Your GitHub account |
 
 4. Under **Repository access**, select **"Only select repositories"**
-   - Choose **`chris-assistant-memory`** from the dropdown
+   - Choose your memory repo from the dropdown
    - Do NOT give it access to any other repos
 
 5. Under **Permissions → Repository permissions**, set:
@@ -131,9 +150,17 @@ The bot needs a GitHub token to read and write memory files. Use a **fine-graine
 
 > **Security note**: This token can only read/write file contents in the memory repo. It cannot delete the repo, manage settings, access other repos, or do anything else. If it leaks, the blast radius is limited to your memory markdown files.
 
-### 5. (Optional) Set up OpenAI
+### 4. Install and set up the CLI
 
-If you want to use OpenAI models (e.g. `gpt-4o`, `o3`), authenticate via Codex OAuth device flow. This uses your ChatGPT Plus/Pro subscription — no API key or prepaid credits needed.
+```bash
+npm install
+npm link          # Makes 'chris' available globally
+chris setup       # Interactive wizard to create .env
+```
+
+### 5. Authenticate with OpenAI
+
+The default provider is OpenAI, authenticated via Codex OAuth device flow. This uses your ChatGPT Plus/Pro subscription — no API key or prepaid credits needed.
 
 ```bash
 chris openai login       # Opens browser for OAuth approval
@@ -142,36 +169,45 @@ chris openai status      # Check token status
 
 Tokens are stored in `~/.chris-assistant/openai-auth.json` and auto-refresh when they expire.
 
-### 5b. (Optional) Set up MiniMax
+### 6. Verify and start
 
-If you want to use MiniMax models (e.g. `MiniMax-M2.5`), authenticate via OAuth device flow. This uses your MiniMax Coding Plan subscription — no API credits needed.
+```bash
+chris doctor      # Verify all connections are working
+chris start       # Start the bot via pm2
+chris status      # Confirm it's running
+```
+
+### 7. (Optional) Set up additional providers
+
+**MiniMax** — uses your MiniMax Coding Plan subscription via OAuth. No API credits needed.
 
 ```bash
 chris minimax login      # Opens browser for OAuth approval
 chris minimax status     # Check token expiry
 ```
 
-Tokens are stored in `~/.chris-assistant/minimax-auth.json` and expire after a few hours. Re-run `chris minimax login` when they expire.
+**Claude** — requires a Claude Max subscription. Add `CLAUDE_CODE_OAUTH_TOKEN` to your `.env` file (get it via `claude setup-token`), then switch with `chris model set sonnet`.
 
-### 6. Install and set up the CLI
+### 8. (Optional) Set up web search
 
-```bash
-npm install
-npm link          # Makes 'chris' available globally
-chris setup       # Interactive wizard to create .env
-chris doctor      # Verify all connections are working
-```
-
-### 7. Start the bot
+Get a free Brave Search API key at [brave.com/search/api](https://brave.com/search/api), then:
 
 ```bash
-chris start       # Start the bot via pm2
-chris status      # Confirm it's running
+chris config set BRAVE_SEARCH_API_KEY your_key_here
+chris restart
 ```
+
+When the key is set, the AI gains a `web_search` tool. When absent, the tool is simply not registered — no dead tools in API calls.
 
 ## Usage
 
 Message your bot on Telegram. That's it. On first contact, the assistant will introduce itself and begin learning about you through natural conversation.
+
+### What You Can Send
+
+- **Text messages** — normal conversation
+- **Photos** — the AI will describe or analyze them (OpenAI/MiniMax providers)
+- **Text documents** — .txt, .json, .csv, .md, .py, etc. are read inline and discussed
 
 ### Telegram Commands
 
@@ -180,14 +216,25 @@ Message your bot on Telegram. That's it. On first contact, the assistant will in
 
 ### How Memory Works
 
-- **Short-term**: Last 20 messages kept in-memory (resets on restart)
-- **Long-term**: The assistant uses its `update_memory` tool to persist important facts to GitHub
-- **Identity**: SOUL.md, RULES.md, VOICE.md define who the assistant is
-- **All memory changes are git commits** — fully auditable and rollback-able
+- **Short-term**: Last 20 messages per chat, persisted to `~/.chris-assistant/conversations.json`. Survives restarts. `/clear` wipes it.
+- **Long-term**: The assistant uses its `update_memory` tool to persist important facts to GitHub.
+- **Identity**: SOUL.md, RULES.md, VOICE.md define who the assistant is.
+- **All memory changes are git commits** — fully auditable and rollback-able.
+
+### AI Tools
+
+The assistant has access to these tools (all providers pick them up automatically):
+
+| Tool | Description |
+|------|-------------|
+| `update_memory` | Persist facts to GitHub memory repo |
+| `web_search` | Search the web via Brave Search API (optional) |
+| `fetch_url` | Read any URL with HTML stripping |
+| `run_code` | Execute JS, TS, Python, or shell commands |
 
 ## CLI Reference
 
-The `chris` command is available globally after running `npm link`. It manages the bot process, memory, identity, and configuration.
+The `chris` command is available globally after running `npm link`.
 
 ### Process Management
 
@@ -201,6 +248,32 @@ chris logs -f            # Live tail logs in real-time
 chris logs -n 100        # Show last 100 lines
 ```
 
+### Model / Provider
+
+```bash
+chris model              # Show current model, provider, and available shortcuts
+chris model set <name>   # Switch model (e.g. sonnet, gpt5, codex, or full model ID)
+chris model search       # List all available models across all providers
+chris model search <q>   # Filter models by name, provider, or description
+```
+
+Available shortcuts:
+
+| Shortcut | Model ID | Provider |
+|----------|----------|----------|
+| `opus` | claude-opus-4-6 | Claude |
+| `sonnet` | claude-sonnet-4-6 | Claude |
+| `haiku` | claude-haiku-4-5-20251001 | Claude |
+| `sonnet-4-5` | claude-sonnet-4-5-20250929 | Claude |
+| `gpt5` | gpt-5.2 | OpenAI |
+| `codex` | GPT-5.3-Codex | OpenAI |
+| `gpt4o` | gpt-4o | OpenAI |
+| `gpt41` | gpt-4.1 | OpenAI |
+| `o3` | o3 | OpenAI |
+| `o4-mini` | o4-mini | OpenAI |
+| `minimax` | MiniMax-M2.5 | MiniMax |
+| `minimax-fast` | MiniMax-M2.5-highspeed | MiniMax |
+
 ### Memory Management
 
 ```bash
@@ -210,7 +283,7 @@ chris memory edit <file> # Open in $EDITOR, push changes to GitHub on save
 chris memory search <q>  # Search across all memory files with highlighted matches
 ```
 
-File aliases for `<file>`: `soul`, `rules`, `voice`, `about-chris`, `preferences`, `projects`, `people`, `decisions`, `learnings`
+File aliases: `soul`, `rules`, `voice`, `about-chris`, `preferences`, `projects`, `people`, `decisions`, `learnings`
 
 ### Identity
 
@@ -227,29 +300,14 @@ chris config get <key>   # Get a specific value
 chris config set <k> <v> # Set a value in .env (run chris restart to apply)
 ```
 
-### Model / Provider
+### Provider Authentication
 
 ```bash
-chris model              # Show current model, provider, and available shortcuts
-chris model set <name>   # Switch model (e.g. sonnet, gpt5, codex, or full model ID)
-chris model search       # List all available models across all providers
-chris model search <q>   # Filter models by name, provider, or description
-```
+chris openai login       # Authenticate via Codex OAuth device flow
+chris openai status      # Check OAuth token status (auto-refreshes)
 
-Available shortcuts: `opus`, `sonnet`, `haiku`, `sonnet-4-5` (Claude), `gpt5`, `codex`, `gpt4o`, `gpt41`, `o3`, `o4-mini` (OpenAI), `minimax`, `minimax-fast` (MiniMax)
-
-### OpenAI Provider
-
-```bash
-chris openai login      # Authenticate via Codex OAuth device flow
-chris openai status     # Check OAuth token status (auto-refreshes)
-```
-
-### MiniMax Provider
-
-```bash
-chris minimax login     # Authenticate via OAuth device flow
-chris minimax status    # Check OAuth token status and expiry
+chris minimax login      # Authenticate via OAuth device flow
+chris minimax status     # Check OAuth token status and expiry
 ```
 
 ### Diagnostics
@@ -257,16 +315,33 @@ chris minimax status    # Check OAuth token status and expiry
 ```bash
 chris doctor             # Run all health checks:
                          #   - .env file exists
-                         #   - All required env vars are set
+                         #   - Required env vars are set
                          #   - GitHub token can access memory repo
                          #   - Memory repo has identity files
                          #   - Telegram bot token is valid
+                         #   - OpenAI OAuth tokens (optional)
+                         #   - MiniMax OAuth tokens (optional)
+                         #   - Brave Search API key (optional)
                          #   - Bot process is running
 
 chris setup              # Interactive first-time setup wizard (creates .env)
 ```
 
-## Running on Mac Mini (Recommended)
+## Environment Variables
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `TELEGRAM_BOT_TOKEN` | Yes | From @BotFather |
+| `TELEGRAM_ALLOWED_USER_ID` | Yes | Your numeric Telegram user ID |
+| `GITHUB_TOKEN` | Yes | Fine-grained PAT with Contents read/write on memory repo |
+| `GITHUB_MEMORY_REPO` | Yes | `owner/repo` format — your private memory repo |
+| `AI_MODEL` | No | Model ID — determines provider. Default: `gpt-4o` |
+| `BRAVE_SEARCH_API_KEY` | No | Brave Search API key for web search tool |
+| `CLAUDE_CODE_OAUTH_TOKEN` | No | Only needed to use Claude models |
+
+OpenAI and MiniMax authenticate via OAuth device flows (`chris openai login` / `chris minimax login`) with tokens stored in `~/.chris-assistant/`.
+
+## Running on Mac Mini
 
 The bot is designed to run on an always-on Mac Mini using pm2 for process management.
 
@@ -283,6 +358,14 @@ chris status             # Quick status check
 chris logs -f            # Watch logs in real-time
 ```
 
+## Development
+
+```bash
+npm run dev              # Run bot with tsx watch (auto-reload on changes)
+npm run typecheck        # TypeScript type checking
+npx tsx src/cli/index.ts # Run CLI directly without global install
+```
+
 ## Tech Stack
 
 - **Runtime**: Node.js 22+ / TypeScript
@@ -291,6 +374,7 @@ chris logs -f            # Watch logs in real-time
 - **AI (MiniMax)**: OpenAI SDK with custom baseURL (`api.minimax.io`)
 - **Telegram**: grammY
 - **Memory**: GitHub API via Octokit
+- **Tools**: zod (schema validation), native fetch, child_process
 - **CLI**: Commander.js
 - **Process management**: pm2
 - **Dev**: tsx (TypeScript execution without build step)

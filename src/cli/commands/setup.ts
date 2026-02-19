@@ -45,13 +45,8 @@ export function registerSetupCommand(program: Command) {
 
       console.log("I'll walk you through each value. Press Enter to skip any.\n");
 
-      // Claude token
-      console.log("--- Claude ---");
-      console.log('Run "claude setup-token" in another terminal to get your OAuth token.');
-      const claudeToken = await ask(rl, "CLAUDE_CODE_OAUTH_TOKEN: ");
-
       // Telegram
-      console.log("\n--- Telegram ---");
+      console.log("--- Telegram ---");
       console.log("Create a bot with @BotFather. Get your user ID from @userinfobot.");
       const telegramToken = await ask(rl, "TELEGRAM_BOT_TOKEN: ");
       const telegramUserId = await ask(rl, "TELEGRAM_ALLOWED_USER_ID: ");
@@ -62,6 +57,11 @@ export function registerSetupCommand(program: Command) {
       const githubToken = await ask(rl, "GITHUB_TOKEN: ");
       const githubRepo = await ask(rl, "GITHUB_MEMORY_REPO (e.g. your-username/chris-assistant-memory): ");
 
+      // Brave Search (optional)
+      console.log("\n--- Web Search (optional) ---");
+      console.log("Get a free API key at brave.com/search/api for the web search tool.");
+      const braveKey = await ask(rl, "BRAVE_SEARCH_API_KEY (press Enter to skip): ");
+
       rl.close();
 
       // Build .env
@@ -71,19 +71,23 @@ export function registerSetupCommand(program: Command) {
         envLines.push(`${key}=${value}`);
       };
 
-      addLine("CLAUDE_CODE_OAUTH_TOKEN", claudeToken || "your_oauth_token_here", "Claude authentication");
-      envLines.push("");
       addLine("TELEGRAM_BOT_TOKEN", telegramToken || "your_telegram_bot_token_here", "Telegram bot");
       addLine("TELEGRAM_ALLOWED_USER_ID", telegramUserId || "your_numeric_user_id_here");
       envLines.push("");
       addLine("GITHUB_TOKEN", githubToken || "your_github_pat_here", "GitHub memory repo");
       addLine("GITHUB_MEMORY_REPO", githubRepo || "");
       envLines.push("");
+      if (braveKey) {
+        addLine("BRAVE_SEARCH_API_KEY", braveKey, "Web search (Brave Search API)");
+        envLines.push("");
+      }
 
       writeFileSync(ENV_PATH, envLines.join("\n") + "\n");
 
       console.log("\n.env written to %s", ENV_PATH);
-      console.log('\nRun "chris doctor" to verify everything is connected.');
-      console.log('Then "chris start" to launch the bot.');
+      console.log('\nNext steps:');
+      console.log('  chris openai login    # Authenticate with OpenAI (default provider)');
+      console.log('  chris doctor          # Verify everything is connected');
+      console.log('  chris start           # Launch the bot');
     });
 }

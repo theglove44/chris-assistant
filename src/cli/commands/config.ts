@@ -8,9 +8,10 @@ const ENV_PATH = resolve(__dirname, "../../..", ".env");
 
 /** Secrets that should be redacted when displayed. */
 const REDACTED_KEYS = new Set([
-  "CLAUDE_CODE_OAUTH_TOKEN",
   "TELEGRAM_BOT_TOKEN",
   "GITHUB_TOKEN",
+  "CLAUDE_CODE_OAUTH_TOKEN",
+  "BRAVE_SEARCH_API_KEY",
 ]);
 
 function readEnv(): Map<string, string> {

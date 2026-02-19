@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ENV_PATH = resolve(__dirname, "../../..", ".env");
 
-const DEFAULT_MODEL = "claude-sonnet-4-5-20250929";
+const DEFAULT_MODEL = "gpt-4o";
 
 /** Well-known model IDs for quick reference */
 const KNOWN_MODELS: Record<string, { id: string; provider: string }> = {
@@ -47,7 +47,8 @@ function getCurrentModel(): string {
     if (trimmed.startsWith("#") || !trimmed) continue;
     const eq = trimmed.indexOf("=");
     if (eq === -1) continue;
-    if (trimmed.slice(0, eq).trim() === "CLAUDE_MODEL") {
+    const key = trimmed.slice(0, eq).trim();
+    if (key === "AI_MODEL" || key === "CLAUDE_MODEL") {
       return trimmed.slice(eq + 1).trim() || DEFAULT_MODEL;
     }
   }
@@ -56,7 +57,7 @@ function getCurrentModel(): string {
 
 function setModel(modelId: string): void {
   if (!existsSync(ENV_PATH)) {
-    writeFileSync(ENV_PATH, `CLAUDE_MODEL=${modelId}\n`);
+    writeFileSync(ENV_PATH, `AI_MODEL=${modelId}\n`);
     return;
   }
 
@@ -69,14 +70,15 @@ function setModel(modelId: string): void {
     if (trimmed.startsWith("#") || !trimmed) return line;
     const eq = trimmed.indexOf("=");
     if (eq === -1) return line;
-    if (trimmed.slice(0, eq).trim() === "CLAUDE_MODEL") {
+    const key = trimmed.slice(0, eq).trim();
+    if (key === "AI_MODEL" || key === "CLAUDE_MODEL") {
       found = true;
-      return `CLAUDE_MODEL=${modelId}`;
+      return `AI_MODEL=${modelId}`;
     }
     return line;
   });
 
-  if (!found) updated.push(`CLAUDE_MODEL=${modelId}`);
+  if (!found) updated.push(`AI_MODEL=${modelId}`);
   writeFileSync(ENV_PATH, updated.join("\n"));
 }
 

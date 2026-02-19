@@ -50,11 +50,11 @@ export function registerDoctorCommand(program: Command) {
           },
         },
         {
-          name: "CLAUDE_CODE_OAUTH_TOKEN is set",
+          name: "Claude OAuth token (optional)",
           run: async () => {
             if (env.CLAUDE_CODE_OAUTH_TOKEN) return "pass";
-            console.log('    Run "claude setup-token" then add to .env');
-            return "fail";
+            console.log('    Not set — Claude provider unavailable. Set CLAUDE_CODE_OAUTH_TOKEN to enable.');
+            return "warn";
           },
         },
         {

@@ -9,7 +9,7 @@ function required(name: string): string {
 }
 
 export const config = {
-  model: process.env.CLAUDE_MODEL || "claude-sonnet-4-5-20250929",
+  model: process.env.AI_MODEL || process.env.CLAUDE_MODEL /* back-compat */ || "gpt-4o",
   telegram: {
     botToken: required("TELEGRAM_BOT_TOKEN"),
     allowedUserId: Number(required("TELEGRAM_ALLOWED_USER_ID")),
