@@ -13,7 +13,7 @@ The bot currently has one tool (`update_memory`). Everything below expands what 
 
 | # | Impact | Status | Item | Description |
 |---|--------|--------|------|-------------|
-| 1 | 🔴 | ⬜ | **Web search tool** | No access to real-time information (news, weather, prices, URLs). Every factual answer relies on training data with a knowledge cutoff. Adding a web search tool (e.g. Brave Search, Tavily, or SearXNG) makes the bot genuinely useful for day-to-day questions. |
+| 1 | 🔴 | ✅ | **Web search tool** | `src/tools/web-search.ts` — Brave Search API tool, conditionally registered when `BRAVE_SEARCH_API_KEY` is set. Returns top 5 results with titles, URLs, and snippets. All three providers pick it up automatically via the tool registry. `chris doctor` checks API key validity. |
 | 2 | 🟠 | ⬜ | **Image and document handling** | Telegram supports photos, PDFs, voice messages, locations. The bot only handles `message:text` — everything else is silently ignored. At minimum, support photos via vision APIs (all three providers support image inputs) and document text extraction. |
 | 3 | 🟠 | ⬜ | **File and URL reading** | No ability to fetch a URL you paste in chat or read a file you send. A simple HTTP fetch tool would cover link previews, article summaries, and checking endpoints. |
 | 4 | 🟡 | ⬜ | **Code execution sandbox** | If asked to run code or verify output, the bot can only guess. A sandboxed execution environment (e.g. a Docker container, or a tool that runs code snippets) would let it actually test and validate code. |
@@ -27,7 +27,7 @@ How the bot feels to use day-to-day.
 
 | # | Impact | Status | Item | Description |
 |---|--------|--------|------|-------------|
-| 1 | 🔴 | ⬜ | **Streaming responses** | User sees "typing..." until the full response is generated. Reasoning models (o3) can take 30+ seconds. Telegram supports progressive updates via `editMessageText` — send a partial response and keep updating it as tokens stream in. Night-and-day improvement. |
+| 1 | 🔴 | ✅ | **Streaming responses** | OpenAI and MiniMax providers stream via `onChunk` callback. Telegram handler sends "..." placeholder, then edits it every 1.5s with accumulated text + cursor (▍). Final render replaces with Markdown. Claude SDK doesn't expose token streaming yet — `onChunk` param accepted but unused. |
 | 2 | 🟠 | ⬜ | **Persistent conversation history** | 20 messages, in-memory, lost on every restart. The bot can't recall yesterday's conversation. Store conversations in SQLite or the memory repo so context survives restarts and the bot can reference past chats. |
 | 3 | 🟠 | ⬜ | **MarkdownV2 rendering** | Currently using legacy `parse_mode: "Markdown"` which breaks on common characters (`.`, `!`, `-`, `(`, `)`). Many responses silently fall back to plain text via the catch handler. Switching to MarkdownV2 with proper escaping fixes formatting reliability. |
 | 4 | 🟡 | ⬜ | **Voice message support** | Telegram voice messages are common on mobile. Transcribe incoming voice via Whisper API or similar, and optionally respond with TTS audio. |

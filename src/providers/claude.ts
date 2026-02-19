@@ -12,7 +12,7 @@ export function createClaudeProvider(model: string): Provider {
 
   return {
     name: "claude",
-    async chat(chatId, userMessage) {
+    async chat(chatId, userMessage, _onChunk) {
       const systemPrompt = await getSystemPrompt();
       const conversationContext = formatHistoryForPrompt(chatId);
 

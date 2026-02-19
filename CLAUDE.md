@@ -12,7 +12,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 ├── src/
 │   ├── index.ts              # Bot entry point (starts Telegram long-polling)
 │   ├── config.ts             # Loads .env, exports typed config object
-│   ├── telegram.ts           # grammY bot — message handler, user guard, rate limiting, typing indicator
+│   ├── telegram.ts           # grammY bot — message handler, user guard, rate limiting, streaming edits
 │   ├── rate-limit.ts         # Sliding window rate limiter (10 msgs/min per user)
 │   ├── health.ts             # Periodic health checks + Telegram alerts (startup, token expiry, GitHub)
 │   ├── conversation.ts       # In-memory short-term history (last 20 messages, resets on restart)
@@ -28,7 +28,8 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   ├── tools/
 │   │   ├── registry.ts       # Shared tool registry — registerTool(), dispatch, MCP/OpenAI format gen
 │   │   ├── index.ts          # Imports tool modules, re-exports registry functions
-│   │   └── memory.ts         # Registers update_memory tool with the registry
+│   │   ├── memory.ts         # Registers update_memory tool with the registry
+│   │   └── web-search.ts     # Brave Search API tool (conditionally registered if API key set)
 │   ├── memory/
 │   │   ├── github.ts         # Octokit wrapper — read/write/append files in memory repo
 │   │   ├── loader.ts         # Loads identity + knowledge + memory files, builds system prompt
@@ -67,6 +68,8 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 
 - **Multi-provider**: The model string determines the provider. `gpt-*`/`o3*`/`o4-*` → OpenAI, `MiniMax-*` → MiniMax, everything else → Claude. No separate "provider" config key.
 - **Authentication**: Claude uses `CLAUDE_CODE_OAUTH_TOKEN` from a Max subscription. OpenAI uses Codex OAuth device flow (`chris openai login`) — tokens in `~/.chris-assistant/openai-auth.json` with auto-refresh. MiniMax uses OAuth device flow (`chris minimax login`) — tokens in `~/.chris-assistant/minimax-auth.json`.
+- **Streaming responses**: OpenAI and MiniMax providers stream via `onChunk` callback in the Provider interface. `telegram.ts` sends a "..." placeholder and edits it every 1.5s with accumulated text + cursor (▍). Claude SDK doesn't expose token streaming yet. Final render uses Markdown with plain text fallback.
+- **Web search tool**: `src/tools/web-search.ts` — Brave Search API, conditionally registered only when `BRAVE_SEARCH_API_KEY` is set. Returns top 5 results. No new npm deps (native fetch). All providers pick it up automatically via the tool registry.
 - **Memory tool**: All providers support `update_memory`. Claude uses MCP (in-process server). OpenAI and MiniMax use OpenAI-format function calling. All delegate to the same `executeMemoryTool()` function.
 - **Memory storage**: Markdown files in a private GitHub repo. Every update is a git commit — fully auditable and rollback-able.
 - **System prompt caching**: Memory files are loaded from GitHub and cached for 5 minutes. Cache invalidates after any conversation (in case memory was updated). Shared across providers via `providers/shared.ts`.
@@ -99,6 +102,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 | `GITHUB_TOKEN` | Fine-grained PAT with Contents read/write on memory repo only |
 | `GITHUB_MEMORY_REPO` | `theglove44/chris-assistant-memory` |
 | `CLAUDE_MODEL` | Model ID — determines provider. Defaults to `claude-sonnet-4-5-20250929` |
+| `BRAVE_SEARCH_API_KEY` | Optional — Brave Search API key for web search tool. Get free tier at brave.com/search/api |
 | ~~`MINIMAX_API_KEY`~~ | Removed — MiniMax now uses OAuth. Run `chris minimax login` instead |
 
 Note: OpenAI and MiniMax do not use env vars for auth. They use OAuth device flows with tokens stored in `~/.chris-assistant/`.
@@ -164,7 +168,9 @@ npx tsx src/cli/index.ts # Run CLI directly without global install
 - **pm2 PATH isolation**: pm2 spawns processes in its own daemon. It doesn't inherit your shell PATH. That's why `pm2-helper.ts` exports `TSX_BIN` as an absolute path to `node_modules/.bin/tsx`.
 - **Node.js console.log**: Does not support C-style `%-16s` padding. Use `String.padEnd()` instead.
 - **Telegram message limit**: 4096 characters max. `telegram.ts` has a `splitMessage()` function that breaks at paragraph then sentence boundaries.
-- **Thinking tags**: Reasoning models (o3, MiniMax, etc.) may emit `<think>...</think>` blocks. `telegram.ts` strips these before sending to Telegram.
+- **Telegram streaming rate limit**: `telegram.ts` rate-limits `editMessageText` calls to one per 1.5 seconds during streaming. Edits are fire-and-forget (`.catch(() => {})`) so failures don't interrupt the stream.
+- **Thinking tags**: Reasoning models (o3, MiniMax, etc.) may emit `<think>...</think>` blocks. `telegram.ts` strips these both during streaming preview and in the final response.
+- **Web search tool is optional**: Only registered when `BRAVE_SEARCH_API_KEY` is set. When absent, the tool definition is not sent to any provider — no dead tools in the API call.
 - **Memory cache**: System prompt is cached 5 minutes. After any conversation the cache is invalidated. Manually edited memory files via `chris memory edit` won't be picked up until the cache expires or the bot restarts.
 - **GitHub fine-grained PAT expiry**: Max 1 year. Set a reminder to rotate.
 - **Adding new tools**: Create `src/tools/<name>.ts` with a `registerTool()` call, then add `import "./<name>.js"` to `src/tools/index.ts`. All three providers pick it up automatically — no provider code changes needed.

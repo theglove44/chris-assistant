@@ -45,47 +45,72 @@ bot.on("message:text", async (ctx) => {
 
   const userMessage = ctx.message.text;
 
-  // Show "typing" indicator while Claude thinks
-  await ctx.replyWithChatAction("typing");
+  // Send placeholder message immediately — streaming edits will update it
+  const sentMsg = await ctx.reply("...");
+  const chatId = ctx.chat.id;
+  const messageId = sentMsg.message_id;
 
-  // Keep the typing indicator alive for longer responses
-  const typingInterval = setInterval(() => {
-    ctx.replyWithChatAction("typing").catch(() => {});
-  }, 4000);
+  // Streaming state
+  let lastEditTime = 0;
+  let lastEditedText = "...";
+  const EDIT_INTERVAL_MS = 1500; // Stay well within Telegram's rate limit
+
+  const onChunk = (accumulated: string) => {
+    const now = Date.now();
+    if (now - lastEditTime < EDIT_INTERVAL_MS) return;
+
+    // Strip think tags from streaming preview
+    const cleaned = accumulated.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+    if (!cleaned || cleaned === lastEditedText) return;
+
+    // Truncate for Telegram limit, add cursor
+    const preview = cleaned.length > 4000 ? cleaned.slice(0, 4000) + "..." : cleaned;
+    const withCursor = preview + " ▍";
+
+    lastEditTime = now;
+    lastEditedText = cleaned;
+
+    // Fire and forget — don't await, don't let errors interrupt streaming
+    ctx.api.editMessageText(chatId, messageId, withCursor).catch(() => {});
+  };
 
   try {
-    // Record user message
     addMessage(ctx.chat.id, "user", userMessage);
 
-    // Get AI response
-    const rawResponse = await chat(ctx.chat.id, userMessage);
+    const rawResponse = await chat(ctx.chat.id, userMessage, onChunk);
 
     // Strip <think>...</think> blocks (reasoning models emit these)
     const response = rawResponse.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
 
-    // Record assistant response
     addMessage(ctx.chat.id, "assistant", response);
 
-    // Send response — split if too long for Telegram (4096 char limit)
+    // Final render — replace the streaming message with the complete response
     if (response.length <= 4096) {
-      await ctx.reply(response, { parse_mode: "Markdown" }).catch(() =>
-        // Fallback without markdown if parsing fails
-        ctx.reply(response),
-      );
+      await ctx.api
+        .editMessageText(chatId, messageId, response, { parse_mode: "Markdown" })
+        .catch(() =>
+          ctx.api.editMessageText(chatId, messageId, response).catch(() => {}),
+        );
     } else {
-      // Split into chunks
+      // For long responses: edit first chunk into existing message, send rest as new messages
       const chunks = splitMessage(response, 4096);
-      for (const chunk of chunks) {
-        await ctx.reply(chunk, { parse_mode: "Markdown" }).catch(() =>
-          ctx.reply(chunk),
+      await ctx.api
+        .editMessageText(chatId, messageId, chunks[0], { parse_mode: "Markdown" })
+        .catch(() =>
+          ctx.api.editMessageText(chatId, messageId, chunks[0]).catch(() => {}),
+        );
+      for (let i = 1; i < chunks.length; i++) {
+        await ctx.reply(chunks[i], { parse_mode: "Markdown" }).catch(() =>
+          ctx.reply(chunks[i]),
         );
       }
     }
   } catch (error: any) {
     console.error("[telegram] Error handling message:", error);
-    await ctx.reply("Something went wrong. Check the logs.");
-  } finally {
-    clearInterval(typingInterval);
+    // Edit the placeholder to show error instead of leaving "..." hanging
+    await ctx.api
+      .editMessageText(chatId, messageId, "Something went wrong. Check the logs.")
+      .catch(() => {});
   }
 });
 

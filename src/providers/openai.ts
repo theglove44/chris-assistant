@@ -9,7 +9,7 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat/completio
 export function createOpenAiProvider(model: string): Provider {
   return {
     name: "openai",
-    async chat(chatId, userMessage) {
+    async chat(chatId, userMessage, onChunk) {
       // Get fresh OAuth token for each request (auto-refreshes if needed)
       const accessToken = await getValidAccessToken();
       const client = new OpenAI({
@@ -31,42 +31,80 @@ export function createOpenAiProvider(model: string): Provider {
       try {
         // Tool call loop — max 3 rounds (same as Claude and MiniMax)
         for (let turn = 0; turn < 3; turn++) {
-          const response = await client.chat.completions.create({
+          const stream = await client.chat.completions.create({
             model,
             messages,
             tools: getOpenAiToolDefinitions(),
+            stream: true,
           });
 
-          const choice = response.choices[0];
-          const assistantMessage = choice.message;
-          messages.push(assistantMessage);
+          let contentAccumulator = "";
+          // Tool calls accumulator: Map<index, { id, name, arguments }>
+          const toolCallAccumulator = new Map<number, { id: string; name: string; arguments: string }>();
 
-          // No tool calls — we're done
-          if (!assistantMessage.tool_calls || assistantMessage.tool_calls.length === 0) {
-            invalidatePromptCache();
-            return assistantMessage.content || "";
+          for await (const chunk of stream) {
+            const choice = chunk.choices[0];
+            if (!choice) continue;
+
+            const delta = choice.delta;
+
+            // Accumulate text content and notify caller
+            if (delta?.content) {
+              contentAccumulator += delta.content;
+              onChunk?.(contentAccumulator);
+            }
+
+            // Accumulate tool call deltas
+            if (delta?.tool_calls) {
+              for (const tc of delta.tool_calls) {
+                const existing = toolCallAccumulator.get(tc.index);
+                if (existing) {
+                  if (tc.function?.arguments) {
+                    existing.arguments += tc.function.arguments;
+                  }
+                } else {
+                  toolCallAccumulator.set(tc.index, {
+                    id: tc.id || "",
+                    name: tc.function?.name || "",
+                    arguments: tc.function?.arguments || "",
+                  });
+                }
+              }
+            }
           }
 
-          // Handle tool calls
-          for (const toolCall of assistantMessage.tool_calls) {
-            if (toolCall.type !== "function") continue;
-            const result = await dispatchToolCall(
-              toolCall.function.name,
-              toolCall.function.arguments,
-              "openai",
-            );
+          // If we got tool calls, execute them and continue the loop
+          if (toolCallAccumulator.size > 0) {
+            const toolCallsArray = Array.from(toolCallAccumulator.values()).map((tc) => ({
+              id: tc.id,
+              type: "function" as const,
+              function: { name: tc.name, arguments: tc.arguments },
+            }));
             messages.push({
-              role: "tool",
-              tool_call_id: toolCall.id,
-              content: result,
+              role: "assistant",
+              content: contentAccumulator || null,
+              tool_calls: toolCallsArray,
             });
+
+            for (const tc of toolCallsArray) {
+              const result = await dispatchToolCall(tc.function.name, tc.function.arguments, "openai");
+              messages.push({
+                role: "tool",
+                tool_call_id: tc.id,
+                content: result,
+              });
+            }
+            continue; // Next turn
           }
+
+          // No tool calls — this is the final text response
+          invalidatePromptCache();
+          return contentAccumulator;
         }
 
-        // Exhausted turns — return last assistant content
-        const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+        // Exhausted turns
         invalidatePromptCache();
-        return (lastAssistant as any)?.content || "Sorry, I ran out of processing turns.";
+        return "Sorry, I ran out of processing turns.";
       } catch (error: any) {
         console.error("[openai] Error:", error.message);
         return "Sorry, I hit an error processing that. Try again in a moment.";

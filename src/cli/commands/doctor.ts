@@ -185,6 +185,30 @@ export function registerDoctorCommand(program: Command) {
           },
         },
         {
+          name: "Brave Search API key",
+          run: async () => {
+            if (!env.BRAVE_SEARCH_API_KEY) {
+              console.log('    Not set — web search tool will be disabled');
+              return "warn";
+            }
+            // Quick validation — try a search
+            try {
+              const res = await fetch("https://api.search.brave.com/res/v1/web/search?q=test&count=1", {
+                headers: {
+                  "Accept": "application/json",
+                  "X-Subscription-Token": env.BRAVE_SEARCH_API_KEY,
+                },
+              });
+              if (res.ok) return "pass";
+              console.log("    API returned %d — check your key", res.status);
+              return "fail";
+            } catch (err: any) {
+              console.log("    Could not reach Brave Search API: %s", err.message);
+              return "fail";
+            }
+          },
+        },
+        {
           name: "Bot process",
           run: async () => {
             const proc = await getBotProcess();

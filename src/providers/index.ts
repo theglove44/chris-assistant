@@ -36,6 +36,6 @@ function getProvider(): Provider {
   return activeProvider;
 }
 
-export async function chat(chatId: number, userMessage: string): Promise<string> {
-  return getProvider().chat(chatId, userMessage);
+export async function chat(chatId: number, userMessage: string, onChunk?: (accumulated: string) => void): Promise<string> {
+  return getProvider().chat(chatId, userMessage, onChunk);
 }

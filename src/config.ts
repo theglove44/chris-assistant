@@ -18,6 +18,7 @@ export const config = {
     token: required("GITHUB_TOKEN"),
     memoryRepo: required("GITHUB_MEMORY_REPO"),
   },
+  braveSearchApiKey: process.env.BRAVE_SEARCH_API_KEY || null,
 } as const;
 
 export const [repoOwner, repoName] = config.github.memoryRepo.split("/");
