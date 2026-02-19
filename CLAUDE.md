@@ -16,7 +16,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   ├── conversation.ts       # In-memory short-term history (last 20 messages, resets on restart)
 │   ├── providers/
 │   │   ├── types.ts          # Provider interface ({ name, chat() })
-│   │   ├── shared.ts         # System prompt caching (used by all providers)
+│   │   ├── shared.ts         # System prompt caching + model info injection
 │   │   ├── claude.ts         # Claude Agent SDK provider
 │   │   ├── minimax.ts        # MiniMax provider (OpenAI-compatible API)
 │   │   ├── minimax-oauth.ts  # MiniMax OAuth device flow + token storage
