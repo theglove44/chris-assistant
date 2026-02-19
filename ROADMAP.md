@@ -54,8 +54,8 @@ Protecting the bot, its tokens, and the memory repo.
 
 | # | Impact | Status | Item | Description |
 |---|--------|--------|------|-------------|
-| 1 | 🟠 | ⬜ | **Rate limiting** | No throttle on incoming messages. A compromised Telegram session could flood the API. Add a simple per-minute rate limit in `telegram.ts` (e.g. max 10 messages/minute, queue or reject beyond that). |
-| 2 | 🟠 | ⬜ | **Prompt injection defense** | A crafted message could manipulate the bot into overwriting memory files with malicious content via `update_memory`. Add validation on memory tool inputs (e.g. reject writes that contain suspicious patterns, limit write size, require confirmation for destructive actions like overwriting identity files). |
+| 1 | 🟠 | ✅ | **Rate limiting** | Sliding window rate limiter (10 messages/minute) in `src/rate-limit.ts`. Integrated into `telegram.ts` message handler. Replies with retry-after seconds when triggered. |
+| 2 | 🟠 | ✅ | **Prompt injection defense** | Validation layer in `src/memory/tools.ts` — 2000 char limit, replace throttle (1 per 5 min per category), injection phrase detection, dangerous shell block detection, path traversal blocking. All rejections logged with `[memory-guard]` prefix. |
 | 3 | 🟡 | ⬜ | **Token file permissions** | `~/.chris-assistant/*.json` files containing OAuth tokens are readable by any process running as the user. Set file permissions to `0600` on write. Low risk on a personal Mac Mini, but good hygiene. |
 | 4 | 🟢 | ⬜ | **Error message leakage** | Provider catch blocks log full errors to console. If error handling changes, stack traces or API details could accidentally leak to Telegram. Ensure user-facing error messages never include raw error details. |
 

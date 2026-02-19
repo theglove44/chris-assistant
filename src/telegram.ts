@@ -2,6 +2,7 @@ import { Bot, Context } from "grammy";
 import { config } from "./config.js";
 import { chat } from "./providers/index.js";
 import { addMessage, clearHistory } from "./conversation.js";
+import { checkRateLimit } from "./rate-limit.js";
 
 const bot = new Bot(config.telegram.botToken);
 
@@ -32,6 +33,13 @@ bot.command("clear", async (ctx) => {
 bot.on("message:text", async (ctx) => {
   if (!isAllowedUser(ctx)) {
     console.log("[telegram] Blocked message from user %d", ctx.from?.id);
+    return;
+  }
+
+  const rateLimit = checkRateLimit(ctx.from.id);
+  if (!rateLimit.allowed) {
+    const retryAfterSecs = Math.ceil(rateLimit.retryAfterMs / 1000);
+    await ctx.reply(`Slow down — try again in ${retryAfterSecs} seconds.`);
     return;
   }
 
