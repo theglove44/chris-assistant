@@ -11,6 +11,12 @@ const execFileAsync = promisify(execFile);
 let workspaceRoot =
   process.env.WORKSPACE_ROOT || path.join(os.homedir(), "Projects");
 
+let onWorkspaceChange: (() => void) | null = null;
+
+export function setWorkspaceChangeCallback(cb: () => void): void {
+  onWorkspaceChange = cb;
+}
+
 export function getWorkspaceRoot(): string {
   return workspaceRoot;
 }
@@ -19,6 +25,7 @@ export function setWorkspaceRoot(newRoot: string): void {
   const resolved = path.resolve(newRoot);
   workspaceRoot = resolved;
   console.log("[tools] Workspace root changed to: %s", resolved);
+  onWorkspaceChange?.();
 }
 
 const MAX_OUTPUT = 50_000;

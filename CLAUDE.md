@@ -33,7 +33,8 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── web-search.ts     # Brave Search API tool (conditionally registered if API key set)
 │   │   ├── fetch-url.ts      # URL fetcher tool — strips HTML, 15s timeout, 50KB truncation
 │   │   ├── run-code.ts       # Code execution tool — JS/TS/Python/shell, 10s timeout, execFile
-│   │   └── files.ts          # File tools — read, write, edit, list, search (workspace-scoped)
+│   │   ├── files.ts          # File tools — read, write, edit, list, search (workspace-scoped)
+│   │   └── git.ts            # Git tools — status, diff, commit (workspace-scoped)
 │   ├── memory/
 │   │   ├── github.ts         # Octokit wrapper — read/write/append files in memory repo
 │   │   ├── loader.ts         # Loads identity + knowledge + memory files, builds system prompt
@@ -84,6 +85,8 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 - **System prompt caching**: Memory files are loaded from GitHub and cached for 5 minutes. Cache invalidates after any conversation (in case memory was updated). Shared across providers via `providers/shared.ts`.
 - **Tool loop detection**: `registry.ts` tracks consecutive identical tool calls (same name + first 500 chars of args). After 3 in a row, returns an error to the AI. Covers both `dispatchToolCall()` (OpenAI/MiniMax) and MCP executor (Claude). State resets between conversations via `invalidatePromptCache()`.
 - **Tool turn limit**: All three providers share `config.maxToolTurns` (default 15, env `MAX_TOOL_TURNS`). Coding work needs many turns (read → edit → test → fix). The "ran out of processing turns" message fires if exhausted.
+- **Git tools**: `src/tools/git.ts` — 3 tools: `git_status` (short format), `git_diff` (optional `staged` flag for `--cached`), `git_commit` (optional `files` array to stage before committing). All use `git -C <workspaceRoot>`. No `git_push` — deliberate safety choice to prevent unreviewed pushes. 50KB truncation on diff output.
+- **Project bootstrap files**: `shared.ts` checks for `CLAUDE.md`, `AGENTS.md`, `README.md` (in that order) in the active workspace root. First found is loaded, truncated to 20K chars, and injected as a `# Project Context` section in the system prompt. Workspace change callback invalidates the prompt cache so bootstrap reloads for the new project.
 - **Workspace root**: File tools scope to `WORKSPACE_ROOT` (default `~/Projects`). Mutable at runtime via `/project` Telegram command or `setWorkspaceRoot()`. The guard in `resolveSafePath()` reads the live value on each call.
 - **Telegram command menu**: Bot registers `/start`, `/clear`, `/model`, `/memory`, `/project`, `/help` via `setMyCommands` on startup. Commands appear in Telegram's bot menu. `/model` shows current model/provider. `/memory` lists all memory files with sizes from GitHub.
 - **User guard**: Only responds to `TELEGRAM_ALLOWED_USER_ID`. All other users are silently ignored.
