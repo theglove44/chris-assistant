@@ -7,7 +7,8 @@ import type { Provider } from "./types.js";
 export { invalidatePromptCache } from "./shared.js";
 
 function isOpenAiModel(model: string): boolean {
-  return model.startsWith("gpt-") || model.startsWith("o3") || model.startsWith("o4-");
+  const m = model.toLowerCase();
+  return m.startsWith("gpt-") || m.startsWith("o3") || m.startsWith("o4-");
 }
 
 function resolveProvider(): Provider {
