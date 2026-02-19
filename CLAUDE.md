@@ -32,7 +32,8 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── memory.ts         # Registers update_memory tool with the registry
 │   │   ├── web-search.ts     # Brave Search API tool (conditionally registered if API key set)
 │   │   ├── fetch-url.ts      # URL fetcher tool — strips HTML, 15s timeout, 50KB truncation
-│   │   └── run-code.ts       # Code execution tool — JS/TS/Python/shell, 10s timeout, execFile
+│   │   ├── run-code.ts       # Code execution tool — JS/TS/Python/shell, 10s timeout, execFile
+│   │   └── files.ts          # File tools — read, write, edit, list, search (workspace-scoped)
 │   ├── memory/
 │   │   ├── github.ts         # Octokit wrapper — read/write/append files in memory repo
 │   │   ├── loader.ts         # Loads identity + knowledge + memory files, builds system prompt
@@ -75,6 +76,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 - **Image and document handling**: `telegram.ts` handles `message:photo` and `message:document` in addition to `message:text`. Photos are downloaded from Telegram, base64-encoded, and passed via `ImageAttachment` in the Provider interface. OpenAI/MiniMax use `image_url` content parts. Claude Agent SDK only accepts string prompts, so images get a text-only fallback. Text documents are downloaded, read as UTF-8, and prepended to the message (50KB truncation). Unsupported file types get a helpful error.
 - **Web search tool**: `src/tools/web-search.ts` — Brave Search API, conditionally registered only when `BRAVE_SEARCH_API_KEY` is set. Returns top 5 results. No new npm deps (native fetch). All providers pick it up automatically via the tool registry.
 - **URL fetch tool**: `src/tools/fetch-url.ts` — always registered, native `fetch` with 15s timeout (AbortController), HTML stripping (script/style removal, tag stripping, entity decoding), 50KB truncation. No API key needed.
+- **File tools**: `src/tools/files.ts` — 5 tools (`read_file`, `write_file`, `edit_file`, `list_files`, `search_files`) scoped to `WORKSPACE_ROOT` (default `~/Projects`). All paths resolved relative to workspace root with a guard that rejects traversal outside it. `edit_file` requires exactly one match of `old_string`. `list_files` uses `find` with `node_modules`/`.git` pruning, capped at 200 results. `search_files` uses `grep -rn` with optional `--include` glob filter.
 - **Code execution tool**: `src/tools/run-code.ts` — uses `child_process.execFile` (not `exec`) to avoid shell injection. Supports JS (`node -e`), TS (tsx binary from node_modules), Python (`python3 -c`), shell (`bash -c`). 10s timeout, 1MB buffer, 50KB output truncation. `NODE_NO_WARNINGS=1` suppresses experimental warnings.
 - **Memory tool**: All providers support `update_memory`. Claude uses MCP (in-process server). OpenAI and MiniMax use OpenAI-format function calling. All delegate to the same `executeMemoryTool()` function.
 - **Memory storage**: Markdown files in a private GitHub repo. Every update is a git commit — fully auditable and rollback-able.
@@ -110,6 +112,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 | `GITHUB_MEMORY_REPO` | `owner/repo` format — your private memory repo |
 | `AI_MODEL` | Model ID — determines provider. Defaults to `gpt-4o`. Accepts `CLAUDE_MODEL` for back-compat. |
 | `BRAVE_SEARCH_API_KEY` | Optional — Brave Search API key for web search tool |
+| `WORKSPACE_ROOT` | Optional — root directory for file tools. Defaults to `~/Projects` |
 | `CLAUDE_CODE_OAUTH_TOKEN` | Optional — only needed to use Claude models |
 
 Note: OpenAI and MiniMax use OAuth device flows with tokens stored in `~/.chris-assistant/`. Claude is optional and requires `CLAUDE_CODE_OAUTH_TOKEN` in `.env`.

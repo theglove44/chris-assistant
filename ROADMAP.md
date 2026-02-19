@@ -41,7 +41,7 @@ Giving the bot the ability to read, write, and modify code in local projects —
 
 | # | Impact | Status | Item | Description |
 |---|--------|--------|------|-------------|
-| 1 | 🔴 | ⬜ | **File tools** | `src/tools/files.ts` — `read_file`, `write_file`, `edit_file`, `list_files`, `search_files`. All paths resolved relative to a workspace root. Uses Node.js `fs` and `child_process`. |
+| 1 | 🔴 | ✅ | **File tools** | `src/tools/files.ts` — 5 tools: `read_file`, `write_file`, `edit_file` (exact-match replacement), `list_files` (find with glob, excludes node_modules/.git), `search_files` (grep -rn). All paths resolved relative to `WORKSPACE_ROOT` (default `~/Projects`). Guard rejects path traversal outside workspace. 50KB output truncation. |
 | 2 | 🔴 | ⬜ | **Workspace root & guard** | Configurable workspace root (default `~/Projects/`). All file tool paths resolved relative to it. Guard wrapper rejects any path that escapes the root (prevents `../../.env` or `/etc/passwd` access). Telegram `/project` command to set active workspace. |
 | 3 | 🔴 | ⬜ | **Increase tool turn limit** | Providers currently cap at 3 tool turns. Coding work needs 10–20+. Increase `maxTurns` in OpenAI, MiniMax, and Claude providers. Add configurable limit. |
 | 4 | 🟠 | ⬜ | **Result truncation** | Large file reads or command outputs need truncation before going back to the AI. Prevent a single `read_file` on a 5MB file from blowing the context window. Configurable per-result limit (e.g. 50KB). |
