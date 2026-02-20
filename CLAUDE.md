@@ -54,7 +54,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 │           ├── identity.ts    # chris identity [edit] — view/edit SOUL.md
 │           ├── config.ts      # chris config [get|set] — manage .env
 │           ├── model.ts       # chris model [set] — view/change AI model + provider
-│           ├── doctor.ts      # chris doctor — diagnostic checks
+│           ├── doctor.ts      # chris doctor [--fix] — diagnostic checks + auto-repair
 │           ├── setup.ts       # chris setup — interactive first-time wizard
 │           ├── minimax-login.ts # chris minimax login|status — OAuth device flow
 │           └── openai-login.ts  # chris openai login|status — Codex OAuth device flow
@@ -190,7 +190,8 @@ npx tsx src/cli/index.ts # Run CLI directly without global install
 - **Telegram MarkdownV2**: `markdown.ts` converts standard AI markdown to MarkdownV2. Key difference: `*bold*` not `**bold**`, `_italic_` not `*italic*`. 18 special chars must be escaped in plain text, fewer in code/URL contexts. If conversion fails, `telegram.ts` falls back to plain text. Streaming preview uses no parse_mode (partial MarkdownV2 would fail).
 - **Telegram message limit**: 4096 characters max. `telegram.ts` has a `splitMessage()` function that breaks at paragraph then sentence boundaries. Splitting happens on original text before MarkdownV2 conversion (escaping inflates length).
 - **Telegram streaming rate limit**: `telegram.ts` rate-limits `editMessageText` calls to one per 1.5 seconds during streaming. Edits are fire-and-forget (`.catch(() => {})`) so failures don't interrupt the stream.
-- **Thinking tags**: Reasoning models (o3, MiniMax, etc.) may emit `<think>...</think>` blocks. `telegram.ts` strips these both during streaming preview and in the final response.
+- **Thinking tags**: Reasoning models (o3, MiniMax, etc.) may emit `<think>...</think>` blocks. `telegram.ts` strips these both during streaming preview and in the final response. Providers (`minimax.ts`, `openai.ts`) also strip them during streaming. **Important**: The closing `</think>` must be escaped as `<\/think>` inside regex literals — esbuild will misparse an unescaped `</` as a script-closing tag and throw a `TransformError`.
+- **`chris doctor --fix`**: Runs typecheck, checks error logs for common patterns (TransformError, missing modules), runs `npm install` if needed, then restarts the bot and verifies it comes back online. The regular `chris doctor` (without `--fix`) now shows the last error message and restart count when the bot is errored.
 - **Web search tool is optional**: Only registered when `BRAVE_SEARCH_API_KEY` is set. When absent, the tool definition is not sent to any provider — no dead tools in the API call.
 - **Memory cache**: System prompt is cached 5 minutes. After any conversation the cache is invalidated. Manually edited memory files via `chris memory edit` won't be picked up until the cache expires or the bot restarts.
 - **GitHub fine-grained PAT expiry**: Max 1 year. Set a reminder to rotate.

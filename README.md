@@ -96,7 +96,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 │           ├── identity.ts    # chris identity [edit]
 │           ├── config.ts      # chris config [get|set]
 │           ├── model.ts       # chris model [set|search]
-│           ├── doctor.ts      # chris doctor
+│           ├── doctor.ts      # chris doctor [--fix]
 │           ├── setup.ts       # chris setup
 │           ├── openai-login.ts  # chris openai login|status
 │           └── minimax-login.ts # chris minimax login|status
@@ -354,7 +354,12 @@ chris doctor             # Run all health checks:
                          #   - OpenAI OAuth tokens (optional)
                          #   - MiniMax OAuth tokens (optional)
                          #   - Brave Search API key (optional)
-                         #   - Bot process is running
+                         #   - Bot process is running (shows last error + restart count if errored)
+
+chris doctor --fix       # Auto-diagnose and repair:
+                         #   - Runs typecheck to catch syntax errors
+                         #   - Detects missing modules, runs npm install
+                         #   - Restarts the bot and verifies it comes back online
 
 chris setup              # Interactive first-time setup wizard (creates .env)
 ```
