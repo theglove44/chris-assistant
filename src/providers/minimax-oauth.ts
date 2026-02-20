@@ -118,7 +118,7 @@ export async function pollForToken(
 
     if (!res.ok) {
       const msg = payload?.base_resp?.status_msg || text || "unknown error";
-      return { status: "error", message: msg } as any;
+      throw new Error(`MiniMax OAuth token request failed (${res.status}): ${msg}`);
     }
 
     if (!payload) {

@@ -31,6 +31,35 @@ async function downloadTelegramFile(fileId: string): Promise<Buffer> {
 }
 
 /**
+ * Call chat() with one automatic retry on failure.
+ *
+ * If the first attempt throws, we wait RETRY_DELAY_MS and try once more with
+ * the same arguments. Both the original error and any retry error are logged
+ * so they appear in pm2 logs. Throws the final error if both attempts fail.
+ */
+const RETRY_DELAY_MS = 2000;
+
+async function chatWithRetry(
+  chatId: number,
+  userMessage: string,
+  onChunk: (accumulated: string) => void,
+  image?: ImageAttachment,
+): Promise<string> {
+  try {
+    return await chat(chatId, userMessage, onChunk, image);
+  } catch (firstError: any) {
+    console.warn(
+      "[telegram] chat() failed, retrying in %dms. Error: %s",
+      RETRY_DELAY_MS,
+      firstError?.message ?? firstError,
+    );
+    await new Promise<void>((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+    console.log("[telegram] Retrying chat() now...");
+    return await chat(chatId, userMessage, onChunk, image);
+  }
+}
+
+/**
  * Core response handler shared by text, photo, and document message handlers.
  * Sends a placeholder message, streams updates into it, then renders the final
  * MarkdownV2 response (with plain-text fallback) — splitting if needed.
@@ -74,7 +103,7 @@ async function handleAiResponse(
   try {
     addMessage(chatId, "user", userMessage);
 
-    const rawResponse = await chat(chatId, userMessage, onChunk, image);
+    const rawResponse = await chatWithRetry(chatId, userMessage, onChunk, image);
 
     // Strip <think>...</think> blocks (reasoning models emit these)
     const response = rawResponse.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
@@ -104,7 +133,7 @@ async function handleAiResponse(
       );
     }
   } catch (error: any) {
-    console.error("[telegram] Error handling message:", error);
+    console.error("[telegram] Both chat() attempts failed:", error);
     // Edit the placeholder to show error instead of leaving "..." hanging
     await ctx.api
       .editMessageText(chatId, messageId, "Something went wrong. Check the logs.")
