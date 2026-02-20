@@ -9,7 +9,7 @@ Audit of blind spots, gaps, and improvements. Items ranked by impact within each
 
 ## Capabilities
 
-The bot currently has one tool (`update_memory`). Everything below expands what it can actually do.
+Tools and features that expand what the bot can do.
 
 | # | Impact | Status | Item | Description |
 |---|--------|--------|------|-------------|
@@ -46,6 +46,7 @@ Giving the bot the ability to read, write, and modify code in local projects —
 | 3 | 🔴 | ✅ | **Increase tool turn limit** | All three providers now use `config.maxToolTurns` (default 15, configurable via `MAX_TOOL_TURNS` env var). Claude's `maxTurns`, OpenAI and MiniMax loop limits all read from the same config. |
 | 4 | 🟠 | ✅ | **Result truncation** | Already implemented across all tools — 50KB truncation in `files.ts` (read_file, search_files, list_files), `run-code.ts` (stdout), `fetch-url.ts` (HTML content), and `git.ts` (diff output). |
 | 5 | 🟠 | ✅ | **Tool loop detection** | Loop detector in `registry.ts` — tracks consecutive identical tool calls (same name + args). After 3 identical calls in a row, returns an error message telling the AI to try a different approach. Covers both OpenAI/MiniMax dispatch and Claude MCP execution. Resets between conversations via `invalidatePromptCache()`. |
+| 8 | 🟡 | ⬜ | **Fuzzy loop detection** | Current loop detector uses exact string fingerprints on raw JSON args. LLMs can trivially bypass by rephrasing arguments (changing whitespace, reordering keys). Improve by either hashing parsed/normalized args or tracking per-tool-name call frequency with a decaying counter (e.g. 5 calls to the same tool in one turn trips the breaker regardless of args). |
 | 6 | 🟡 | ✅ | **Project bootstrap files** | `shared.ts` loads the first found of `CLAUDE.md`, `AGENTS.md`, `README.md` from the active workspace root, truncates to 20K chars, and injects it as a `# Project Context` section in the system prompt. Cache invalidates on workspace change via callback pattern (avoids circular deps between `shared.ts` and `files.ts`). |
 | 7 | 🟢 | ✅ | **Git tools** | `src/tools/git.ts` — 3 tools: `git_status` (short format), `git_diff` (with optional `staged` flag), `git_commit` (with optional file staging). All use `git -C <workspace>` to target the active project. No `git_push` — too risky for auto-execution. 50KB output truncation on diffs. |
 
@@ -61,6 +62,8 @@ Keeping the bot running and recovering from failures.
 | 2 | 🟠 | ⬜ | **Graceful error recovery** | If a provider fails mid-conversation (token expired, API down), the bot returns a generic error. Could auto-retry with exponential backoff, or fall back to a different provider. |
 | 3 | 🟡 | ⬜ | **Token expiry monitoring** | MiniMax tokens expire after a few hours with no auto-refresh. OpenAI tokens auto-refresh but the refresh token itself could expire. `chris doctor` checks these, but the bot should proactively warn when tokens are about to expire. |
 | 4 | 🟡 | ⬜ | **Conversation history backup** | In-memory history is lost on crash. Even before building persistent storage, periodically flushing recent conversation to disk (or the memory repo) would prevent total context loss. |
+| 5 | 🟡 | ⬜ | **Manual cache reload** | Add a `/reload` Telegram command to invalidate the system prompt cache on demand. Currently the only way to pick up manually-edited memory files is to wait 5 minutes or restart the bot. |
+| 6 | 🟢 | ⬜ | **Async conversation I/O** | `conversation.ts` uses synchronous `fs.readFileSync`/`writeFileSync` which blocks the event loop during writes. Low risk for a single-user bot but poor hygiene. Switch to `fs.promises` with a simple write queue to prevent any theoretical race conditions. |
 
 ---
 
@@ -72,8 +75,9 @@ Protecting the bot, its tokens, and the memory repo.
 |---|--------|--------|------|-------------|
 | 1 | 🟠 | ✅ | **Rate limiting** | Sliding window rate limiter (10 messages/minute) in `src/rate-limit.ts`. Integrated into `telegram.ts` message handler. Replies with retry-after seconds when triggered. |
 | 2 | 🟠 | ✅ | **Prompt injection defense** | Validation layer in `src/memory/tools.ts` — 2000 char limit, replace throttle (1 per 5 min per category), injection phrase detection, dangerous shell block detection, path traversal blocking. All rejections logged with `[memory-guard]` prefix. |
-| 3 | 🟡 | ⬜ | **Token file permissions** | `~/.chris-assistant/*.json` files containing OAuth tokens are readable by any process running as the user. Set file permissions to `0600` on write. Low risk on a personal Mac Mini, but good hygiene. |
-| 4 | 🟢 | ⬜ | **Error message leakage** | Provider catch blocks log full errors to console. If error handling changes, stack traces or API details could accidentally leak to Telegram. Ensure user-facing error messages never include raw error details. |
+| 3 | 🟠 | ⬜ | **Code execution env sanitization** | `run-code.ts` passes `...process.env` to child processes — the AI can read all secrets (GitHub token, Telegram token, OAuth tokens) via `echo $GITHUB_TOKEN`. Strip sensitive env vars before spawning. Not true sandboxing (would need Docker/Deno for that), but prevents casual secret exfiltration. |
+| 4 | 🟡 | ⬜ | **Token file permissions** | `~/.chris-assistant/*.json` files containing OAuth tokens are readable by any process running as the user. Set file permissions to `0600` on write. Low risk on a personal Mac Mini, but good hygiene. |
+| 5 | 🟢 | ⬜ | **Error message leakage** | Provider catch blocks log full errors to console. If error handling changes, stack traces or API details could accidentally leak to Telegram. Ensure user-facing error messages never include raw error details. |
 
 ---
 

@@ -26,7 +26,7 @@ The assistant has its own identity, personality, and evolving memory. Everything
 - **Document reading** — Send text files (.txt, .json, .csv, .md, etc.) and the AI reads the contents inline.
 - **Web search** — AI can search the web via Brave Search API (optional, needs API key).
 - **URL fetching** — AI can read any URL, with HTML stripping and 50KB truncation.
-- **Code execution** — AI can run JavaScript, TypeScript, Python, or shell commands in a sandboxed subprocess.
+- **Code execution** — AI can run JavaScript, TypeScript, Python, or shell commands via `child_process.execFile` (10s timeout, 50KB output limit). Not sandboxed — runs with bot's user privileges.
 - **Persistent memory** — Long-term facts stored as markdown in a GitHub repo. Every update is a git commit.
 - **Persistent conversation history** — Last 20 messages per chat saved to disk. Survives restarts. `/clear` wipes it.
 - **MarkdownV2 rendering** — AI responses are formatted for Telegram with bold, italic, code blocks, and links.
