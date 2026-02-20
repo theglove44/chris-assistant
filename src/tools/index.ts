@@ -7,6 +7,7 @@ import "./fetch-url.js";
 import "./run-code.js";
 import "./files.js";
 import "./git.js";
+import "./scheduler.js";
 
 // Re-export registry functions so providers only need to import from one place.
 export {

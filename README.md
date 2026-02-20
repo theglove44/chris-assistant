@@ -9,11 +9,19 @@ Telegram message (text, photo, or document)
   → grammY bot (guards to your user ID only)
   → Rate limiter (10 msgs/min)
   → Loads identity + memory from GitHub private repo (5-min cache)
+  → Loads project context (CLAUDE.md/AGENTS.md/README.md from active workspace)
   → Builds system prompt with personality, knowledge, conversation history
   → Routes to active provider (Claude, OpenAI, or MiniMax)
   → Streams response back to Telegram with live updates
-  → AI can call tools: update_memory, web_search, fetch_url, run_code
+  → AI can call tools: memory, web search, fetch URLs, run code,
+    read/write/edit files, git operations, manage scheduled tasks
   → Response rendered as Telegram MarkdownV2 (with plain text fallback)
+
+Scheduler (background):
+  → Ticks every 60s, checks cron expressions
+  → Fires matching tasks by sending prompt to active AI provider
+  → AI gets full tool access (web search, code execution, files, etc.)
+  → Response delivered to Telegram via raw fetch
 ```
 
 The assistant has its own identity, personality, and evolving memory. Everything it learns about you is stored as markdown files in a separate private GitHub repo, giving you full visibility and version control over its brain.
@@ -27,6 +35,10 @@ The assistant has its own identity, personality, and evolving memory. Everything
 - **Web search** — AI can search the web via Brave Search API (optional, needs API key).
 - **URL fetching** — AI can read any URL, with HTML stripping and 50KB truncation.
 - **Code execution** — AI can run JavaScript, TypeScript, Python, or shell commands via `child_process.execFile` (10s timeout, 50KB output limit). Not sandboxed — runs with bot's user privileges.
+- **File tools** — AI can read, write, edit, list, and search files in the active workspace. All paths scoped to `WORKSPACE_ROOT` (default `~/Projects`) with symlink-aware traversal guard.
+- **Git tools** — AI can check `git status`, view diffs, and commit changes in the active workspace. No `git push` — deliberate safety choice.
+- **Scheduled tasks** — Tell the bot "check X every morning" and it creates a cron-scheduled task. Tasks fire by sending the prompt to the AI with full tool access, and the response is delivered via Telegram. Managed via `manage_schedule` tool or by editing `~/.chris-assistant/schedules.json`.
+- **Project context** — When a workspace has a `CLAUDE.md`, `AGENTS.md`, or `README.md`, it's loaded into the system prompt so the AI understands the project.
 - **Persistent memory** — Long-term facts stored as markdown in a GitHub repo. Every update is a git commit.
 - **Persistent conversation history** — Last 20 messages per chat saved to disk. Survives restarts. `/clear` wipes it.
 - **MarkdownV2 rendering** — AI responses are formatted for Telegram with bold, italic, code blocks, and links.
@@ -46,6 +58,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   ├── markdown.ts           # Standard markdown → Telegram MarkdownV2 converter
 │   ├── rate-limit.ts         # Sliding window rate limiter
 │   ├── health.ts             # Periodic health checks + Telegram alerts
+│   ├── scheduler.ts          # Cron-like scheduled tasks — tick loop, AI execution, Telegram delivery
 │   ├── conversation.ts       # Persistent conversation history (~/.chris-assistant/)
 │   ├── providers/
 │   │   ├── types.ts          # Provider interface + ImageAttachment type
@@ -62,7 +75,10 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── memory.ts         # update_memory tool
 │   │   ├── web-search.ts     # Brave Search API (conditional on API key)
 │   │   ├── fetch-url.ts      # URL fetcher — HTML stripping, 15s timeout
-│   │   └── run-code.ts       # Code execution — JS/TS/Python/shell, 10s timeout
+│   │   ├── run-code.ts       # Code execution — JS/TS/Python/shell, 10s timeout
+│   │   ├── files.ts          # File tools — read, write, edit, list, search (workspace-scoped)
+│   │   ├── git.ts            # Git tools — status, diff, commit (workspace-scoped)
+│   │   └── scheduler.ts      # manage_schedule tool — create, list, delete, toggle
 │   ├── memory/
 │   │   ├── github.ts         # Read/write memory files via GitHub API
 │   │   ├── loader.ts         # Assembles system prompt from memory
@@ -215,6 +231,8 @@ Message your bot on Telegram. That's it. On first contact, the assistant will in
 - `/clear` — Reset conversation history (long-term memory is preserved)
 - `/model` — Show current AI model and provider
 - `/memory` — Show memory file status with sizes
+- `/project` — Show or set the active project/workspace directory
+- `/reload` — Reload memory from GitHub (invalidates system prompt cache)
 - `/help` — List all available commands
 
 ### How Memory Works
@@ -228,12 +246,23 @@ Message your bot on Telegram. That's it. On first contact, the assistant will in
 
 The assistant has access to these tools (all providers pick them up automatically):
 
-| Tool | Description |
-|------|-------------|
-| `update_memory` | Persist facts to GitHub memory repo |
-| `web_search` | Search the web via Brave Search API (optional) |
-| `fetch_url` | Read any URL with HTML stripping |
-| `run_code` | Execute JS, TS, Python, or shell commands |
+| Tool | Category | Description |
+|------|----------|-------------|
+| `update_memory` | Always | Persist facts to GitHub memory repo |
+| `web_search` | Always | Search the web via Brave Search API (optional — needs API key) |
+| `fetch_url` | Always | Read any URL with HTML stripping, 15s timeout, 50KB truncation |
+| `run_code` | Always | Execute JS, TS, Python, or shell commands (10s timeout) |
+| `manage_schedule` | Always | Create, list, delete, or toggle cron-scheduled tasks |
+| `read_file` | Coding | Read a file from the active workspace |
+| `write_file` | Coding | Write a file to the active workspace |
+| `edit_file` | Coding | Exact-match find-and-replace edit within a file |
+| `list_files` | Coding | List files with glob pattern matching (excludes node_modules/.git) |
+| `search_files` | Coding | Search file contents with grep (optional glob filter) |
+| `git_status` | Coding | Show git status of the active workspace |
+| `git_diff` | Coding | Show git diff (staged or unstaged) |
+| `git_commit` | Coding | Stage files and commit (no push — safety choice) |
+
+"Always" tools are available in every conversation. "Coding" tools are only sent when a project workspace is active (set via `/project` command or `WORKSPACE_ROOT` env var).
 
 ## CLI Reference
 
@@ -340,6 +369,8 @@ chris setup              # Interactive first-time setup wizard (creates .env)
 | `GITHUB_MEMORY_REPO` | Yes | `owner/repo` format — your private memory repo |
 | `AI_MODEL` | No | Model ID — determines provider. Default: `gpt-4o` |
 | `BRAVE_SEARCH_API_KEY` | No | Brave Search API key for web search tool |
+| `WORKSPACE_ROOT` | No | Root directory for file/git tools. Default: `~/Projects`. Changeable at runtime via `/project`. |
+| `MAX_TOOL_TURNS` | No | Max tool call rounds per message. Default: `15`. |
 | `CLAUDE_CODE_OAUTH_TOKEN` | No | Only needed to use Claude models |
 
 OpenAI and MiniMax authenticate via OAuth device flows (`chris openai login` / `chris minimax login`) with tokens stored in `~/.chris-assistant/`.
