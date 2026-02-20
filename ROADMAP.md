@@ -63,7 +63,7 @@ Keeping the bot running and recovering from failures.
 | 3 | 🟠 | ✅ | **Graceful error recovery** | `telegram.ts` now wraps `chat()` in `chatWithRetry()` — one automatic retry with a 2s delay on thrown exceptions. Covers all providers (OpenAI, MiniMax, Claude) from a single retry point. Both attempts logged for pm2 visibility. No provider fallback (overkill for single-user bot). |
 | 3 | 🟡 | ⬜ | **Token expiry monitoring** | MiniMax tokens expire after a few hours with no auto-refresh. OpenAI tokens auto-refresh but the refresh token itself could expire. `chris doctor` checks these, but the bot should proactively warn when tokens are about to expire. |
 | 4 | 🟡 | ⬜ | **Conversation history backup** | In-memory history is lost on crash. Even before building persistent storage, periodically flushing recent conversation to disk (or the memory repo) would prevent total context loss. |
-| 5 | 🟡 | ⬜ | **Manual cache reload** | Add a `/reload` Telegram command to invalidate the system prompt cache on demand. Currently the only way to pick up manually-edited memory files is to wait 5 minutes or restart the bot. |
+| 5 | 🟡 | ✅ | **Manual cache reload** | Added `/reload` Telegram command — calls `invalidatePromptCache()` so the next message reloads memory from GitHub. Registered in bot command menu via `setMyCommands`. |
 | 6 | 🟢 | ⬜ | **Async conversation I/O** | `conversation.ts` uses synchronous `fs.readFileSync`/`writeFileSync` which blocks the event loop during writes. Low risk for a single-user bot but poor hygiene. Switch to `fs.promises` with a simple write queue to prevent any theoretical race conditions. |
 
 ---

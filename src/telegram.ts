@@ -9,6 +9,7 @@ import { checkRateLimit } from "./rate-limit.js";
 import { toMarkdownV2 } from "./markdown.js";
 import { readMemoryFile } from "./memory/github.js";
 import { getWorkspaceRoot, setWorkspaceRoot, isProjectActive } from "./tools/files.js";
+import { invalidatePromptCache } from "./providers/shared.js";
 
 const bot = new Bot(config.telegram.botToken);
 
@@ -195,6 +196,13 @@ bot.command("memory", async (ctx) => {
 });
 
 // /help — list available commands
+// /reload — invalidate system prompt cache
+bot.command("reload", async (ctx) => {
+  if (!isAllowedUser(ctx)) return;
+  invalidatePromptCache();
+  await ctx.reply("System prompt cache cleared. Next message will reload memory from GitHub.");
+});
+
 bot.command("help", async (ctx) => {
   if (!isAllowedUser(ctx)) return;
   await ctx.reply(
@@ -205,6 +213,7 @@ bot.command("help", async (ctx) => {
     "/memory — Show memory file status\n" +
     "/project — Show active workspace\n" +
     "/project <path> — Set active workspace\n" +
+    "/reload — Reload memory from GitHub\n" +
     "/help — This message",
   );
 });
