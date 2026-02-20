@@ -53,8 +53,11 @@ async function handleAiResponse(
     const now = Date.now();
     if (now - lastEditTime < EDIT_INTERVAL_MS) return;
 
-    // Strip think tags from streaming preview
-    const cleaned = accumulated.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+    // Strip think tags — both complete and in-progress (no closing tag yet)
+    const cleaned = accumulated
+      .replace(/<think>[\s\S]*?<\/think>/g, "")
+      .replace(/<think>[\s\S]*$/g, "")
+      .trim();
     if (!cleaned || cleaned === lastEditedText) return;
 
     // Truncate for Telegram limit, add cursor
