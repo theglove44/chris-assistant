@@ -41,14 +41,34 @@ const MAX_OUTPUT = 50_000;
 // ---------------------------------------------------------------------------
 
 /**
+ * Canonicalize a path via realpath, following symlinks.
+ * For paths that don't exist yet (e.g. write_file target), resolve the
+ * deepest existing ancestor and append the remaining segments.
+ */
+function canonicalize(p: string): string {
+  try {
+    return fs.realpathSync(p);
+  } catch {
+    // Path doesn't exist — resolve the parent and append the basename
+    const parent = path.dirname(p);
+    const base = path.basename(p);
+    if (parent === p) return p; // filesystem root — can't go higher
+    return path.join(canonicalize(parent), base);
+  }
+}
+
+/**
  * Resolves a user-supplied relative path against the workspace root and
- * verifies it stays within that root. Returns null if the path escapes.
+ * verifies it stays within that root. Uses realpath to follow symlinks
+ * so a symlink inside the workspace can't escape the boundary.
+ * Returns null if the path escapes.
  */
 function resolveSafePath(userPath: string): string | null {
-  const resolved = path.resolve(workspaceRoot, userPath);
+  const realRoot = canonicalize(workspaceRoot);
+  const resolved = canonicalize(path.resolve(workspaceRoot, userPath));
   if (
-    !resolved.startsWith(workspaceRoot + path.sep) &&
-    resolved !== workspaceRoot
+    !resolved.startsWith(realRoot + path.sep) &&
+    resolved !== realRoot
   ) {
     return null;
   }
