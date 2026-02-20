@@ -70,16 +70,5 @@ export function buildSystemPrompt(memory: LoadedMemory): string {
     parts.push(`# Memories & Learnings\n\n${memory.memory}`);
   }
 
-  parts.push(`# Memory Instructions
-
-You have a tool called "update_memory" that lets you persist important information.
-Use it when you learn something new and significant about Chris — his preferences,
-decisions, projects, people he mentions, or insights about how he communicates.
-
-Do NOT update memory for trivial things. Only persist what would be genuinely useful
-in future conversations. Quality over quantity.
-
-When updating memory, be specific and concise. Write entries as facts, not narratives.`);
-
   return parts.join("\n\n---\n\n");
 }

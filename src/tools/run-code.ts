@@ -39,6 +39,7 @@ function truncate(s: string): string {
 
 registerTool({
   name: "run_code",
+  category: "coding",
   description:
     "Execute a code snippet and return its output. Supports JavaScript, TypeScript, Python, and shell commands. Use this to test code, verify calculations, or run quick scripts. Has a 10-second timeout.",
   zodSchema: {

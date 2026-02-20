@@ -16,3 +16,5 @@ export {
   getMcpAllowedToolNames,
   resetLoopDetection,
 } from "./registry.js";
+
+export { isProjectActive } from "./files.js";

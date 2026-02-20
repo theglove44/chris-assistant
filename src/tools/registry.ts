@@ -6,9 +6,13 @@ import type { ChatCompletionTool } from "openai/resources/chat/completions";
 // Types
 // ---------------------------------------------------------------------------
 
+export type ToolCategory = "always" | "coding";
+
 interface ToolRegistration {
   name: string;
   description: string;
+  /** Tool category — "always" tools are sent on every request, "coding" only when a project is active. */
+  category?: ToolCategory;
   /** Zod schema for Claude MCP tool generation */
   zodSchema: Record<string, z.ZodTypeAny>;
   /** JSON Schema for OpenAI function-calling format */
@@ -80,9 +84,15 @@ export function registerTool(reg: ToolRegistration): void {
 // OpenAI / MiniMax providers
 // ---------------------------------------------------------------------------
 
+function filterTools(includeCoding: boolean): ToolRegistration[] {
+  return Array.from(tools.values()).filter(
+    (t) => includeCoding || (t.category ?? "always") === "always",
+  );
+}
+
 /** Returns tool definitions in OpenAI ChatCompletionTool format. */
-export function getOpenAiToolDefinitions(): ChatCompletionTool[] {
-  return Array.from(tools.values()).map((t) => ({
+export function getOpenAiToolDefinitions(includeCoding = true): ChatCompletionTool[] {
+  return filterTools(includeCoding).map((t) => ({
     type: "function" as const,
     function: {
       name: t.name,
@@ -133,6 +143,7 @@ export async function dispatchToolCall(
 
 /** Generates MCP tool objects from the registry for use with createSdkMcpServer. */
 export function getMcpTools() {
+  // MCP server gets all tools — filtering happens via allowedTools
   return Array.from(tools.values()).map((t) =>
     createMcpTool(
       t.name,
@@ -164,6 +175,6 @@ export function getMcpTools() {
  * MCP tools are namespaced as mcp__<serverName>__<toolName>.
  * The server is named "tools" in claude.ts.
  */
-export function getMcpAllowedToolNames(): string[] {
-  return Array.from(tools.keys()).map((name) => `mcp__tools__${name}`);
+export function getMcpAllowedToolNames(includeCoding = true): string[] {
+  return filterTools(includeCoding).map((t) => `mcp__tools__${t.name}`);
 }

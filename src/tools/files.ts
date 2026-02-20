@@ -8,8 +8,9 @@ import { registerTool } from "./registry.js";
 
 const execFileAsync = promisify(execFile);
 
-let workspaceRoot =
-  process.env.WORKSPACE_ROOT || path.join(os.homedir(), "Projects");
+const DEFAULT_WORKSPACE = path.join(os.homedir(), "Projects");
+
+let workspaceRoot = process.env.WORKSPACE_ROOT || DEFAULT_WORKSPACE;
 
 let onWorkspaceChange: (() => void) | null = null;
 
@@ -19,6 +20,11 @@ export function setWorkspaceChangeCallback(cb: () => void): void {
 
 export function getWorkspaceRoot(): string {
   return workspaceRoot;
+}
+
+/** True when the workspace points to a specific project (not the default ~/Projects). */
+export function isProjectActive(): boolean {
+  return workspaceRoot !== DEFAULT_WORKSPACE;
 }
 
 export function setWorkspaceRoot(newRoot: string): void {
@@ -73,6 +79,7 @@ function countOccurrences(haystack: string, needle: string): number {
 
 registerTool({
   name: "read_file",
+  category: "coding",
   description:
     "Read a file from the workspace. Returns the file contents. Path is relative to the workspace root.",
   zodSchema: {
@@ -115,6 +122,7 @@ registerTool({
 
 registerTool({
   name: "write_file",
+  category: "coding",
   description:
     "Create or overwrite a file in the workspace. Creates parent directories if needed. Path is relative to the workspace root.",
   zodSchema: {
@@ -160,6 +168,7 @@ registerTool({
 
 registerTool({
   name: "edit_file",
+  category: "coding",
   description:
     "Make a targeted edit to a file by replacing an exact string match. The old_string must appear exactly once in the file. Path is relative to the workspace root.",
   zodSchema: {
@@ -234,6 +243,7 @@ registerTool({
 
 registerTool({
   name: "list_files",
+  category: "coding",
   description:
     "List files matching a glob pattern in the workspace. Path is relative to the workspace root. Pattern supports globs like '**/*.ts'. Returns file paths relative to the workspace root.",
   zodSchema: {
@@ -338,6 +348,7 @@ registerTool({
 
 registerTool({
   name: "search_files",
+  category: "coding",
   description:
     "Search file contents for a regex pattern. Returns matching lines with file paths and line numbers. Path is relative to the workspace root.",
   zodSchema: {

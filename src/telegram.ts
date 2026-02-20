@@ -8,7 +8,7 @@ import { addMessage, clearHistory } from "./conversation.js";
 import { checkRateLimit } from "./rate-limit.js";
 import { toMarkdownV2 } from "./markdown.js";
 import { readMemoryFile } from "./memory/github.js";
-import { getWorkspaceRoot, setWorkspaceRoot } from "./tools/files.js";
+import { getWorkspaceRoot, setWorkspaceRoot, isProjectActive } from "./tools/files.js";
 
 const bot = new Bot(config.telegram.botToken);
 
@@ -184,7 +184,7 @@ bot.command("project", async (ctx) => {
   const arg = ctx.match?.trim();
 
   if (!arg) {
-    await ctx.reply(`Active workspace: ${getWorkspaceRoot()}`);
+    await ctx.reply(`Active workspace: ${getWorkspaceRoot()}\nCoding tools: ${isProjectActive() ? "enabled" : "disabled (set a specific project to enable)"}`);
     return;
   }
 
@@ -202,7 +202,7 @@ bot.command("project", async (ctx) => {
   }
 
   setWorkspaceRoot(resolved);
-  await ctx.reply(`Workspace set to: ${resolved}`);
+  await ctx.reply(`Workspace set to: ${resolved}\nCoding tools: enabled`);
 });
 
 // Handle text messages

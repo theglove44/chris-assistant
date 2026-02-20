@@ -21,6 +21,7 @@ function truncate(s: string): string {
 
 registerTool({
   name: "git_status",
+  category: "coding",
   description:
     "Show the git status of the active workspace. Returns staged, unstaged, and untracked file changes.",
   zodSchema: {},
@@ -59,6 +60,7 @@ registerTool({
 
 registerTool({
   name: "git_diff",
+  category: "coding",
   description:
     "Show git diff of changes in the active workspace. Use staged=true to see only staged changes.",
   zodSchema: {
@@ -113,6 +115,7 @@ registerTool({
 
 registerTool({
   name: "git_commit",
+  category: "coding",
   description:
     "Create a git commit in the active workspace. Optionally stage specific files first. If no files specified, commits whatever is already staged.",
   zodSchema: {
