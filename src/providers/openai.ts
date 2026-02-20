@@ -54,6 +54,10 @@ export function createOpenAiProvider(model: string): Provider {
           // Tool calls accumulator: Map<index, { id, name, arguments }>
           const toolCallAccumulator = new Map<number, { id: string; name: string; arguments: string }>();
 
+          // Strip think tags from content
+          const stripThinkTags = (text: string) =>
+            text.replace(/<think>[\s\S]*?<\/think>/g, "").replace(/<think>[\s\S]*$/g, "");
+
           for await (const chunk of stream) {
             const choice = chunk.choices[0];
             if (!choice) continue;
@@ -63,7 +67,8 @@ export function createOpenAiProvider(model: string): Provider {
             // Accumulate text content and notify caller
             if (delta?.content) {
               contentAccumulator += delta.content;
-              onChunk?.(contentAccumulator);
+              const cleaned = stripThinkTags(contentAccumulator);
+              onChunk?.(cleaned);
             }
 
             // Accumulate tool call deltas
@@ -111,7 +116,7 @@ export function createOpenAiProvider(model: string): Provider {
 
           // No tool calls — this is the final text response
           invalidatePromptCache();
-          return contentAccumulator;
+          return stripThinkTags(contentAccumulator);
         }
 
         // Exhausted turns

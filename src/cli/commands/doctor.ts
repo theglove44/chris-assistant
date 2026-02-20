@@ -2,8 +2,9 @@ import { Command } from "commander";
 import { existsSync, readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
+import { execFileSync } from "child_process";
 import { Octokit } from "@octokit/rest";
-import { getBotProcess } from "../pm2-helper.js";
+import { getBotProcess, withPm2, PM2_NAME, PROJECT_ROOT } from "../pm2-helper.js";
 import { loadTokens } from "../../providers/minimax-oauth.js";
 import { loadTokens as loadOpenaiTokens } from "../../providers/openai-oauth.js";
 
@@ -23,7 +24,8 @@ export function registerDoctorCommand(program: Command) {
   program
     .command("doctor")
     .description("Check configuration, connections, and health")
-    .action(async () => {
+    .option("--fix", "Attempt to automatically fix issues (typecheck, restart bot)")
+    .action(async (opts: { fix?: boolean }) => {
       console.log("Running diagnostics...\n");
 
       // Load env
@@ -220,8 +222,35 @@ export function registerDoctorCommand(program: Command) {
               console.log("    Running (pid %d)", proc.pid);
               return "pass";
             }
-            console.log("    Status: %s", proc.status);
-            return "warn";
+            console.log("    Status: %s (restarts: %d)", proc.status, proc.restarts ?? 0);
+            if (proc.status === "errored") {
+              // Show recent error log excerpt
+              try {
+                const errLogPath = resolve(
+                  process.env.HOME || "~",
+                  ".pm2/logs/chris-assistant-error.log",
+                );
+                if (existsSync(errLogPath)) {
+                  const errLog = readFileSync(errLogPath, "utf-8");
+                  const lines = errLog.trim().split("\n");
+                  // Find the last meaningful error line (skip blank and pm2 prefix noise)
+                  const errorLines = lines
+                    .slice(-20)
+                    .map((l) => l.replace(/^\d+\|chris-as \| /, "").trim())
+                    .filter((l) => l.length > 0);
+                  // Look for the key error message
+                  const errorSummary = errorLines.find(
+                    (l) => l.includes("ERROR:") || l.includes("Error") || l.includes("error"),
+                  );
+                  if (errorSummary) {
+                    console.log("    Last error: %s", errorSummary.slice(0, 120));
+                  }
+                }
+              } catch {
+                // Ignore — best effort
+              }
+            }
+            return proc.status === "errored" ? "fail" : "warn";
           },
         },
       ];
@@ -241,8 +270,123 @@ export function registerDoctorCommand(program: Command) {
 
       console.log("\n%d passed, %d warnings, %d failed", passes, warns, fails);
 
-      if (fails > 0) {
+      // --fix: attempt to diagnose and repair
+      if (opts.fix) {
+        console.log("\n--- Auto-fix ---\n");
+
+        const proc = await getBotProcess();
+        const botErrored = proc && (proc.status === "errored" || proc.status === "stopped");
+        const botMissing = !proc;
+
+        if (!botErrored && !botMissing && proc?.status === "online") {
+          console.log("  %s Bot is already running — nothing to fix.", PASS);
+        } else {
+          // Step 1: Typecheck
+          console.log("  Running typecheck...");
+          try {
+            execFileSync("npx", ["tsc", "--noEmit"], {
+              cwd: PROJECT_ROOT,
+              timeout: 30_000,
+              stdio: "pipe",
+            });
+            console.log("  %s Typecheck passed", PASS);
+          } catch (err: any) {
+            const output = (err.stdout?.toString() || "") + (err.stderr?.toString() || "");
+            console.log("  %s Typecheck failed:\n", FAIL);
+            // Show the actual errors (compact)
+            const errorLines = output
+              .split("\n")
+              .filter((l: string) => l.includes("error TS") || l.includes("ERROR:"))
+              .slice(0, 10);
+            for (const line of errorLines) {
+              console.log("    %s", line.trim());
+            }
+            if (errorLines.length === 0) {
+              // Show raw output if no TS errors found
+              console.log("    %s", output.trim().split("\n").slice(0, 5).join("\n    "));
+            }
+            console.log("\n  Fix the errors above, then run 'chris doctor --fix' again.");
+            return;
+          }
+
+          // Step 2: Check error logs for common issues
+          try {
+            const errLogPath = resolve(
+              process.env.HOME || "~",
+              ".pm2/logs/chris-assistant-error.log",
+            );
+            if (existsSync(errLogPath)) {
+              const errLog = readFileSync(errLogPath, "utf-8");
+              const lines = errLog.trim().split("\n").slice(-30);
+              const cleaned = lines.map((l) =>
+                l.replace(/^\d+\|chris-as \| /, "").trim(),
+              );
+
+              // Check for common fixable patterns
+              const hasTransformError = cleaned.some((l) => l.includes("TransformError"));
+              const hasSyntaxError = cleaned.some((l) => l.includes("SyntaxError") || l.includes("Syntax error"));
+              const hasModuleNotFound = cleaned.some((l) => l.includes("Cannot find module") || l.includes("MODULE_NOT_FOUND"));
+
+              if (hasModuleNotFound) {
+                console.log("  Missing module detected — running npm install...");
+                try {
+                  execFileSync("npm", ["install"], {
+                    cwd: PROJECT_ROOT,
+                    timeout: 60_000,
+                    stdio: "pipe",
+                  });
+                  console.log("  %s npm install completed", PASS);
+                } catch {
+                  console.log("  %s npm install failed — check manually", FAIL);
+                  return;
+                }
+              }
+
+              if (hasTransformError || hasSyntaxError) {
+                console.log("  Detected syntax/transform error in error logs.");
+                console.log("  Typecheck passed — this may have been fixed already.");
+              }
+            }
+          } catch {
+            // Ignore — best effort
+          }
+
+          // Step 3: Restart the bot
+          console.log("  Restarting bot...");
+          try {
+            if (botMissing) {
+              console.log('  Bot not in pm2 — use "chris start" instead.');
+              return;
+            }
+            await withPm2(async (pm2Instance) => {
+              return new Promise<void>((resolve, reject) => {
+                pm2Instance.restart(PM2_NAME, (err) => {
+                  if (err) return reject(err);
+                  resolve();
+                });
+              });
+            });
+
+            // Wait a moment and check status
+            await new Promise((r) => setTimeout(r, 3000));
+            const newProc = await getBotProcess();
+            if (newProc?.status === "online") {
+              console.log("  %s Bot restarted successfully (pid %d)", PASS, newProc.pid);
+            } else {
+              console.log("  %s Bot restarted but status is: %s", FAIL, newProc?.status ?? "unknown");
+              console.log('    Check logs with "chris logs" for details.');
+            }
+          } catch (err: any) {
+            console.log("  %s Failed to restart: %s", FAIL, err.message);
+          }
+        }
+      } else if (fails > 0) {
         console.log('\nFix the failures above, then run "chris doctor" again.');
+        // Hint about --fix if bot is the issue
+        const proc = await getBotProcess();
+        if (proc && (proc.status === "errored" || proc.status === "stopped")) {
+          console.log('Or try "chris doctor --fix" to auto-diagnose and restart.');
+        }
       } else if (warns > 0) {
         console.log("\nLooking good — just some minor warnings above.");
       } else {
