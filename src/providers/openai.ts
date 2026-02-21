@@ -4,6 +4,7 @@ import { getSystemPrompt, invalidatePromptCache } from "./shared.js";
 import { formatHistoryForPrompt } from "../conversation.js";
 import { getOpenAiToolDefinitions, dispatchToolCall } from "../tools/index.js";
 import { getValidAccessToken } from "./openai-oauth.js";
+import { needsCompaction, compactMessages } from "./compaction.js";
 import type { Provider, ImageAttachment } from "./types.js";
 import type { ChatCompletionMessageParam, ChatCompletionContentPart } from "openai/resources/chat/completions";
 
@@ -35,14 +36,21 @@ export function createOpenAiProvider(model: string): Provider {
           ]
         : [{ type: "text", text: fullUserMessage }];
 
-      const messages: ChatCompletionMessageParam[] = [
+      let messages: ChatCompletionMessageParam[] = [
         { role: "system", content: systemPrompt },
         { role: "user", content: userContent },
       ];
 
       try {
-        // Tool call loop — configurable tool turn limit (see MAX_TOOL_TURNS env var)
+        // Tool call loop — runs until the model returns a final text response.
+        // Context compaction keeps us within the model's context window.
+        // config.maxToolTurns (default 200) is a safety ceiling only.
         for (let turn = 0; turn < config.maxToolTurns; turn++) {
+          // Check if context needs compaction before the API call
+          if (needsCompaction(model, messages)) {
+            messages = await compactMessages(client, model, messages, "openai");
+          }
+
           const stream = await client.chat.completions.create({
             model,
             messages,
@@ -119,9 +127,35 @@ export function createOpenAiProvider(model: string): Provider {
           return stripThinkTags(contentAccumulator);
         }
 
-        // Exhausted turns
-        invalidatePromptCache();
-        return "Sorry, I ran out of processing turns.";
+        // Safety ceiling reached — ask the model to summarize what it accomplished
+        console.log(`[openai] Safety ceiling (${config.maxToolTurns} turns) reached, requesting summary`);
+        try {
+          const summaryStream = await client.chat.completions.create({
+            model,
+            messages: [
+              ...messages,
+              {
+                role: "user",
+                content:
+                  "You have reached the maximum number of tool calls. Please summarize what you accomplished, what remains to be done, and any important findings so far.",
+              },
+            ],
+            stream: true,
+          });
+          let summary = "";
+          for await (const chunk of summaryStream) {
+            const delta = chunk.choices[0]?.delta;
+            if (delta?.content) {
+              summary += delta.content;
+              onChunk?.(summary);
+            }
+          }
+          invalidatePromptCache();
+          return summary || "I reached the processing limit. Please ask me to continue where I left off.";
+        } catch {
+          invalidatePromptCache();
+          return "I reached the processing limit. Please ask me to continue where I left off.";
+        }
       } catch (error: any) {
         console.error("[openai] Error:", error.message);
         return "Sorry, I hit an error processing that. Try again in a moment.";

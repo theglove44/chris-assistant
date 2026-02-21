@@ -45,6 +45,7 @@ The assistant has its own identity, personality, and evolving memory. Everything
 - **MarkdownV2 rendering** — AI responses are formatted for Telegram with bold, italic, code blocks, and links.
 - **Rate limiting** — Sliding window limiter (10 messages/minute per user).
 - **Health monitoring** — Startup notification, periodic checks (GitHub access, token expiry), alerts with dedup.
+- **Context compaction** — When the conversation approaches the model's context window limit, older tool turns are summarized into a structured checkpoint and the loop continues. No hard turn ceiling — the bot can handle arbitrarily long SSH investigations and multi-file coding tasks.
 - **Prompt injection defense** — Memory writes are validated for size, rate, and suspicious content.
 
 ## Architecture
@@ -65,10 +66,12 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── types.ts          # Provider interface + ImageAttachment type
 │   │   ├── shared.ts         # System prompt caching + model info injection
 │   │   ├── claude.ts         # Claude Agent SDK provider
-│   │   ├── openai.ts         # OpenAI provider (streaming, images, tools)
+│   │   ├── openai.ts         # OpenAI provider (streaming, images, tools, compaction)
 │   │   ├── openai-oauth.ts   # OpenAI Codex OAuth device flow + token storage
-│   │   ├── minimax.ts        # MiniMax provider (OpenAI-compatible API)
+│   │   ├── minimax.ts        # MiniMax provider (OpenAI-compatible API, compaction)
 │   │   ├── minimax-oauth.ts  # MiniMax OAuth device flow + token storage
+│   │   ├── compaction.ts     # Context compaction — summarizes old turns to stay in window
+│   │   ├── context-limits.ts # Model context window sizes and compaction thresholds
 │   │   └── index.ts          # Provider router — model string determines provider
 │   ├── tools/
 │   │   ├── registry.ts       # Tool registry — registerTool(), dispatch, MCP/OpenAI format
@@ -405,7 +408,7 @@ chris setup              # Interactive first-time setup wizard (creates .env)
 | `AI_MODEL` | No | Model ID — determines provider. Default: `gpt-4o` |
 | `BRAVE_SEARCH_API_KEY` | No | Brave Search API key for web search tool |
 | `WORKSPACE_ROOT` | No | Root directory for file/git tools. Default: `~/Projects`. Changeable at runtime via `/project`. |
-| `MAX_TOOL_TURNS` | No | Max tool call rounds per message. Default: `15`. |
+| `MAX_TOOL_TURNS` | No | Safety ceiling for tool call rounds per message. Default: `200`. Context compaction handles the real limit. |
 | `CLAUDE_CODE_OAUTH_TOKEN` | No | Only needed to use Claude models |
 
 OpenAI and MiniMax authenticate via OAuth device flows (`chris openai login` / `chris minimax login`) with tokens stored in `~/.chris-assistant/`.

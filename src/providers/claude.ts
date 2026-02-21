@@ -35,7 +35,7 @@ export function createClaudeProvider(model: string): Provider {
           options: {
             systemPrompt,
             model,
-            maxTurns: config.maxToolTurns,
+            maxTurns: 100,
             mcpServers: {
               tools: toolServer,
             },
