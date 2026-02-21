@@ -37,7 +37,7 @@ The assistant has its own identity, personality, and evolving memory. Everything
 - **Code execution** — AI can run JavaScript, TypeScript, Python, or shell commands via `child_process.execFile` (10s timeout, 50KB output limit). Not sandboxed — runs with bot's user privileges.
 - **File tools** — AI can read, write, edit, list, and search files in the active workspace. All paths scoped to `WORKSPACE_ROOT` (default `~/Projects`) with symlink-aware traversal guard.
 - **Git tools** — AI can check `git status`, view diffs, and commit changes in the active workspace. No `git push` — deliberate safety choice.
-- **SSH & remote access** — AI can SSH into Tailnet devices, run commands in persistent tmux sessions (attachable from iPhone), transfer files via SCP, and discover online devices. Uses `BatchMode=yes` with no password prompts.
+- **SSH & remote access** — AI can SSH into Tailnet devices, run commands in persistent tmux sessions (attachable from iPhone), transfer files via SCP, and discover online devices. See the [SSH Tool Guide](docs/ssh-tool.md) for full details.
 - **Scheduled tasks** — Tell the bot "check X every morning" and it creates a cron-scheduled task. Tasks fire by sending the prompt to the AI with full tool access, and the response is delivered via Telegram. Managed via `manage_schedule` tool or by editing `~/.chris-assistant/schedules.json`.
 - **Project context** — When a workspace has a `CLAUDE.md`, `AGENTS.md`, or `README.md`, it's loaded into the system prompt so the AI understands the project.
 - **Persistent memory** — Long-term facts stored as markdown in a GitHub repo. Every update is a git commit.
@@ -263,9 +263,36 @@ The assistant has access to these tools (all providers pick them up automaticall
 | `git_status` | Coding | Show git status of the active workspace |
 | `git_diff` | Coding | Show git diff (staged or unstaged) |
 | `git_commit` | Coding | Stage files and commit (no push — safety choice) |
-| `ssh` | Always | SSH into Tailnet devices — run commands, manage tmux sessions, transfer files (8 actions) |
+| `ssh` | Always | SSH into Tailnet devices — 8 actions ([full guide](docs/ssh-tool.md)) |
 
 "Always" tools are available in every conversation. "Coding" tools are only sent when a project workspace is active (set via `/project` command or `WORKSPACE_ROOT` env var).
+
+### SSH Tool Highlights
+
+The `ssh` tool lets the AI manage remote devices on your Tailscale network. Commands run in **persistent tmux sessions** on the Mac Mini — you can ask the bot to start a long-running task, then attach to the session from your iPhone to watch or interact.
+
+**8 actions in one tool:**
+
+| Action | What it does |
+|--------|-------------|
+| `exec` | SSH into a host, run a command in a tmux session, poll until done |
+| `send_keys` | Send keystrokes to a session (e.g. `C-c` to cancel, `q` to quit) |
+| `read_pane` | Read current terminal output without sending input |
+| `devices` | List all Tailnet devices with hostname, IP, OS, and online status |
+| `sessions` | List active `chris-bot-*` tmux sessions |
+| `kill_session` | Terminate a tmux session (only bot sessions, not user sessions) |
+| `scp_push` | Copy a file from the workspace to a remote host |
+| `scp_pull` | Copy a file from a remote host into the workspace |
+
+**Key design choices:**
+- All commands via `execFile()` — no shell injection possible
+- `BatchMode=yes` — SSH never prompts for passwords (fails fast instead)
+- Absolute binary paths — works under pm2 daemon (no PATH dependency)
+- Local SCP paths validated through `resolveSafePath()` — can't escape workspace
+- Session prefix `chris-bot-` enforced — can't kill user sessions
+- Sessions attachable from any device: `ssh macmini && tmux attach -t chris-bot-*`
+
+See the [full SSH Tool Guide](docs/ssh-tool.md) for detailed documentation, the exec flow, timeouts, and troubleshooting.
 
 ## CLI Reference
 
