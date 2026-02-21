@@ -63,7 +63,7 @@ function canonicalize(p: string): string {
  * so a symlink inside the workspace can't escape the boundary.
  * Returns null if the path escapes.
  */
-function resolveSafePath(userPath: string): string | null {
+export function resolveSafePath(userPath: string): string | null {
   const realRoot = canonicalize(workspaceRoot);
   const resolved = canonicalize(path.resolve(workspaceRoot, userPath));
   if (

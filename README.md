@@ -37,6 +37,7 @@ The assistant has its own identity, personality, and evolving memory. Everything
 - **Code execution** — AI can run JavaScript, TypeScript, Python, or shell commands via `child_process.execFile` (10s timeout, 50KB output limit). Not sandboxed — runs with bot's user privileges.
 - **File tools** — AI can read, write, edit, list, and search files in the active workspace. All paths scoped to `WORKSPACE_ROOT` (default `~/Projects`) with symlink-aware traversal guard.
 - **Git tools** — AI can check `git status`, view diffs, and commit changes in the active workspace. No `git push` — deliberate safety choice.
+- **SSH & remote access** — AI can SSH into Tailnet devices, run commands in persistent tmux sessions (attachable from iPhone), transfer files via SCP, and discover online devices. Uses `BatchMode=yes` with no password prompts.
 - **Scheduled tasks** — Tell the bot "check X every morning" and it creates a cron-scheduled task. Tasks fire by sending the prompt to the AI with full tool access, and the response is delivered via Telegram. Managed via `manage_schedule` tool or by editing `~/.chris-assistant/schedules.json`.
 - **Project context** — When a workspace has a `CLAUDE.md`, `AGENTS.md`, or `README.md`, it's loaded into the system prompt so the AI understands the project.
 - **Persistent memory** — Long-term facts stored as markdown in a GitHub repo. Every update is a git commit.
@@ -78,7 +79,8 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── run-code.ts       # Code execution — JS/TS/Python/shell, 10s timeout
 │   │   ├── files.ts          # File tools — read, write, edit, list, search (workspace-scoped)
 │   │   ├── git.ts            # Git tools — status, diff, commit (workspace-scoped)
-│   │   └── scheduler.ts      # manage_schedule tool — create, list, delete, toggle
+│   │   ├── scheduler.ts      # manage_schedule tool — create, list, delete, toggle
+│   │   └── ssh.ts            # SSH tool — exec, tmux, SCP, Tailnet device discovery
 │   ├── memory/
 │   │   ├── github.ts         # Read/write memory files via GitHub API
 │   │   ├── loader.ts         # Assembles system prompt from memory
@@ -261,6 +263,7 @@ The assistant has access to these tools (all providers pick them up automaticall
 | `git_status` | Coding | Show git status of the active workspace |
 | `git_diff` | Coding | Show git diff (staged or unstaged) |
 | `git_commit` | Coding | Stage files and commit (no push — safety choice) |
+| `ssh` | Always | SSH into Tailnet devices — run commands, manage tmux sessions, transfer files (8 actions) |
 
 "Always" tools are available in every conversation. "Coding" tools are only sent when a project workspace is active (set via `/project` command or `WORKSPACE_ROOT` env var).
 

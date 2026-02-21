@@ -36,7 +36,8 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── run-code.ts       # Code execution tool — JS/TS/Python/shell, 10s timeout, execFile
 │   │   ├── files.ts          # File tools — read, write, edit, list, search (workspace-scoped)
 │   │   ├── git.ts            # Git tools — status, diff, commit (workspace-scoped)
-│   │   └── scheduler.ts      # manage_schedule tool — create, list, delete, toggle scheduled tasks
+│   │   ├── scheduler.ts      # manage_schedule tool — create, list, delete, toggle scheduled tasks
+│   │   └── ssh.ts            # SSH tool — exec, tmux, SCP, Tailnet device discovery (8 actions)
 │   ├── memory/
 │   │   ├── github.ts         # Octokit wrapper — read/write/append files in memory repo
 │   │   ├── loader.ts         # Loads identity + knowledge + memory files, builds system prompt
@@ -96,6 +97,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 - **Memory guard**: `validateMemoryContent()` in `memory/tools.ts` defends against prompt injection — 2000 char limit, replace throttle (1 per 5 min per category), injection phrase detection, dangerous shell block detection, path traversal blocking.
 - **Health monitor**: `health.ts` sends a Telegram startup notification, runs health checks every 5 minutes (GitHub access, token expiry), and alerts the owner with dedup (1 hour re-alert) and recovery messages.
 - **Scheduled tasks**: `scheduler.ts` loads tasks from `~/.chris-assistant/schedules.json`, ticks every 60s, and fires matching tasks by sending the prompt to `chat()` with full tool access. Results sent to Telegram via raw fetch (same pattern as `health.ts`). Custom cron matcher supports `*`, specific values, commas, and `*/N` step values — no npm dependency. The `manage_schedule` tool (category `"always"`) lets the AI create, list, delete, and toggle schedules. Double-fire prevention checks that `lastRun` wasn't in the same minute.
+- **SSH tool**: `src/tools/ssh.ts` — single tool with 8 actions for remote device management via Tailscale. `exec` creates persistent tmux sessions (`chris-bot-<host>-<id>`) and SSHs in to run commands, polling until the shell prompt returns or timeout. `send_keys` / `read_pane` interact with existing sessions. `devices` queries `tailscale status --json`. `scp_push` / `scp_pull` transfer files with local path validation via `resolveSafePath()`. All commands use `execFile` (no shell injection), absolute binary paths (works under pm2), `BatchMode=yes` (no password prompts), and `ConnectTimeout=10`. Tmux sessions are attachable from any device (e.g. iPhone via SSH).
 - **pm2 process management**: The bot runs as a pm2 process. The CLI uses pm2's programmatic API. pm2 can't find `tsx` via PATH so we use the absolute path from `node_modules/.bin/tsx` as the interpreter.
 - **CLI global install**: `npm link` creates a global `chris` command. The `bin/chris` shell wrapper follows symlinks to resolve the real project root and finds tsx from node_modules.
 
