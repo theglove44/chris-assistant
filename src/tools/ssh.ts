@@ -69,6 +69,26 @@ function looksIdle(output: string): boolean {
   return /[$#%>]\s*$/.test(last);
 }
 
+/** Detect a dead SSH connection inside an existing tmux session. */
+function looksDisconnected(output: string): boolean {
+  const lower = output.toLowerCase();
+  return /connection (closed|reset|timed out|refused)/i.test(output) ||
+    /broken pipe/i.test(output) ||
+    /no route to host/i.test(output) ||
+    /host is down/i.test(output) ||
+    /network is unreachable/i.test(output) ||
+    lower.includes("logout") && !lower.includes("last login");
+}
+
+/** Kill a tmux session, ignoring errors if it's already gone. */
+async function tmuxKill(name: string): Promise<void> {
+  try {
+    await execFileAsync(TMUX_BIN, ["kill-session", "-t", name], { timeout: 5_000 });
+  } catch {
+    // Already gone — fine
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Action implementations
 // ---------------------------------------------------------------------------
@@ -85,7 +105,17 @@ async function actionExec(args: {
 
   console.log("[ssh] exec host=%s session=%s command=%s", args.host, sessionName, args.command.slice(0, 100));
 
-  const existed = await tmuxHasSession(sessionName);
+  let existed = await tmuxHasSession(sessionName);
+
+  // If session exists, check whether the SSH connection inside it is still alive
+  if (existed) {
+    const pane = await tmuxCapture(sessionName, 20);
+    if (looksDisconnected(pane)) {
+      console.log("[ssh] Session %s has a dead SSH connection, recreating", sessionName);
+      await tmuxKill(sessionName);
+      existed = false;
+    }
+  }
 
   if (!existed) {
     // Create new tmux session with SSH connection
