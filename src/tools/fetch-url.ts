@@ -6,9 +6,10 @@ const FETCH_TIMEOUT_MS = 15_000;
 
 function stripHtml(html: string): string {
   // Remove <script>...</script> blocks entirely (including content)
-  let text = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "");
+  // Note: closing tags use string concat to avoid esbuild misinterpreting </ as script close
+  let text = html.replace(new RegExp("<script\\b[^>]*>[\\s\\S]*?<" + "/script>", "gi"), "");
   // Remove <style>...</style> blocks entirely (including content)
-  text = text.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "");
+  text = text.replace(new RegExp("<style\\b[^>]*>[\\s\\S]*?<" + "/style>", "gi"), "");
   // Remove all remaining HTML tags
   text = text.replace(/<[^>]+>/g, " ");
   // Decode common HTML entities
@@ -68,6 +69,16 @@ registerTool({
       }
 
       const contentType = res.headers.get("content-type") ?? "";
+
+      // Reject binary content early — reading it as text produces garbage and
+      // wastes context window. Return a clear error so the model doesn't try
+      // to interpret binary bytes as meaningful text.
+      const binaryPrefixes = ["image/", "audio/", "video/", "application/octet-stream", "application/pdf"];
+      if (binaryPrefixes.some((p) => contentType.startsWith(p))) {
+        console.log("[fetch-url] Skipped binary content (%s): %s", contentType, url);
+        return `Cannot fetch ${url}: this is a binary image file (${contentType}). You already have direct vision access to any image the user sent — describe it using your built-in vision capabilities without fetching its URL.`;
+      }
+
       const rawText = await res.text();
 
       let content: string;

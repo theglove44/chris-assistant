@@ -84,8 +84,9 @@ async function handleAiResponse(
     if (now - lastEditTime < EDIT_INTERVAL_MS) return;
 
     // Strip think tags — both complete and in-progress (no closing tag yet)
+    const thinkCloseTag = "<" + "/think>";
     const cleaned = accumulated
-      .replace(/<think>[\s\S]*?<\/think>/g, "")
+      .replace(new RegExp("<think>[\\s\\S]*?" + thinkCloseTag, "g"), "")
       .replace(/<think>[\s\S]*$/g, "")
       .trim();
     if (!cleaned || cleaned === lastEditedText) return;
@@ -107,7 +108,8 @@ async function handleAiResponse(
     const rawResponse = await chatWithRetry(chatId, userMessage, onChunk, image);
 
     // Strip <think>...</think> blocks (reasoning models emit these)
-    const response = rawResponse.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+    const thinkClose = "<" + "/think>";
+    const response = rawResponse.replace(new RegExp("<think>[\\s\\S]*?" + thinkClose, "g"), "").trim();
 
     addMessage(chatId, "assistant", response);
 
