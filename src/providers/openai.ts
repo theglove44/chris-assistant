@@ -63,8 +63,9 @@ export function createOpenAiProvider(model: string): Provider {
           const toolCallAccumulator = new Map<number, { id: string; name: string; arguments: string }>();
 
           // Strip think tags from content
+          const thinkClose = "<" + "/think>";
           const stripThinkTags = (text: string) =>
-            text.replace(/<think>[\s\S]*?<\/think>/g, "").replace(/<think>[\s\S]*$/g, "");
+            text.replace(new RegExp("<think>[\\s\\S]*?" + thinkClose, "g"), "").replace(/<think>[\s\S]*$/g, "");
 
           for await (const chunk of stream) {
             const choice = chunk.choices[0];
