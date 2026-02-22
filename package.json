@@ -10,7 +10,7 @@
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "build": "tsc",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && node scripts/check-esbuild-compat.js",
     "chris": "tsx src/cli/index.ts"
   },
   "dependencies": {
