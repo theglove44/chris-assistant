@@ -24,8 +24,8 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── claude.ts         # Claude Agent SDK provider
 │   │   ├── minimax.ts        # MiniMax provider (OpenAI-compatible API)
 │   │   ├── minimax-oauth.ts  # MiniMax OAuth device flow + token storage
-│   │   ├── openai.ts         # OpenAI provider (GPT-4o, o3, etc.)
-│   │   ├── openai-oauth.ts   # OpenAI Codex OAuth device flow + token storage
+│   │   ├── openai.ts         # OpenAI provider — Codex Responses API + SSE streaming
+│   │   ├── openai-oauth.ts   # OpenAI OAuth — authorization code + PKCE + account ID
 │   │   └── index.ts          # Provider router — model string determines provider
 │   ├── tools/
 │   │   ├── registry.ts       # Shared tool registry — registerTool(), dispatch, MCP/OpenAI format gen
@@ -58,7 +58,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 │           ├── doctor.ts      # chris doctor [--fix] — diagnostic checks + auto-repair
 │           ├── setup.ts       # chris setup — interactive first-time wizard
 │           ├── minimax-login.ts # chris minimax login|status — OAuth device flow
-│           └── openai-login.ts  # chris openai login|status — Codex OAuth device flow
+│           └── openai-login.ts  # chris openai login|status — browser OAuth + callback server
 
 chris-assistant-memory/       ← Separate private repo (the brain)
 ├── identity/SOUL.md          # Personality, purpose, onboarding instructions
@@ -75,8 +75,8 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 ## Key Design Decisions
 
 - **Multi-provider**: The model string determines the provider. `gpt-*`/`o3*`/`o4-*` → OpenAI, `MiniMax-*` → MiniMax, everything else → Claude. No separate "provider" config key.
-- **Authentication**: OpenAI (default) uses Codex OAuth device flow (`chris openai login`) — tokens in `~/.chris-assistant/openai-auth.json` with auto-refresh. MiniMax uses OAuth device flow (`chris minimax login`) — tokens in `~/.chris-assistant/minimax-auth.json`. Claude is optional — requires `CLAUDE_CODE_OAUTH_TOKEN` in `.env` from a Max subscription.
-- **Streaming responses**: OpenAI and MiniMax providers stream via `onChunk` callback in the Provider interface. `telegram.ts` sends a "..." placeholder and edits it every 1.5s with accumulated text + cursor (▍). Claude SDK doesn't expose token streaming yet. Final render uses Markdown with plain text fallback.
+- **Authentication**: OpenAI uses authorization code OAuth + PKCE (`chris openai login`) — opens browser, local callback server on port 1455. Tokens + account ID in `~/.chris-assistant/openai-auth.json` with auto-refresh. Account ID is extracted from JWT for `chatgpt-account-id` header. MiniMax uses OAuth device flow (`chris minimax login`) — tokens in `~/.chris-assistant/minimax-auth.json`. Claude is optional — requires `CLAUDE_CODE_OAUTH_TOKEN` in `.env` from a Max subscription.
+- **Streaming responses**: OpenAI streams via SSE from the Codex Responses API (`response.output_text.delta` events). MiniMax streams via the OpenAI SDK. Both use the `onChunk` callback in the Provider interface. `telegram.ts` sends a "..." placeholder and edits it every 1.5s with accumulated text + cursor (▍). Claude SDK doesn't expose token streaming yet. Final render uses Markdown with plain text fallback.
 - **Image and document handling**: `telegram.ts` handles `message:photo` and `message:document` in addition to `message:text`. Photos are downloaded from Telegram, base64-encoded, and passed via `ImageAttachment` in the Provider interface. OpenAI/MiniMax use `image_url` content parts. Claude Agent SDK only accepts string prompts, so images get a text-only fallback. Text documents are downloaded, read as UTF-8, and prepended to the message (50KB truncation). Unsupported file types get a helpful error.
 - **Web search tool**: `src/tools/web-search.ts` — Brave Search API, conditionally registered only when `BRAVE_SEARCH_API_KEY` is set. Returns top 5 results. No new npm deps (native fetch). All providers pick it up automatically via the tool registry.
 - **URL fetch tool**: `src/tools/fetch-url.ts` — always registered, native `fetch` with 15s timeout (AbortController), HTML stripping (script/style removal, tag stripping, entity decoding), 50KB truncation. No API key needed.
@@ -105,7 +105,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 
 - **Runtime**: Node.js 22+ / TypeScript
 - **AI (Claude)**: `@anthropic-ai/claude-agent-sdk` with Max subscription OAuth token
-- **AI (OpenAI)**: `openai` npm package with Codex OAuth (ChatGPT Plus/Pro subscription)
+- **AI (OpenAI)**: Raw fetch to Codex Responses API (`chatgpt.com/backend-api/codex/responses`) with ChatGPT OAuth
 - **AI (MiniMax)**: `openai` npm package with custom baseURL (`https://api.minimax.io/v1`)
 - **Telegram**: grammY
 - **Memory**: `@octokit/rest` for GitHub API
@@ -127,7 +127,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 | `MAX_TOOL_TURNS` | Optional — max tool call rounds per message. Defaults to `25`. |
 | `CLAUDE_CODE_OAUTH_TOKEN` | Optional — only needed to use Claude models |
 
-Note: OpenAI and MiniMax use OAuth device flows with tokens stored in `~/.chris-assistant/`. Claude is optional and requires `CLAUDE_CODE_OAUTH_TOKEN` in `.env`.
+Note: OpenAI uses authorization code OAuth (browser-based, `chris openai login`). MiniMax uses OAuth device flow (`chris minimax login`). Tokens stored in `~/.chris-assistant/`. Claude is optional and requires `CLAUDE_CODE_OAUTH_TOKEN` in `.env`.
 
 ## Common Operations
 
@@ -151,8 +151,8 @@ chris model search       # List all models across all providers
 chris model search openai # Filter by provider/name/description
 
 # OpenAI OAuth
-chris openai login       # Authenticate via Codex OAuth device flow (uses ChatGPT subscription)
-chris openai status      # Check token status
+chris openai login       # Authenticate via browser OAuth (opens browser, callback on port 1455)
+chris openai status      # Check token + account ID status
 
 # MiniMax OAuth
 chris minimax login      # Authenticate via OAuth device flow (no API key needed)
@@ -200,4 +200,6 @@ npx tsx src/cli/index.ts # Run CLI directly without global install
 - **Adding new tools**: Create `src/tools/<name>.ts` with a `registerTool()` call, then add `import "./<name>.js"` to `src/tools/index.ts`. All three providers pick it up automatically — no provider code changes needed.
 - **Adding new providers**: Create `src/providers/<name>.ts` implementing the `Provider` interface, add a prefix check in `src/providers/index.ts`, and add model shortcuts to `src/cli/commands/model.ts`. For OpenAI-compatible providers, use `getOpenAiToolDefinitions()` and `dispatchToolCall()` from `src/tools/index.ts`.
 - **MiniMax OAuth API**: The `/oauth/code` endpoint requires `response_type: "code"` in the body. The `expired_in` field is a unix timestamp in **milliseconds** (not a duration). Token poll responses use a `status` field (`"success"` / `"pending"` / `"error"`) — don't rely on HTTP status codes. Tokens are stored in `~/.chris-assistant/minimax-auth.json`.
-- **OpenAI Codex OAuth**: Three-step device flow — request user code, poll for auth code (403/404 = pending), exchange auth code for tokens. Server provides PKCE code_verifier in the device auth response (unusual). Tokens auto-refresh via refresh_token grant. Tokens in `~/.chris-assistant/openai-auth.json`.
+- **OpenAI Codex OAuth**: Authorization code + PKCE flow — opens browser to `auth.openai.com/oauth/authorize`, local callback server on port 1455 catches the redirect, exchanges code for tokens. Account ID extracted from JWT (`payload["https://api.openai.com/auth"].chatgpt_account_id`). Tokens auto-refresh via refresh_token grant. Tokens + account ID in `~/.chris-assistant/openai-auth.json`.
+- **Codex Responses API constraints**: The `chatgpt.com/backend-api/codex/responses` endpoint requires `stream: true` and `store: false` in every request — there is no non-streaming mode. Headers must include `chatgpt-account-id` and `OpenAI-Beta: responses=experimental`. Only GPT-5.x models work; older models (gpt-4o, gpt-4.1) return a 400 error. Tool definitions use a flat format (`{ type, name, description, parameters }`) instead of the nested Chat Completions format.
+- **Compaction with Codex**: Since the API has no non-streaming mode, `compactCodexInput()` in `compaction.ts` parses SSE responses to extract the summary text. MiniMax compaction still uses the OpenAI SDK (`compactMessages()`).

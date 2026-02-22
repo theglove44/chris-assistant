@@ -1,117 +1,114 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
+import { createHash, randomBytes } from "crypto";
+import { createServer, type Server } from "http";
 
 const CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
 const AUTH_BASE = "https://auth.openai.com";
-const USERCODE_URL = `${AUTH_BASE}/api/accounts/deviceauth/usercode`;
-const DEVICE_TOKEN_URL = `${AUTH_BASE}/api/accounts/deviceauth/token`;
+const OAUTH_AUTHORIZE_URL = `${AUTH_BASE}/oauth/authorize`;
 const OAUTH_TOKEN_URL = `${AUTH_BASE}/oauth/token`;
-const REDIRECT_URI = `${AUTH_BASE}/deviceauth/callback`;
-export const VERIFICATION_URL = "https://auth.openai.com/codex/device";
+const CALLBACK_PORT = 1455;
+const REDIRECT_URI = `http://localhost:${CALLBACK_PORT}/auth/callback`;
 
 const AUTH_DIR = join(homedir(), ".chris-assistant");
 const TOKEN_FILE = join(AUTH_DIR, "openai-auth.json");
 
 /** Margin in seconds before we consider a token expired */
 const EXPIRY_MARGIN = 300; // 5 minutes — refresh early
-const POLL_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 export interface TokenData {
   access_token: string;
   refresh_token: string;
   expires: number; // unix timestamp (milliseconds)
+  accountId?: string; // ChatGPT account ID from JWT
 }
 
-interface DeviceCodeResponse {
-  device_auth_id: string;
-  user_code: string;
-  interval: number; // seconds
+// ---------------------------------------------------------------------------
+// PKCE helpers
+// ---------------------------------------------------------------------------
+
+function base64url(buf: Buffer): string {
+  return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-interface DeviceAuthResult {
-  authorization_code: string;
-  code_verifier: string;
+export function generatePkce(): { verifier: string; challenge: string } {
+  const verifier = base64url(randomBytes(32));
+  const challenge = base64url(createHash("sha256").update(verifier).digest());
+  return { verifier, challenge };
 }
 
-// --- Step 1: Request user code ---
+// ---------------------------------------------------------------------------
+// Authorization URL + callback server
+// ---------------------------------------------------------------------------
 
-export async function requestDeviceCode(): Promise<DeviceCodeResponse> {
-  const res = await fetch(USERCODE_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({ client_id: CLIENT_ID }),
+export function buildAuthorizationUrl(challenge: string, state: string): string {
+  const params = new URLSearchParams({
+    response_type: "code",
+    client_id: CLIENT_ID,
+    redirect_uri: REDIRECT_URI,
+    scope: "openid profile email offline_access",
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+    state,
+    codex_cli_simplified_flow: "true",
+  });
+  return `${OAUTH_AUTHORIZE_URL}?${params}`;
+}
+
+/**
+ * Start a local HTTP server on CALLBACK_PORT that waits for the OAuth callback.
+ * Returns a promise that resolves with the authorization code.
+ */
+export function waitForAuthCallback(
+  expectedState: string,
+): { promise: Promise<string>; server: Server } {
+  let resolveCode: (code: string) => void;
+  let rejectCode: (err: Error) => void;
+
+  const promise = new Promise<string>((resolve, reject) => {
+    resolveCode = resolve;
+    rejectCode = reject;
   });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Failed to request device code (${res.status}): ${text}`);
-  }
-
-  const data = await res.json();
-  if (!data.device_auth_id || !data.user_code) {
-    throw new Error("OpenAI returned incomplete device code response");
-  }
-
-  return {
-    device_auth_id: data.device_auth_id,
-    user_code: data.user_code || data.usercode,
-    interval: Number(data.interval) || 5,
-  };
-}
-
-// --- Step 2: Poll for authorization code ---
-
-export async function pollForAuthCode(
-  deviceAuthId: string,
-  userCode: string,
-  interval: number,
-): Promise<DeviceAuthResult> {
-  const deadline = Date.now() + POLL_TIMEOUT_MS;
-  const pollIntervalMs = Math.max(interval, 5) * 1000;
-
-  while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, pollIntervalMs));
-
-    const res = await fetch(DEVICE_TOKEN_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        device_auth_id: deviceAuthId,
-        user_code: userCode,
-      }),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data.authorization_code && data.code_verifier) {
-        return {
-          authorization_code: data.authorization_code,
-          code_verifier: data.code_verifier,
-        };
-      }
+  const server = createServer((req, res) => {
+    const url = new URL(req.url || "/", `http://localhost:${CALLBACK_PORT}`);
+    if (url.pathname !== "/auth/callback") {
+      res.writeHead(404);
+      res.end("Not found");
+      return;
     }
 
-    // 403 or 404 = still pending, keep polling
-    if (res.status === 403 || res.status === 404) {
-      continue;
+    const code = url.searchParams.get("code");
+    const state = url.searchParams.get("state");
+    const error = url.searchParams.get("error");
+
+    if (error) {
+      res.writeHead(200, { "Content-Type": "text/html" });
+      res.end("<html><body><h2>Authentication failed</h2><p>You can close this tab.</p></body></html>");
+      rejectCode(new Error(`OAuth error: ${error}`));
+      return;
     }
 
-    // Any other error is fatal
-    const text = await res.text();
-    throw new Error(`Device auth poll failed (${res.status}): ${text}`);
-  }
+    if (!code || state !== expectedState) {
+      res.writeHead(400, { "Content-Type": "text/html" });
+      res.end("<html><body><h2>Invalid callback</h2><p>Missing code or state mismatch.</p></body></html>");
+      rejectCode(new Error("Invalid OAuth callback: missing code or state mismatch"));
+      return;
+    }
 
-  throw new Error("Device code expired (15 min timeout) — please try again");
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end("<html><body><h2>Authenticated!</h2><p>You can close this tab and return to the terminal.</p></body></html>");
+    resolveCode(code);
+  });
+
+  server.listen(CALLBACK_PORT);
+  return { promise, server };
 }
 
-// --- Step 3: Exchange authorization code for tokens ---
+// ---------------------------------------------------------------------------
+// Token exchange
+// ---------------------------------------------------------------------------
 
 export async function exchangeForTokens(
   authCode: string,
@@ -141,14 +138,38 @@ export async function exchangeForTokens(
     throw new Error("OpenAI returned incomplete token response");
   }
 
+  const accountId = extractAccountId(data.access_token);
+
   return {
     access_token: data.access_token,
     refresh_token: data.refresh_token,
     expires: Date.now() + (data.expires_in || 3600) * 1000,
+    accountId,
   };
 }
 
-// --- Token refresh ---
+// ---------------------------------------------------------------------------
+// Account ID extraction from JWT
+// ---------------------------------------------------------------------------
+
+function extractAccountId(accessToken: string): string | undefined {
+  try {
+    const parts = accessToken.split(".");
+    if (parts.length < 2) return undefined;
+    const payload = JSON.parse(Buffer.from(parts[1], "base64").toString("utf-8"));
+    const authClaim = payload["https://api.openai.com/auth"];
+    if (authClaim && authClaim.chatgpt_account_id) {
+      return authClaim.chatgpt_account_id;
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Token refresh
+// ---------------------------------------------------------------------------
 
 async function refreshAccessToken(refreshToken: string): Promise<TokenData> {
   const body = new URLSearchParams({
@@ -169,14 +190,19 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenData> {
   }
 
   const data = await res.json();
+  const accountId = extractAccountId(data.access_token);
+
   return {
     access_token: data.access_token,
     refresh_token: data.refresh_token || refreshToken,
     expires: Date.now() + (data.expires_in || 3600) * 1000,
+    accountId,
   };
 }
 
-// --- Token persistence ---
+// ---------------------------------------------------------------------------
+// Token persistence
+// ---------------------------------------------------------------------------
 
 export function loadTokens(): TokenData | null {
   if (!existsSync(TOKEN_FILE)) return null;
@@ -201,7 +227,9 @@ export function saveTokens(tokens: TokenData): void {
   });
 }
 
-// --- Main accessor ---
+// ---------------------------------------------------------------------------
+// Main accessors
+// ---------------------------------------------------------------------------
 
 export async function getValidAccessToken(): Promise<string> {
   const tokens = loadTokens();
@@ -227,4 +255,9 @@ export async function getValidAccessToken(): Promise<string> {
       `OpenAI token refresh failed: ${err.message}. Run "chris openai login" to re-authenticate.`,
     );
   }
+}
+
+export function getAccountId(): string | undefined {
+  const tokens = loadTokens();
+  return tokens?.accountId;
 }

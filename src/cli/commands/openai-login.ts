@@ -1,11 +1,13 @@
 import { Command } from "commander";
+import { randomBytes } from "crypto";
+import { exec } from "child_process";
 import {
-  requestDeviceCode,
-  pollForAuthCode,
+  generatePkce,
+  buildAuthorizationUrl,
+  waitForAuthCallback,
   exchangeForTokens,
   saveTokens,
   loadTokens,
-  VERIFICATION_URL,
 } from "../../providers/openai-oauth.js";
 
 export function registerOpenaiCommand(program: Command) {
@@ -15,50 +17,57 @@ export function registerOpenaiCommand(program: Command) {
 
   openai
     .command("login")
-    .description("Authenticate with OpenAI via Codex OAuth device flow")
+    .description("Authenticate with OpenAI via OAuth (opens browser)")
     .action(async () => {
-      console.log("Starting OpenAI Codex OAuth login...\n");
+      console.log("Starting OpenAI OAuth login...\n");
 
-      // 1. Request device code
-      let deviceCode;
+      // Generate PKCE verifier + challenge
+      const { verifier, challenge } = generatePkce();
+      const state = randomBytes(16).toString("hex");
+
+      // Build authorization URL
+      const authUrl = buildAuthorizationUrl(challenge, state);
+
+      // Start local callback server
+      const { promise: codePromise, server } = waitForAuthCallback(state);
+
+      // Open browser
+      console.log("Opening browser for authentication...\n");
+      const openCommand =
+        process.platform === "darwin" ? "open" :
+        process.platform === "win32" ? "start" : "xdg-open";
+      exec(`${openCommand} "${authUrl}"`, (err) => {
+        if (err) {
+          console.log("Could not open browser automatically.");
+          console.log("Please open this URL manually:\n");
+          console.log("  %s\n", authUrl);
+        }
+      });
+
+      console.log("Waiting for authentication in browser...");
+
       try {
-        deviceCode = await requestDeviceCode();
-      } catch (err: any) {
-        console.error("Failed to start OAuth flow: %s", err.message);
-        process.exit(1);
-      }
+        // Wait for the callback with the auth code
+        const authCode = await codePromise;
+        server.close();
 
-      // 2. Show instructions
-      console.log("Open this URL in your browser:\n");
-      console.log("  %s\n", VERIFICATION_URL);
-      console.log("Enter this code when prompted:\n");
-      console.log("  %s\n", deviceCode.user_code);
-      console.log("Waiting for approval (up to 15 minutes)...");
+        console.log("\nReceived authorization code. Exchanging for tokens...");
 
-      // 3. Poll for auth code
-      try {
-        const authResult = await pollForAuthCode(
-          deviceCode.device_auth_id,
-          deviceCode.user_code,
-          deviceCode.interval,
-        );
-
-        // 4. Exchange for tokens
-        const tokens = await exchangeForTokens(
-          authResult.authorization_code,
-          authResult.code_verifier,
-        );
-
-        // 5. Save and confirm
+        // Exchange auth code for tokens
+        const tokens = await exchangeForTokens(authCode, verifier);
         saveTokens(tokens);
 
         const expiresDate = new Date(tokens.expires);
         console.log("\nAuthenticated successfully.");
+        if (tokens.accountId) {
+          console.log("Account ID: %s", tokens.accountId);
+        }
         console.log("Token expires: %s (auto-refreshes)", expiresDate.toLocaleString());
         console.log(
-          '\nYou can now use OpenAI models. Run "chris model set gpt4o" to switch.',
+          '\nYou can now use OpenAI models. Run "chris model set gpt5" to switch.',
         );
       } catch (err: any) {
+        server.close();
         console.error("\nLogin failed: %s", err.message);
         process.exit(1);
       }
@@ -76,6 +85,10 @@ export function registerOpenaiCommand(program: Command) {
 
       const now = Date.now();
       const remainingMs = tokens.expires - now;
+
+      if (tokens.accountId) {
+        console.log("Account ID: %s", tokens.accountId);
+      }
 
       if (remainingMs <= 0) {
         const expiresDate = new Date(tokens.expires);

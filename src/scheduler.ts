@@ -149,7 +149,13 @@ async function executeTask(task: Schedule): Promise<void> {
     const chatId = config.telegram.allowedUserId;
     const response = await chat(chatId, task.prompt);
 
-    await sendTelegramMessage(`[${task.name}]\n\n${response}`);
+    // Skip sending if response is empty, whitespace, or starts with NOUPDATE:
+    const trimmed = response.trim();
+    if (!trimmed || trimmed.startsWith("NOUPDATE:")) {
+      console.log("[scheduler] No update for task: %s — staying quiet", task.name);
+    } else {
+      await sendTelegramMessage(`[${task.name}]\n\n${trimmed}`);
+    }
 
     // Update lastRun
     task.lastRun = Date.now();

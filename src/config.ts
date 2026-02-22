@@ -10,6 +10,7 @@ function required(name: string): string {
 
 export const config = {
   model: process.env.AI_MODEL || process.env.CLAUDE_MODEL /* back-compat */ || "gpt-4o",
+  imageModel: process.env.IMAGE_MODEL || "gpt-5.2",
   telegram: {
     botToken: required("TELEGRAM_BOT_TOKEN"),
     allowedUserId: Number(required("TELEGRAM_ALLOWED_USER_ID")),
