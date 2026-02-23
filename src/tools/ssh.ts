@@ -96,121 +96,71 @@ async function tmuxKill(name: string): Promise<void> {
 async function actionExec(args: {
   host: string;
   command: string;
-  task_id?: string;
   timeout?: number;
 }): Promise<string> {
   const timeout = Math.min(args.timeout ?? 60, 300);
-  const taskId = args.task_id || randomBytes(3).toString("hex");
-  const sessionName = `${SESSION_PREFIX}${sanitizeForTmux(args.host)}-${taskId}`;
 
-  console.log("[ssh] exec host=%s session=%s command=%s", args.host, sessionName, args.command.slice(0, 100));
+  console.log("[ssh] exec host=%s command=%s", args.host, args.command.slice(0, 100));
 
-  let existed = await tmuxHasSession(sessionName);
-
-  // If session exists, check whether the SSH connection inside it is still alive.
-  // With the shell-wrapper approach, a dead SSH drops back to the local shell.
-  if (existed) {
-    const pane = await tmuxCapture(sessionName, 20);
-    if (looksDisconnected(pane)) {
-      console.log("[ssh] Session %s has a dead SSH connection, killing and recreating", sessionName);
-      await tmuxKill(sessionName);
-      existed = false;
-    }
-  }
-
-  if (!existed) {
-    // Create tmux session with a local shell (NOT ssh as the process).
-    // SSH runs inside the shell via send-keys so the session survives SSH
-    // failures and we can always read error output from the pane.
-    try {
-      await execFileAsync(
-        TMUX_BIN,
-        [
-          "new-session", "-d", "-s", sessionName,
-          "-x", "200", "-y", "50",
-        ],
-        { timeout: 10_000 },
-      );
-    } catch (err: any) {
-      return `Error creating tmux session: ${err.message}`;
-    }
-
-    // SSH into the host from within the tmux session
-    const sshCmd = [SSH_BIN, ...SSH_OPTS, args.host].join(" ");
-    await execFileAsync(
-      TMUX_BIN,
-      ["send-keys", "-t", sessionName, sshCmd, "Enter"],
-      { timeout: 10_000 },
+  try {
+    const { stdout, stderr } = await execFileAsync(
+      SSH_BIN,
+      [...SSH_OPTS, args.host, args.command],
+      { timeout: timeout * 1000, maxBuffer: 2 * 1024 * 1024 },
     );
 
-    // Poll until we see a remote shell prompt or detect an error
-    const connectDeadline = Date.now() + 20_000;
-    let connected = false;
-    await sleep(1500);
-    while (Date.now() < connectDeadline) {
-      const pane = await tmuxCapture(sessionName, 20);
-      const paneText = pane.trim();
+    const out = `${stdout ?? ""}${stderr ?? ""}`;
+    return truncate(out.trimEnd()) || "(no output)";
+  } catch (err: any) {
+    // child_process gives us stderr/stdout on the error object for non-zero exits
+    const stdout = err?.stdout ?? "";
+    const stderr = err?.stderr ?? "";
+    const message = err?.message ?? String(err);
+    const out = `${stdout}${stderr}`.trimEnd();
+    if (out) return truncate(out);
+    return `Error: ${message}`;
+  }
+}
 
-      // Check for SSH errors visible in the pane
-      if (/permission denied|no such host|could not resolve/i.test(paneText) ||
-          looksDisconnected(paneText)) {
-        // Don't kill the session — leave it for debugging via read_pane
-        return `Error: SSH connection to ${args.host} failed:\n${paneText}`;
-      }
+async function actionStartTmuxSession(args: {
+  host: string;
+  session?: string;
+}): Promise<string> {
+  const session = args.session ?? "jarvis";
+  const sessionName = `${SESSION_PREFIX}${sanitizeForTmux(args.host)}-${sanitizeForTmux(session)}`;
 
-      // Look for a remote shell prompt (skip lines that are just our ssh command)
-      const lines = pane.split("\n").filter((l) => l.trim().length > 0);
-      const nonSshLines = lines.filter((l) => !l.includes(SSH_BIN) && !l.includes("ssh "));
-      if (nonSshLines.length > 0 && looksIdle(pane)) {
-        connected = true;
-        break;
-      }
+  console.log("[ssh] start_tmux_session host=%s session=%s", args.host, sessionName);
 
-      await sleep(1000);
-    }
-    if (!connected) {
-      const pane = await tmuxCapture(sessionName, 30);
-      return `Error: SSH connection to ${args.host} timed out waiting for shell prompt. Pane output:\n${pane.trim()}`;
-    }
+  if (await tmuxHasSession(sessionName)) {
+    return JSON.stringify({ host: args.host, session: sessionName }, null, 2);
   }
 
-  // Send the command
+  try {
+    await execFileAsync(
+      TMUX_BIN,
+      ["new-session", "-d", "-s", sessionName, "-x", "200", "-y", "50"],
+      { timeout: 10_000 },
+    );
+  } catch (err: any) {
+    return `Error creating tmux session: ${err.message}`;
+  }
+
+  const sshCmd = [SSH_BIN, ...SSH_OPTS, args.host].join(" ");
   await execFileAsync(
     TMUX_BIN,
-    ["send-keys", "-t", sessionName, args.command, "Enter"],
+    ["send-keys", "-t", sessionName, sshCmd, "Enter"],
     { timeout: 10_000 },
   );
 
-  // Poll until done or timeout
-  const deadline = Date.now() + timeout * 1000;
-  let previousCapture = "";
-  let stableCount = 0;
-
-  // Give the command a moment to start
-  await sleep(1000);
-
-  while (Date.now() < deadline) {
-    const capture = await tmuxCapture(sessionName, 100);
-
-    if (capture === previousCapture && looksIdle(capture)) {
-      stableCount++;
-      if (stableCount >= 2) {
-        return truncate(capture.trimEnd());
-      }
-    } else {
-      stableCount = 0;
-    }
-
-    previousCapture = capture;
-    await sleep(1000);
+  // quick check for obvious failures
+  await sleep(1500);
+  const pane = await tmuxCapture(sessionName, 30);
+  const paneText = pane.trim();
+  if (/permission denied|no such host|could not resolve/i.test(paneText) || looksDisconnected(paneText)) {
+    return `Error: SSH connection to ${args.host} failed while starting tmux session. Pane output:\n${paneText}`;
   }
 
-  // Timeout — return what we have
-  const finalCapture = await tmuxCapture(sessionName, 100);
-  return truncate(
-    finalCapture.trimEnd() +
-    `\n\n[command may still be running in tmux session "${sessionName}"]`,
-  );
+  return JSON.stringify({ host: args.host, session: sessionName }, null, 2);
 }
 
 async function actionSendKeys(args: {
@@ -415,18 +365,19 @@ registerTool({
   name: "ssh",
   category: "always",
   description:
-    "SSH into Tailnet devices to run commands, manage tmux sessions, and transfer files. " +
-    "Commands run in persistent tmux sessions that can be attached to from other devices (e.g. iPhone). " +
-    "Actions: exec (run a command via SSH in a tmux session), send_keys (send keystrokes to a tmux session), " +
-    "read_pane (read current tmux pane content), devices (list Tailnet devices), sessions (list active SSH sessions), " +
-    "kill_session (terminate a tmux session), scp_push (copy local file to remote), scp_pull (copy remote file to local).",
+    "SSH into Tailnet devices to run commands, optionally manage tmux sessions, and transfer files. " +
+    "By default exec uses plain ssh (no tmux). " +
+    "Actions: exec (run a command via SSH), start_tmux_session (explicitly start/ensure a tmux session and ssh into the host), " +
+    "send_keys (send keystrokes to a tmux session), read_pane (read current tmux pane content), devices (list Tailnet devices), " +
+    "sessions (list active tmux sessions), kill_session (terminate a tmux session), scp_push (copy local file to remote), " +
+    "scp_pull (copy remote file to local).", 
   zodSchema: {
-    action: z.enum(["exec", "send_keys", "read_pane", "devices", "sessions", "kill_session", "scp_push", "scp_pull"])
+    action: z.enum(["exec", "start_tmux_session", "send_keys", "read_pane", "devices", "sessions", "kill_session", "scp_push", "scp_pull"])
       .describe("The SSH action to perform"),
     host: z.string().optional().describe("Tailnet hostname or IP (required for exec, scp_push, scp_pull)"),
     command: z.string().optional().describe("Command to run on the remote host (required for exec)"),
-    task_id: z.string().optional().describe("Optional ID for the tmux session (default: random 6-char hex)"),
     timeout: z.number().optional().describe("Timeout in seconds for exec (default: 60, max: 300)"),
+    tmux_session: z.string().optional().describe("Name for the tmux session when using start_tmux_session (default: jarvis)"),
     session: z.string().optional().describe("Tmux session name (required for send_keys, read_pane, kill_session)"),
     keys: z.string().optional().describe("Keystrokes to send (required for send_keys). Examples: 'C-c', '\"ls -la\" Enter'"),
     lines: z.number().optional().describe("Number of pane lines to capture for read_pane (default: 100, max: 2000)"),
@@ -439,7 +390,7 @@ registerTool({
     properties: {
       action: {
         type: "string",
-        enum: ["exec", "send_keys", "read_pane", "devices", "sessions", "kill_session", "scp_push", "scp_pull"],
+        enum: ["exec", "start_tmux_session", "send_keys", "read_pane", "devices", "sessions", "kill_session", "scp_push", "scp_pull"],
         description: "The SSH action to perform",
       },
       host: {
@@ -450,13 +401,13 @@ registerTool({
         type: "string",
         description: "Command to run on the remote host (required for exec)",
       },
-      task_id: {
-        type: "string",
-        description: "Optional ID for the tmux session (default: random 6-char hex)",
-      },
       timeout: {
         type: "number",
         description: "Timeout in seconds for exec (default: 60, max: 300)",
+      },
+      tmux_session: {
+        type: "string",
+        description: "Name for the tmux session when using start_tmux_session (default: jarvis)",
       },
       session: {
         type: "string",
@@ -484,8 +435,8 @@ registerTool({
     action: string;
     host?: string;
     command?: string;
-    task_id?: string;
     timeout?: number;
+    tmux_session?: string;
     session?: string;
     keys?: string;
     lines?: number;
@@ -499,9 +450,13 @@ registerTool({
         return actionExec({
           host: args.host,
           command: args.command,
-          task_id: args.task_id,
           timeout: args.timeout,
         });
+      }
+
+      case "start_tmux_session": {
+        if (!args.host) return "Error: 'host' is required for start_tmux_session";
+        return actionStartTmuxSession({ host: args.host, session: (args as any).tmux_session });
       }
 
       case "send_keys": {
