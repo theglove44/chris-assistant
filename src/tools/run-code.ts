@@ -4,6 +4,7 @@ import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
 import { z } from "zod";
 import { registerTool } from "./registry.js";
+import { getWorkspaceRoot } from "./files.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -11,6 +12,37 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const TSX_BIN = resolve(__dirname, "../../node_modules/.bin/tsx");
 
 const MAX_OUTPUT = 50_000;
+
+// Allowlist of safe environment variables to pass to user-executed code.
+// Using an allowlist rather than a blocklist ensures new secrets added to
+// .env in the future won't accidentally leak to AI-generated code.
+const SAFE_ENV_KEYS = new Set([
+  "PATH",
+  "HOME",
+  "USER",
+  "SHELL",
+  "LANG",
+  "LC_ALL",
+  "LC_CTYPE",
+  "TERM",
+  "TMPDIR",
+  "NODE_PATH",
+  "NODE_NO_WARNINGS",
+  "PYTHONPATH",
+  "PYTHONDONTWRITEBYTECODE",
+]);
+
+function sanitizedEnv(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
+  for (const key of SAFE_ENV_KEYS) {
+    if (process.env[key] !== undefined) {
+      env[key] = process.env[key];
+    }
+  }
+  // Always set NODE_NO_WARNINGS to suppress experimental warnings.
+  env["NODE_NO_WARNINGS"] = "1";
+  return env;
+}
 
 function buildCommand(
   language: string,
@@ -82,7 +114,8 @@ registerTool({
       const { stdout, stderr } = await execFileAsync(cmd, cmdArgs, {
         timeout: 10_000,
         maxBuffer: 1024 * 1024,
-        env: { ...process.env, NODE_NO_WARNINGS: "1" },
+        env: sanitizedEnv(),
+        cwd: getWorkspaceRoot(),
       });
 
       let result = "";
