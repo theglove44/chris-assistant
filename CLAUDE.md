@@ -14,6 +14,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   ├── config.ts             # Loads .env, exports typed config object
 │   ├── telegram.ts           # grammY bot — message handler (text/photo/document), streaming edits
 │   ├── markdown.ts           # Standard markdown → Telegram MarkdownV2 converter
+│   ├── middleware.ts          # grammY middleware — auth guard + rate limiting
 │   ├── rate-limit.ts         # Sliding window rate limiter (10 msgs/min per user)
 │   ├── health.ts             # Periodic health checks + Telegram alerts (startup, token expiry, GitHub)
 │   ├── scheduler.ts          # Cron-like scheduled tasks — tick loop, AI execution, Telegram delivery
@@ -94,8 +95,8 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 - **Project bootstrap files**: `shared.ts` checks for `CLAUDE.md`, `AGENTS.md`, `README.md` (in that order) in the active workspace root. First found is loaded, truncated to 20K chars, and injected as a `# Project Context` section in the system prompt. Workspace change callback invalidates the prompt cache so bootstrap reloads for the new project.
 - **Workspace root**: File tools scope to `WORKSPACE_ROOT` (default `~/Projects`). Mutable at runtime via `/project` Telegram command or `setWorkspaceRoot()`. The guard in `resolveSafePath()` uses `fs.realpathSync` to canonicalize paths (following symlinks) before the boundary check — a symlink inside the workspace pointing outside it will be rejected.
 - **Telegram command menu**: Bot registers `/start`, `/clear`, `/model`, `/memory`, `/project`, `/reload`, `/help` via `setMyCommands` on startup. Commands appear in Telegram's bot menu. `/model` shows current model/provider. `/memory` lists all memory files with sizes from GitHub. `/reload` invalidates the system prompt cache so the next message reloads memory from GitHub.
-- **User guard**: Only responds to `TELEGRAM_ALLOWED_USER_ID`. All other users are silently ignored.
-- **Rate limiting**: Sliding window limiter (10 messages/minute per user) in `rate-limit.ts`. Checked in `telegram.ts` before processing. Returns retry-after seconds when triggered.
+- **Middleware pipeline**: `src/middleware.ts` exports `authMiddleware` and `rateLimitMiddleware`, composed via `bot.use()` before all handlers. Auth guard only responds to `TELEGRAM_ALLOWED_USER_ID` (unauthorized `/start` gets a polite rejection; all others silently ignored). Rate limiter enforces 10 messages/minute sliding window. Both concerns are removed from individual handlers.
+- **Automated tests**: vitest suite in `tests/` — `markdown.test.ts`, `path-guard.test.ts`, `loop-detection.test.ts` (48 tests). CI via `.github/workflows/ci.yml` runs typecheck + tests on push/PR. Test files set dummy env vars before imports to avoid config.ts throwing. Run with `npm test`.
 - **Memory guard**: `validateMemoryContent()` in `memory/tools.ts` defends against prompt injection — 2000 char limit, replace throttle (1 per 5 min per category), injection phrase detection, dangerous shell block detection, path traversal blocking.
 - **Health monitor**: `health.ts` sends a Telegram startup notification, runs health checks every 5 minutes (GitHub access, token expiry), and alerts the owner with dedup (1 hour re-alert) and recovery messages. Token checks use two-tier warnings: MiniMax warns 30 minutes before expiry, OpenAI warns 1 hour before (only when no refresh token). Fully expired tokens get stronger wording.
 - **Scheduled tasks**: `scheduler.ts` loads tasks from `~/.chris-assistant/schedules.json`, ticks every 60s, and fires matching tasks by sending the prompt to `chat()` with full tool access. Results sent to Telegram via raw fetch (same pattern as `health.ts`). Custom cron matcher supports `*`, specific values, commas, and `*/N` step values — no npm dependency. The `manage_schedule` tool (category `"always"`) lets the AI create, list, delete, and toggle schedules. Double-fire prevention checks that `lastRun` wasn't in the same minute.
@@ -184,6 +185,7 @@ pm2 save                 # Save current process list
 ```bash
 npm run dev              # Run bot with tsx watch (auto-reload on changes)
 npm run typecheck        # TypeScript type checking
+npm test                 # Run vitest test suite (48 tests)
 npx tsx src/cli/index.ts # Run CLI directly without global install
 ```
 

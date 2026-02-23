@@ -5,20 +5,16 @@ import { config } from "./config.js";
 import { chat } from "./providers/index.js";
 import type { ImageAttachment } from "./providers/index.js";
 import { addMessage, clearHistory } from "./conversation.js";
-import { checkRateLimit } from "./rate-limit.js";
 import { toMarkdownV2 } from "./markdown.js";
+import { authMiddleware, rateLimitMiddleware } from "./middleware.js";
 import { readMemoryFile } from "./memory/github.js";
 import { getWorkspaceRoot, setWorkspaceRoot, isProjectActive } from "./tools/files.js";
 import { invalidatePromptCache } from "./providers/shared.js";
 
 const bot = new Bot(config.telegram.botToken);
 
-/**
- * Guard: only respond to the allowed user.
- */
-function isAllowedUser(ctx: Context): boolean {
-  return ctx.from?.id === config.telegram.allowedUserId;
-}
+bot.use(authMiddleware);
+bot.use(rateLimitMiddleware);
 
 /**
  * Download a file from Telegram's servers and return its raw bytes.
@@ -147,23 +143,17 @@ async function handleAiResponse(
 
 // /start command
 bot.command("start", async (ctx) => {
-  if (!isAllowedUser(ctx)) {
-    await ctx.reply("Sorry, this bot is private.");
-    return;
-  }
   await ctx.reply("Hey Chris. I'm here whenever you need me.");
 });
 
 // /clear — reset conversation history
 bot.command("clear", async (ctx) => {
-  if (!isAllowedUser(ctx)) return;
   await clearHistory(ctx.chat.id);
   await ctx.reply("Conversation cleared. Memory is still intact.");
 });
 
 // /model — show current model and provider
 bot.command("model", async (ctx) => {
-  if (!isAllowedUser(ctx)) return;
   const model = config.model;
   const m = model.toLowerCase();
   const provider = m.startsWith("gpt-") || m.startsWith("o3") || m.startsWith("o4-")
@@ -176,8 +166,6 @@ bot.command("model", async (ctx) => {
 
 // /memory — show memory file status
 bot.command("memory", async (ctx) => {
-  if (!isAllowedUser(ctx)) return;
-
   const files = [
     "identity/SOUL.md", "identity/RULES.md", "identity/VOICE.md",
     "knowledge/about-chris.md", "knowledge/preferences.md",
@@ -201,13 +189,11 @@ bot.command("memory", async (ctx) => {
 // /help — list available commands
 // /reload — invalidate system prompt cache
 bot.command("reload", async (ctx) => {
-  if (!isAllowedUser(ctx)) return;
   invalidatePromptCache();
   await ctx.reply("System prompt cache cleared. Next message will reload memory from GitHub.");
 });
 
 bot.command("help", async (ctx) => {
-  if (!isAllowedUser(ctx)) return;
   await ctx.reply(
     "Available commands:\n\n" +
     "/start — Greeting\n" +
@@ -223,8 +209,6 @@ bot.command("help", async (ctx) => {
 
 // /project — show or set active workspace
 bot.command("project", async (ctx) => {
-  if (!isAllowedUser(ctx)) return;
-
   const arg = ctx.match?.trim();
 
   if (!arg) {
@@ -251,35 +235,11 @@ bot.command("project", async (ctx) => {
 
 // Handle text messages
 bot.on("message:text", async (ctx) => {
-  if (!isAllowedUser(ctx)) {
-    console.log("[telegram] Blocked message from user %d", ctx.from?.id);
-    return;
-  }
-
-  const rateLimit = checkRateLimit(ctx.from.id);
-  if (!rateLimit.allowed) {
-    const retryAfterSecs = Math.ceil(rateLimit.retryAfterMs / 1000);
-    await ctx.reply(`Slow down — try again in ${retryAfterSecs} seconds.`);
-    return;
-  }
-
   await handleAiResponse(ctx, ctx.message.text);
 });
 
 // Handle photos
 bot.on("message:photo", async (ctx) => {
-  if (!isAllowedUser(ctx)) {
-    console.log("[telegram] Blocked photo from user %d", ctx.from?.id);
-    return;
-  }
-
-  const rateLimit = checkRateLimit(ctx.from.id);
-  if (!rateLimit.allowed) {
-    const retryAfterSecs = Math.ceil(rateLimit.retryAfterMs / 1000);
-    await ctx.reply(`Slow down — try again in ${retryAfterSecs} seconds.`);
-    return;
-  }
-
   try {
     // Telegram provides multiple resolutions — the last entry is always the largest
     const photos = ctx.message.photo;
@@ -301,18 +261,6 @@ bot.on("message:photo", async (ctx) => {
 
 // Handle documents (files)
 bot.on("message:document", async (ctx) => {
-  if (!isAllowedUser(ctx)) {
-    console.log("[telegram] Blocked document from user %d", ctx.from?.id);
-    return;
-  }
-
-  const rateLimit = checkRateLimit(ctx.from.id);
-  if (!rateLimit.allowed) {
-    const retryAfterSecs = Math.ceil(rateLimit.retryAfterMs / 1000);
-    await ctx.reply(`Slow down — try again in ${retryAfterSecs} seconds.`);
-    return;
-  }
-
   const doc = ctx.message.document;
   const fileName = doc.file_name || "unknown";
   const mimeType = doc.mime_type || "";
