@@ -107,29 +107,71 @@ async function actionExec(args: {
 
   let existed = await tmuxHasSession(sessionName);
 
-  // If session exists, check whether the SSH connection inside it is still alive
+  // If session exists, check whether the SSH connection inside it is still alive.
+  // With the shell-wrapper approach, a dead SSH drops back to the local shell.
   if (existed) {
     const pane = await tmuxCapture(sessionName, 20);
     if (looksDisconnected(pane)) {
-      console.log("[ssh] Session %s has a dead SSH connection, recreating", sessionName);
+      console.log("[ssh] Session %s has a dead SSH connection, killing and recreating", sessionName);
       await tmuxKill(sessionName);
       existed = false;
     }
   }
 
   if (!existed) {
-    // Create new tmux session with SSH connection
+    // Create tmux session with a local shell (NOT ssh as the process).
+    // SSH runs inside the shell via send-keys so the session survives SSH
+    // failures and we can always read error output from the pane.
+    try {
+      await execFileAsync(
+        TMUX_BIN,
+        [
+          "new-session", "-d", "-s", sessionName,
+          "-x", "200", "-y", "50",
+        ],
+        { timeout: 10_000 },
+      );
+    } catch (err: any) {
+      return `Error creating tmux session: ${err.message}`;
+    }
+
+    // SSH into the host from within the tmux session
+    const sshCmd = [SSH_BIN, ...SSH_OPTS, args.host].join(" ");
     await execFileAsync(
       TMUX_BIN,
-      [
-        "new-session", "-d", "-s", sessionName,
-        "-x", "200", "-y", "50",
-        "--", SSH_BIN, ...SSH_OPTS, args.host,
-      ],
-      { timeout: 15_000 },
+      ["send-keys", "-t", sessionName, sshCmd, "Enter"],
+      { timeout: 10_000 },
     );
-    // Wait for SSH connection to establish
-    await sleep(2000);
+
+    // Poll until we see a remote shell prompt or detect an error
+    const connectDeadline = Date.now() + 20_000;
+    let connected = false;
+    await sleep(1500);
+    while (Date.now() < connectDeadline) {
+      const pane = await tmuxCapture(sessionName, 20);
+      const paneText = pane.trim();
+
+      // Check for SSH errors visible in the pane
+      if (/permission denied|no such host|could not resolve/i.test(paneText) ||
+          looksDisconnected(paneText)) {
+        // Don't kill the session — leave it for debugging via read_pane
+        return `Error: SSH connection to ${args.host} failed:\n${paneText}`;
+      }
+
+      // Look for a remote shell prompt (skip lines that are just our ssh command)
+      const lines = pane.split("\n").filter((l) => l.trim().length > 0);
+      const nonSshLines = lines.filter((l) => !l.includes(SSH_BIN) && !l.includes("ssh "));
+      if (nonSshLines.length > 0 && looksIdle(pane)) {
+        connected = true;
+        break;
+      }
+
+      await sleep(1000);
+    }
+    if (!connected) {
+      const pane = await tmuxCapture(sessionName, 30);
+      return `Error: SSH connection to ${args.host} timed out waiting for shell prompt. Pane output:\n${pane.trim()}`;
+    }
   }
 
   // Send the command

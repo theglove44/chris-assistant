@@ -15,7 +15,7 @@ export function createClaudeProvider(model: string): Provider {
     name: "claude",
     async chat(chatId, userMessage, _onChunk, _image?: ImageAttachment) {
       const systemPrompt = await getSystemPrompt();
-      const conversationContext = formatHistoryForPrompt(chatId);
+      const conversationContext = await formatHistoryForPrompt(chatId);
 
       // Claude Agent SDK query() only accepts a string prompt — no content blocks.
       // Prepend an honest note when an image was attached so the response is accurate.

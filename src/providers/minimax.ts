@@ -23,7 +23,7 @@ export function createMiniMaxProvider(model: string): Provider {
       });
 
       const systemPrompt = await getSystemPrompt();
-      const conversationContext = formatHistoryForPrompt(chatId);
+      const conversationContext = await formatHistoryForPrompt(chatId);
 
       const fullUserMessage = conversationContext
         ? `${conversationContext}\n\n${userMessage}`

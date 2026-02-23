@@ -58,8 +58,15 @@ interface HealthCheck {
 
 const octokit = new Octokit({ auth: config.github.token });
 
-/** Margin in milliseconds to consider a token expired ahead of time */
-const EXPIRY_MARGIN_MS = 60 * 1000; // 1 minute
+/**
+ * Warning thresholds — warn this far in advance of actual expiry.
+ * MiniMax tokens expire after a few hours with no auto-refresh, so 30 minutes
+ * gives enough time to act before the next message fails.
+ * OpenAI access tokens auto-refresh via refresh_token, so the only dangerous
+ * case is no refresh token — 1 hour gives time to log in before it fully expires.
+ */
+const MINIMAX_WARN_MS = 30 * 60 * 1000; // 30 minutes
+const OPENAI_WARN_MS = 60 * 60 * 1000;  // 1 hour
 
 const checks: HealthCheck[] = [
   {
@@ -83,11 +90,18 @@ const checks: HealthCheck[] = [
       // No tokens means MiniMax is not set up — that's optional, so skip
       if (!tokens) return { ok: true };
 
-      const expired = Date.now() >= tokens.expires - EXPIRY_MARGIN_MS;
-      if (expired) {
+      const now = Date.now();
+      if (now >= tokens.expires) {
         return {
           ok: false,
           detail: 'MiniMax tokens expired — run "chris minimax login" to re-authenticate',
+        };
+      }
+      if (now >= tokens.expires - MINIMAX_WARN_MS) {
+        const minutesLeft = Math.floor((tokens.expires - now) / 60_000);
+        return {
+          ok: false,
+          detail: `MiniMax tokens expiring in ~${minutesLeft} minute${minutesLeft === 1 ? "" : "s"} — run "chris minimax login" to re-authenticate`,
         };
       }
       return { ok: true };
@@ -100,14 +114,23 @@ const checks: HealthCheck[] = [
       // No tokens means OpenAI is not set up — that's optional, so skip
       if (!tokens) return { ok: true };
 
-      // OpenAI auto-refreshes, so only flag if there's no refresh_token AND access is expired
+      // OpenAI auto-refreshes via refresh_token, so only flag when there is no
+      // refresh token and the access token is expired or about to expire.
       const hasRefreshToken = Boolean(tokens.refresh_token);
-      const accessExpired = Date.now() >= tokens.expires - EXPIRY_MARGIN_MS;
+      if (hasRefreshToken) return { ok: true };
 
-      if (!hasRefreshToken && accessExpired) {
+      const now = Date.now();
+      if (now >= tokens.expires) {
         return {
           ok: false,
           detail: 'OpenAI access token expired and no refresh token — run "chris openai login" to re-authenticate',
+        };
+      }
+      if (now >= tokens.expires - OPENAI_WARN_MS) {
+        const minutesLeft = Math.floor((tokens.expires - now) / 60_000);
+        return {
+          ok: false,
+          detail: `OpenAI access token expiring in ~${minutesLeft} minute${minutesLeft === 1 ? "" : "s"} with no refresh token — run "chris openai login" to re-authenticate`,
         };
       }
       return { ok: true };

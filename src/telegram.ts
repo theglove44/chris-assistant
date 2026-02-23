@@ -103,7 +103,8 @@ async function handleAiResponse(
   };
 
   try {
-    addMessage(chatId, "user", userMessage);
+    // Fire-and-forget — don't block message processing on disk writes
+    void addMessage(chatId, "user", userMessage);
 
     const rawResponse = await chatWithRetry(chatId, userMessage, onChunk, image);
 
@@ -111,7 +112,7 @@ async function handleAiResponse(
     const thinkClose = "<" + "/think>";
     const response = rawResponse.replace(new RegExp("<think>[\\s\\S]*?" + thinkClose, "g"), "").trim();
 
-    addMessage(chatId, "assistant", response);
+    void addMessage(chatId, "assistant", response);
 
     // Final render — replace the streaming message with the complete response.
     // Split on the original text (before MarkdownV2 conversion) so escape
@@ -156,7 +157,7 @@ bot.command("start", async (ctx) => {
 // /clear — reset conversation history
 bot.command("clear", async (ctx) => {
   if (!isAllowedUser(ctx)) return;
-  clearHistory(ctx.chat.id);
+  await clearHistory(ctx.chat.id);
   await ctx.reply("Conversation cleared. Memory is still intact.");
 });
 

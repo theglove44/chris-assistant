@@ -1,6 +1,7 @@
 import { bot } from "./telegram.js";
 import { startHealthMonitor, stopHealthMonitor } from "./health.js";
 import { startScheduler, stopScheduler } from "./scheduler.js";
+import { startConversationBackup, stopConversationBackup } from "./conversation-backup.js";
 
 console.log("[chris-assistant] Starting up...");
 
@@ -25,6 +26,7 @@ bot.start({
       console.error("[health] Failed to start health monitor:", err.message);
     });
     startScheduler();
+    startConversationBackup();
   },
 });
 
@@ -33,6 +35,7 @@ const shutdown = () => {
   console.log("[chris-assistant] Shutting down...");
   stopHealthMonitor();
   stopScheduler();
+  stopConversationBackup();
   bot.stop();
   process.exit(0);
 };
