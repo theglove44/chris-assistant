@@ -93,19 +93,27 @@ async function tmuxKill(name: string): Promise<void> {
 // Action implementations
 // ---------------------------------------------------------------------------
 
+function sshTarget(host: string, user?: string): string {
+  // If host already contains @, don't override
+  if (host.includes("@")) return host;
+  return user ? `${user}@${host}` : host;
+}
+
 async function actionExec(args: {
   host: string;
   command: string;
+  user?: string;
   timeout?: number;
 }): Promise<string> {
   const timeout = Math.min(args.timeout ?? 60, 300);
+  const target = sshTarget(args.host, args.user);
 
-  console.log("[ssh] exec host=%s command=%s", args.host, args.command.slice(0, 100));
+  console.log("[ssh] exec target=%s command=%s", target, args.command.slice(0, 100));
 
   try {
     const { stdout, stderr } = await execFileAsync(
       SSH_BIN,
-      [...SSH_OPTS, args.host, args.command],
+      [...SSH_OPTS, target, args.command],
       { timeout: timeout * 1000, maxBuffer: 2 * 1024 * 1024 },
     );
 
@@ -124,12 +132,14 @@ async function actionExec(args: {
 
 async function actionStartTmuxSession(args: {
   host: string;
+  user?: string;
   session?: string;
 }): Promise<string> {
   const session = args.session ?? "jarvis";
   const sessionName = `${SESSION_PREFIX}${sanitizeForTmux(args.host)}-${sanitizeForTmux(session)}`;
+  const target = sshTarget(args.host, args.user);
 
-  console.log("[ssh] start_tmux_session host=%s session=%s", args.host, sessionName);
+  console.log("[ssh] start_tmux_session target=%s session=%s", target, sessionName);
 
   if (await tmuxHasSession(sessionName)) {
     return JSON.stringify({ host: args.host, session: sessionName }, null, 2);
@@ -145,7 +155,7 @@ async function actionStartTmuxSession(args: {
     return `Error creating tmux session: ${err.message}`;
   }
 
-  const sshCmd = [SSH_BIN, ...SSH_OPTS, args.host].join(" ");
+  const sshCmd = [SSH_BIN, ...SSH_OPTS, target].join(" ");
   await execFileAsync(
     TMUX_BIN,
     ["send-keys", "-t", sessionName, sshCmd, "Enter"],
@@ -311,10 +321,12 @@ async function actionKillSession(args: { session: string }): Promise<string> {
 
 async function actionScpPush(args: {
   host: string;
+  user?: string;
   local_path: string;
   remote_path: string;
 }): Promise<string> {
-  console.log("[ssh] scp_push host=%s local=%s remote=%s", args.host, args.local_path, args.remote_path);
+  const target = sshTarget(args.host, args.user);
+  console.log("[ssh] scp_push target=%s local=%s remote=%s", target, args.local_path, args.remote_path);
 
   const resolved = resolveSafePath(args.local_path);
   if (!resolved) {
@@ -324,7 +336,7 @@ async function actionScpPush(args: {
   try {
     await execFileAsync(
       SCP_BIN,
-      [...SSH_OPTS, resolved, `${args.host}:${args.remote_path}`],
+      [...SSH_OPTS, resolved, `${target}:${args.remote_path}`],
       { timeout: 120_000 },
     );
     return `Copied ${args.local_path} → ${args.host}:${args.remote_path}`;
@@ -335,10 +347,12 @@ async function actionScpPush(args: {
 
 async function actionScpPull(args: {
   host: string;
+  user?: string;
   remote_path: string;
   local_path: string;
 }): Promise<string> {
-  console.log("[ssh] scp_pull host=%s remote=%s local=%s", args.host, args.remote_path, args.local_path);
+  const target = sshTarget(args.host, args.user);
+  console.log("[ssh] scp_pull target=%s remote=%s local=%s", target, args.remote_path, args.local_path);
 
   const resolved = resolveSafePath(args.local_path);
   if (!resolved) {
@@ -348,7 +362,7 @@ async function actionScpPull(args: {
   try {
     await execFileAsync(
       SCP_BIN,
-      [...SSH_OPTS, `${args.host}:${args.remote_path}`, resolved],
+      [...SSH_OPTS, `${target}:${args.remote_path}`, resolved],
       { timeout: 120_000 },
     );
     return `Copied ${args.host}:${args.remote_path} → ${args.local_path}`;
@@ -367,14 +381,17 @@ registerTool({
   description:
     "SSH into Tailnet devices to run commands, optionally manage tmux sessions, and transfer files. " +
     "By default exec uses plain ssh (no tmux). " +
+    "IMPORTANT: Do NOT set the 'user' field unless you are certain of the correct remote username — " +
+    "SSH config (~/.ssh/config) already maps hosts to the correct user. Setting a wrong user will override the config and cause auth failures. " +
     "Actions: exec (run a command via SSH), start_tmux_session (explicitly start/ensure a tmux session and ssh into the host), " +
     "send_keys (send keystrokes to a tmux session), read_pane (read current tmux pane content), devices (list Tailnet devices), " +
     "sessions (list active tmux sessions), kill_session (terminate a tmux session), scp_push (copy local file to remote), " +
-    "scp_pull (copy remote file to local).", 
+    "scp_pull (copy remote file to local).",
   zodSchema: {
     action: z.enum(["exec", "start_tmux_session", "send_keys", "read_pane", "devices", "sessions", "kill_session", "scp_push", "scp_pull"])
       .describe("The SSH action to perform"),
-    host: z.string().optional().describe("Tailnet hostname or IP (required for exec, scp_push, scp_pull)"),
+    host: z.string().optional().describe("Tailnet hostname or IP (required for exec, start_tmux_session, scp_push, scp_pull)"),
+    user: z.string().optional().describe("SSH username on the remote host. Usually omit this — SSH config handles user mapping automatically. Only set if you are certain of the correct username."),
     command: z.string().optional().describe("Command to run on the remote host (required for exec)"),
     timeout: z.number().optional().describe("Timeout in seconds for exec (default: 60, max: 300)"),
     tmux_session: z.string().optional().describe("Name for the tmux session when using start_tmux_session (default: jarvis)"),
@@ -395,7 +412,11 @@ registerTool({
       },
       host: {
         type: "string",
-        description: "Tailnet hostname or IP (required for exec, scp_push, scp_pull)",
+        description: "Tailnet hostname or IP (required for exec, start_tmux_session, scp_push, scp_pull)",
+      },
+      user: {
+        type: "string",
+        description: "SSH username on the remote host. Usually omit this — SSH config handles user mapping automatically. Only set if you are certain of the correct username.",
       },
       command: {
         type: "string",
@@ -434,6 +455,7 @@ registerTool({
   execute: async (args: {
     action: string;
     host?: string;
+    user?: string;
     command?: string;
     timeout?: number;
     tmux_session?: string;
@@ -450,13 +472,14 @@ registerTool({
         return actionExec({
           host: args.host,
           command: args.command,
+          user: args.user,
           timeout: args.timeout,
         });
       }
 
       case "start_tmux_session": {
         if (!args.host) return "Error: 'host' is required for start_tmux_session";
-        return actionStartTmuxSession({ host: args.host, session: (args as any).tmux_session });
+        return actionStartTmuxSession({ host: args.host, user: args.user, session: (args as any).tmux_session });
       }
 
       case "send_keys": {
@@ -487,6 +510,7 @@ registerTool({
         if (!args.remote_path) return "Error: 'remote_path' is required for scp_push";
         return actionScpPush({
           host: args.host,
+          user: args.user,
           local_path: args.local_path,
           remote_path: args.remote_path,
         });
@@ -498,6 +522,7 @@ registerTool({
         if (!args.local_path) return "Error: 'local_path' is required for scp_pull";
         return actionScpPull({
           host: args.host,
+          user: args.user,
           remote_path: args.remote_path,
           local_path: args.local_path,
         });
