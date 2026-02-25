@@ -12,6 +12,7 @@
 import { chat } from "./providers/index.js";
 import { readLocalArchive, datestamp, type ArchiveEntry } from "./conversation-archive.js";
 import { readMemoryFile, writeMemoryFile } from "./memory/github.js";
+import { readLocalJournal } from "./memory/journal.js";
 
 const SUMMARY_HOUR = 23;
 const SUMMARY_MINUTE = 55;
@@ -56,6 +57,8 @@ const SUMMARIZE_PROMPT = `You are summarizing today's conversations between Chri
 
 Keep it under 2000 characters. Write naturally, not as a bulleted list — more like a brief journal entry. Use second person ("you" = Chris). Start directly with the content, no title needed.
 
+Journal notes written by the assistant during the day (if any) are included after the conversation log — use them as additional context to enrich the summary.
+
 Here are today's conversations:
 
 `;
@@ -74,8 +77,14 @@ export async function generateSummary(date: string): Promise<string | null> {
   const conversationText = formatArchiveForPrompt(entries);
   console.log("[summary] Generating summary for %s (%d messages)", date, entries.length);
 
+  const journal = readLocalJournal(date);
+  let context = SUMMARIZE_PROMPT + conversationText;
+  if (journal) {
+    context += "\n\n---\n\nThe assistant also wrote these journal notes during the day:\n\n" + journal;
+  }
+
   // Use a dummy chatId (0) — this is an internal system call, not a user conversation
-  const summary = await chat(0, SUMMARIZE_PROMPT + conversationText);
+  const summary = await chat(0, context);
 
   // Strip any thinking tags (reasoning models)
   const cleaned = summary.replace(new RegExp("<" + "think>[\\s\\S]*?<" + "/think>", "g"), "").trim();

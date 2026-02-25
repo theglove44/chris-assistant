@@ -42,10 +42,12 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── git.ts            # Git tools — status, diff, commit (workspace-scoped)
 │   │   ├── scheduler.ts      # manage_schedule tool — create, list, delete, toggle scheduled tasks
 │   │   ├── ssh.ts            # SSH tool — exec, tmux, SCP, Tailnet device discovery (8 actions)
-│   │   └── recall.ts         # Conversation recall tool — list, read, search, summarize past conversations
+│   │   ├── recall.ts         # Conversation recall tool — list, read, search, summarize past conversations
+│   │   └── journal.ts        # journal_entry tool — bot writes daily notes via tool call
 │   ├── memory/
 │   │   ├── github.ts         # Octokit wrapper — read/write/append files in memory repo
-│   │   ├── loader.ts         # Loads identity + knowledge + memory + recent summaries, builds system prompt
+│   │   ├── journal.ts        # Daily memory journal — local storage + periodic GitHub upload
+│   │   ├── loader.ts         # Loads identity + knowledge + memory + summaries + journal, builds system prompt
 │   │   └── tools.ts          # Memory tool executor + prompt injection validation
 │   └── cli/
 │       ├── index.ts           # Commander.js program — registers all subcommands
@@ -76,6 +78,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 ├── memory/decisions.md       # Important decisions
 ├── memory/learnings.md       # Self-improvement notes
 ├── archive/2026-02-25.jsonl  # Daily JSONL message logs (uploaded every 6 hours)
+├── journal/2026-02-25.md     # Bot's daily journal notes (uploaded every 6 hours)
 └── conversations/summaries/2026-02-25.md  # AI-generated daily conversation summaries
 ```
 
@@ -97,6 +100,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 - **Daily conversation summaries**: `conversation-summary.ts` is a built-in module (not a user-managed schedule — can't be accidentally deleted). Ticks every 60s, fires at 23:55 local time. Reads today's local archive, formats as conversation text, calls `chat()` with a summarization prompt, and writes the result to `conversations/summaries/YYYY-MM-DD.md` in the memory repo. On startup, backfills yesterday's summary if messages exist but no summary was generated (handles overnight restarts). Uses chatId 0 for internal system calls. Strips thinking tags from reasoning model output.
 - **Conversation recall tool**: `src/tools/recall.ts` — single `recall_conversations` tool (category `"always"`) with 4 actions: `list` (show available archive dates with message counts), `read_day` (read a day's AI summary or full conversation log), `search` (grep across all local JSONL archives for a keyword, capped at 50 results), `summarize` (generate an on-demand AI summary for any date). Follows the same multi-action pattern as the SSH tool.
 - **Recent summaries in system prompt**: `loader.ts` loads the last 7 days of daily summaries from `conversations/summaries/YYYY-MM-DD.md` in the memory repo (in parallel with identity/knowledge/memory loads). Added to the `LoadedMemory` interface as `recentSummaries`. Injected as a `# Recent Conversation History` section in `buildSystemPrompt()`. This gives the bot natural recall of recent conversations without needing a tool call.
+- **Daily memory journal**: `src/memory/journal.ts` — the bot writes structured notes throughout the day via the `journal_entry` tool (`src/tools/journal.ts`). Entries are appended to `~/.chris-assistant/journal/YYYY-MM-DD.md` as timestamped markdown (sync `appendFileSync`, never throws). Each entry gets a `**HH:MM AM/PM** — text` format with a date header auto-added for new files. A periodic uploader (every 6 hours) pushes changed journals to `journal/YYYY-MM-DD.md` in the memory repo using SHA-256 dedup. Today's and yesterday's journals are loaded into the system prompt via `loader.ts` as a `# Your Recent Journal` section. The daily summary at 23:55 now incorporates journal entries alongside raw messages for richer consolidation. The `recall_conversations` tool has a `read_journal` action for reading past journal entries. The tool has a 2000 char limit per entry to keep notes concise.
 - **System prompt caching**: Memory files are loaded from GitHub and cached for 5 minutes. Cache invalidates after any conversation (in case memory was updated). Shared across providers via `providers/shared.ts`.
 - **Tool loop detection**: `registry.ts` tracks consecutive identical tool calls (same name + first 500 chars of args). After 3 in a row, returns an error to the AI. Covers both `dispatchToolCall()` (OpenAI/MiniMax) and MCP executor (Claude). State resets between conversations via `invalidatePromptCache()`.
 - **Tool turn limit**: All three providers share `config.maxToolTurns` (default 25, env `MAX_TOOL_TURNS`). SSH investigations and coding work need many turns. The "ran out of processing turns" message fires if exhausted.

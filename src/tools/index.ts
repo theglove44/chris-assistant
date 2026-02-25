@@ -10,6 +10,7 @@ import "./git.js";
 import "./scheduler.js";
 import "./ssh.js";
 import "./recall.js";
+import "./journal.js";
 
 // Re-export registry functions so providers only need to import from one place.
 export {

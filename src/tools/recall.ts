@@ -16,6 +16,7 @@ import {
 } from "../conversation-archive.js";
 import { readMemoryFile } from "../memory/github.js";
 import { generateSummary } from "../conversation-summary.js";
+import { readLocalJournal, listLocalJournalDates } from "../memory/journal.js";
 
 const MAX_OUTPUT = 50_000;
 
@@ -35,17 +36,36 @@ function summaryRepoPath(date: string): string {
 // ---------------------------------------------------------------------------
 
 function actionList(): string {
-  const dates = listLocalArchiveDates();
-  if (dates.length === 0) {
-    return "No conversation archives found.";
+  const archiveDates = listLocalArchiveDates();
+  const journalDates = listLocalJournalDates();
+
+  const parts: string[] = [];
+
+  if (archiveDates.length > 0) {
+    const lines = archiveDates.map((date) => {
+      const entries = readLocalArchive(date);
+      return `- ${date} (${entries.length} messages)`;
+    });
+    parts.push(`Available archive dates:\n${lines.join("\n")}`);
+  } else {
+    parts.push("No conversation archives found.");
   }
 
-  const lines = dates.map((date) => {
-    const entries = readLocalArchive(date);
-    return `- ${date} (${entries.length} messages)`;
-  });
+  if (journalDates.length > 0) {
+    parts.push(`Available journal dates:\n${journalDates.map((d) => `- ${d}`).join("\n")}`);
+  } else {
+    parts.push("No journal entries found.");
+  }
 
-  return `Available archive dates:\n${lines.join("\n")}`;
+  return parts.join("\n\n");
+}
+
+function actionReadJournal(args: { date: string }): string {
+  const content = readLocalJournal(args.date);
+  if (!content) {
+    return `No journal found for ${args.date}.`;
+  }
+  return truncate(content);
 }
 
 async function actionReadDay(args: { date: string; type?: string }): Promise<string> {
@@ -132,15 +152,16 @@ registerTool({
   name: "recall_conversations",
   category: "always",
   description:
-    "Search and recall past conversations. Use this when Chris asks about previous discussions, " +
+    "Search and recall past conversations and journal entries. Use this when Chris asks about previous discussions, " +
     "what was talked about on a specific day, or to find something mentioned in the past. " +
-    "Actions: list (show available dates), read_day (read a day's summary or full log), " +
-    "search (find messages matching a keyword), summarize (generate an AI summary for a date).",
+    "Actions: list (show available archive and journal dates), read_day (read a day's summary or full log), " +
+    "search (find messages matching a keyword), summarize (generate an AI summary for a date), " +
+    "read_journal (read your own journal notes for a specific date).",
   zodSchema: {
-    action: z.enum(["list", "read_day", "search", "summarize"])
+    action: z.enum(["list", "read_day", "search", "summarize", "read_journal"])
       .describe("The recall action to perform"),
     date: z.string().optional()
-      .describe("Date in YYYY-MM-DD format (required for read_day, summarize)"),
+      .describe("Date in YYYY-MM-DD format (required for read_day, summarize, read_journal)"),
     type: z.string().optional()
       .describe('For read_day: "summary" (default) or "log" for the full conversation'),
     query: z.string().optional()
@@ -152,12 +173,12 @@ registerTool({
     properties: {
       action: {
         type: "string",
-        enum: ["list", "read_day", "search", "summarize"],
+        enum: ["list", "read_day", "search", "summarize", "read_journal"],
         description: "The recall action to perform",
       },
       date: {
         type: "string",
-        description: "Date in YYYY-MM-DD format (required for read_day, summarize)",
+        description: "Date in YYYY-MM-DD format (required for read_day, summarize, read_journal)",
       },
       type: {
         type: "string",
@@ -193,6 +214,11 @@ registerTool({
       case "summarize": {
         if (!args.date) return "Error: 'date' is required for summarize";
         return actionSummarize({ date: args.date });
+      }
+
+      case "read_journal": {
+        if (!args.date) return "Error: 'date' is required for read_journal";
+        return actionReadJournal({ date: args.date });
       }
 
       default:

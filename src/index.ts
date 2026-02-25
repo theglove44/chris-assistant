@@ -4,6 +4,7 @@ import { startScheduler, stopScheduler } from "./scheduler.js";
 import { startConversationBackup, stopConversationBackup } from "./conversation-backup.js";
 import { startArchiveUploader, stopArchiveUploader } from "./conversation-archive.js";
 import { startDailySummarizer, stopDailySummarizer } from "./conversation-summary.js";
+import { startJournalUploader, stopJournalUploader } from "./memory/journal.js";
 
 console.log("[chris-assistant] Starting up...");
 
@@ -31,6 +32,7 @@ bot.start({
     startConversationBackup();
     startArchiveUploader();
     startDailySummarizer();
+    startJournalUploader();
   },
 });
 
@@ -42,6 +44,7 @@ const shutdown = () => {
   stopConversationBackup();
   stopArchiveUploader();
   stopDailySummarizer();
+  stopJournalUploader();
   bot.stop();
   process.exit(0);
 };

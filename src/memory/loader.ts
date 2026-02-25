@@ -1,4 +1,6 @@
 import { readMemoryFile } from "./github.js";
+import { readLocalJournal } from "./journal.js";
+import { datestamp } from "../conversation-archive.js";
 
 /** Files that are ALWAYS loaded into the system prompt */
 const IDENTITY_FILES = [
@@ -26,12 +28,9 @@ interface LoadedMemory {
   knowledge: string;
   memory: string;
   recentSummaries: string;
+  recentJournal: string;
 }
 
-/**
- * Load all memory files from GitHub and assemble them into
- * structured sections for the system prompt.
- */
 /** Generate the last 7 days of summary file paths. */
 function recentSummaryPaths(): { date: string; path: string }[] {
   const paths: { date: string; path: string }[] = [];
@@ -69,11 +68,29 @@ export async function loadMemory(): Promise<LoadedMemory> {
     .map((s) => `### ${s.date}\n${s.content}`)
     .join("\n\n");
 
+  // Load today's and yesterday's journal from local filesystem (always local-first)
+  const today = datestamp();
+  const yesterdayDate = new Date();
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterday = datestamp(yesterdayDate.getTime());
+
+  const todayJournal = readLocalJournal(today);
+  const yesterdayJournal = readLocalJournal(yesterday);
+
+  const journalParts: string[] = [];
+  if (yesterdayJournal) {
+    journalParts.push(`### ${yesterday}\n${yesterdayJournal}`);
+  }
+  if (todayJournal) {
+    journalParts.push(`### ${today} (today)\n${todayJournal}`);
+  }
+
   return {
     identity: formatSection(identityResults),
     knowledge: formatSection(knowledgeResults),
     memory: formatSection(memoryResults),
     recentSummaries: summaries,
+    recentJournal: journalParts.join("\n\n"),
   };
 }
 
@@ -97,6 +114,10 @@ export function buildSystemPrompt(memory: LoadedMemory): string {
 
   if (memory.recentSummaries) {
     parts.push(`# Recent Conversation History\n\nThese are AI-generated summaries of your recent conversations with Chris. Use them to maintain continuity and recall past discussions.\n\n${memory.recentSummaries}`);
+  }
+
+  if (memory.recentJournal) {
+    parts.push(`# Your Recent Journal\n\nThese are notes you wrote during recent conversations. They represent your own observations and interpretations.\n\n${memory.recentJournal}`);
   }
 
   return parts.join("\n\n---\n\n");
