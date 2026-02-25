@@ -10,6 +10,7 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import { archiveMessage } from "./conversation-archive.js";
 
 interface Message {
   role: "user" | "assistant";
@@ -82,7 +83,11 @@ export async function addMessage(
     store.set(chatId, []);
   }
   const history = store.get(chatId)!;
-  history.push({ role, content, timestamp: Date.now() });
+  const now = Date.now();
+  history.push({ role, content, timestamp: now });
+
+  // Archive every message before the rolling window clips it
+  archiveMessage(chatId, role, content, now);
 
   // Trim to max length
   if (history.length > MAX_HISTORY) {

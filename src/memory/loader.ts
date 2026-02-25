@@ -25,18 +25,37 @@ interface LoadedMemory {
   identity: string;
   knowledge: string;
   memory: string;
+  recentSummaries: string;
 }
 
 /**
  * Load all memory files from GitHub and assemble them into
  * structured sections for the system prompt.
  */
+/** Generate the last 7 days of summary file paths. */
+function recentSummaryPaths(): { date: string; path: string }[] {
+  const paths: { date: string; path: string }[] = [];
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    const date = `${yyyy}-${mm}-${dd}`;
+    paths.push({ date, path: `conversations/summaries/${date}.md` });
+  }
+  return paths;
+}
+
 export async function loadMemory(): Promise<LoadedMemory> {
+  const summaryPaths = recentSummaryPaths();
+
   // Load all files in parallel
-  const [identityResults, knowledgeResults, memoryResults] = await Promise.all([
+  const [identityResults, knowledgeResults, memoryResults, summaryResults] = await Promise.all([
     Promise.all(IDENTITY_FILES.map((f) => readMemoryFile(f).then((c) => ({ path: f, content: c })))),
     Promise.all(KNOWLEDGE_FILES.map((f) => readMemoryFile(f).then((c) => ({ path: f, content: c })))),
     Promise.all(MEMORY_FILES.map((f) => readMemoryFile(f).then((c) => ({ path: f, content: c })))),
+    Promise.all(summaryPaths.map((s) => readMemoryFile(s.path).then((c) => ({ date: s.date, content: c })))),
   ]);
 
   const formatSection = (files: { path: string; content: string | null }[]) =>
@@ -45,10 +64,16 @@ export async function loadMemory(): Promise<LoadedMemory> {
       .map((f) => `## ${f.path}\n${f.content}`)
       .join("\n\n");
 
+  const summaries = summaryResults
+    .filter((s) => s.content)
+    .map((s) => `### ${s.date}\n${s.content}`)
+    .join("\n\n");
+
   return {
     identity: formatSection(identityResults),
     knowledge: formatSection(knowledgeResults),
     memory: formatSection(memoryResults),
+    recentSummaries: summaries,
   };
 }
 
@@ -68,6 +93,10 @@ export function buildSystemPrompt(memory: LoadedMemory): string {
 
   if (memory.memory) {
     parts.push(`# Memories & Learnings\n\n${memory.memory}`);
+  }
+
+  if (memory.recentSummaries) {
+    parts.push(`# Recent Conversation History\n\nThese are AI-generated summaries of your recent conversations with Chris. Use them to maintain continuity and recall past discussions.\n\n${memory.recentSummaries}`);
   }
 
   return parts.join("\n\n---\n\n");

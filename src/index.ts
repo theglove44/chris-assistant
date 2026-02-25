@@ -2,6 +2,8 @@ import { bot } from "./telegram.js";
 import { startHealthMonitor, stopHealthMonitor } from "./health.js";
 import { startScheduler, stopScheduler } from "./scheduler.js";
 import { startConversationBackup, stopConversationBackup } from "./conversation-backup.js";
+import { startArchiveUploader, stopArchiveUploader } from "./conversation-archive.js";
+import { startDailySummarizer, stopDailySummarizer } from "./conversation-summary.js";
 
 console.log("[chris-assistant] Starting up...");
 
@@ -27,6 +29,8 @@ bot.start({
     });
     startScheduler();
     startConversationBackup();
+    startArchiveUploader();
+    startDailySummarizer();
   },
 });
 
@@ -36,6 +40,8 @@ const shutdown = () => {
   stopHealthMonitor();
   stopScheduler();
   stopConversationBackup();
+  stopArchiveUploader();
+  stopDailySummarizer();
   bot.stop();
   process.exit(0);
 };

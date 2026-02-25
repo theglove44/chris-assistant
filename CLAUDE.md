@@ -19,7 +19,9 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   ├── health.ts             # Periodic health checks + Telegram alerts (startup, token expiry, GitHub)
 │   ├── scheduler.ts          # Cron-like scheduled tasks — tick loop, AI execution, Telegram delivery
 │   ├── conversation.ts       # Persistent short-term history (async I/O, write queue, last 20 messages)
+│   ├── conversation-archive.ts # Daily JSONL archiver — every message saved to ~/.chris-assistant/archive/
 │   ├── conversation-backup.ts # Periodic backup of conversations to GitHub memory repo (every 6 hours)
+│   ├── conversation-summary.ts # Daily AI summarizer — generates conversation summaries at 23:55
 │   ├── providers/
 │   │   ├── types.ts          # Provider interface ({ name, chat() }) + ImageAttachment type
 │   │   ├── shared.ts         # System prompt caching + model info injection
@@ -39,10 +41,11 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── files.ts          # File tools — read, write, edit, list, search (workspace-scoped)
 │   │   ├── git.ts            # Git tools — status, diff, commit (workspace-scoped)
 │   │   ├── scheduler.ts      # manage_schedule tool — create, list, delete, toggle scheduled tasks
-│   │   └── ssh.ts            # SSH tool — exec, tmux, SCP, Tailnet device discovery (8 actions)
+│   │   ├── ssh.ts            # SSH tool — exec, tmux, SCP, Tailnet device discovery (8 actions)
+│   │   └── recall.ts         # Conversation recall tool — list, read, search, summarize past conversations
 │   ├── memory/
 │   │   ├── github.ts         # Octokit wrapper — read/write/append files in memory repo
-│   │   ├── loader.ts         # Loads identity + knowledge + memory files, builds system prompt
+│   │   ├── loader.ts         # Loads identity + knowledge + memory + recent summaries, builds system prompt
 │   │   └── tools.ts          # Memory tool executor + prompt injection validation
 │   └── cli/
 │       ├── index.ts           # Commander.js program — registers all subcommands
@@ -71,7 +74,9 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 ├── knowledge/projects.md     # Current work
 ├── knowledge/people.md       # People mentioned
 ├── memory/decisions.md       # Important decisions
-└── memory/learnings.md       # Self-improvement notes
+├── memory/learnings.md       # Self-improvement notes
+├── archive/2026-02-25.jsonl  # Daily JSONL message logs (uploaded every 6 hours)
+└── conversations/summaries/2026-02-25.md  # AI-generated daily conversation summaries
 ```
 
 ## Key Design Decisions
@@ -88,6 +93,10 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 - **Memory storage**: Markdown files in a private GitHub repo. Every update is a git commit — fully auditable and rollback-able.
 - **Persistent conversation history**: Last 20 messages per chat stored in `~/.chris-assistant/conversations.json`. Loaded lazily on first access, saved asynchronously via a write queue that serializes concurrent saves. Callers use fire-and-forget for `addMessage()` and await `clearHistory()`. Survives restarts. `/clear` wipes both memory and disk.
 - **Conversation backup**: `conversation-backup.ts` backs up `conversations.json` to `backups/conversations.json` in the memory repo every 6 hours. Uses SHA-256 hashing to skip unchanged content. Runs an immediate backup on startup. Integrated into `index.ts` lifecycle.
+- **Conversation archive**: `conversation-archive.ts` appends every message (user + assistant) as a JSONL line to `~/.chris-assistant/archive/YYYY-MM-DD.jsonl` via synchronous `appendFileSync` (microseconds, never throws). Called from `addMessage()` in `conversation.ts` before the rolling window trims old messages. A periodic uploader (every 6 hours, like conversation-backup) pushes changed archive files to `archive/YYYY-MM-DD.jsonl` in the memory repo using SHA-256 dedup. Exports `readLocalArchive(date)`, `listLocalArchiveDates()`, `datestamp()`, and `localArchivePath()` for use by the recall tool and summarizer.
+- **Daily conversation summaries**: `conversation-summary.ts` is a built-in module (not a user-managed schedule — can't be accidentally deleted). Ticks every 60s, fires at 23:55 local time. Reads today's local archive, formats as conversation text, calls `chat()` with a summarization prompt, and writes the result to `conversations/summaries/YYYY-MM-DD.md` in the memory repo. On startup, backfills yesterday's summary if messages exist but no summary was generated (handles overnight restarts). Uses chatId 0 for internal system calls. Strips thinking tags from reasoning model output.
+- **Conversation recall tool**: `src/tools/recall.ts` — single `recall_conversations` tool (category `"always"`) with 4 actions: `list` (show available archive dates with message counts), `read_day` (read a day's AI summary or full conversation log), `search` (grep across all local JSONL archives for a keyword, capped at 50 results), `summarize` (generate an on-demand AI summary for any date). Follows the same multi-action pattern as the SSH tool.
+- **Recent summaries in system prompt**: `loader.ts` loads the last 7 days of daily summaries from `conversations/summaries/YYYY-MM-DD.md` in the memory repo (in parallel with identity/knowledge/memory loads). Added to the `LoadedMemory` interface as `recentSummaries`. Injected as a `# Recent Conversation History` section in `buildSystemPrompt()`. This gives the bot natural recall of recent conversations without needing a tool call.
 - **System prompt caching**: Memory files are loaded from GitHub and cached for 5 minutes. Cache invalidates after any conversation (in case memory was updated). Shared across providers via `providers/shared.ts`.
 - **Tool loop detection**: `registry.ts` tracks consecutive identical tool calls (same name + first 500 chars of args). After 3 in a row, returns an error to the AI. Covers both `dispatchToolCall()` (OpenAI/MiniMax) and MCP executor (Claude). State resets between conversations via `invalidatePromptCache()`.
 - **Tool turn limit**: All three providers share `config.maxToolTurns` (default 25, env `MAX_TOOL_TURNS`). SSH investigations and coding work need many turns. The "ran out of processing turns" message fires if exhausted.
