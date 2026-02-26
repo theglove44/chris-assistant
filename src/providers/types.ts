@@ -12,5 +12,6 @@ export interface Provider {
     userMessage: string,
     onChunk?: (accumulated: string) => void,
     image?: ImageAttachment,
+    allowedTools?: string[],
   ): Promise<string>;
 }

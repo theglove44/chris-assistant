@@ -42,6 +42,7 @@ export async function chat(
   userMessage: string,
   onChunk?: (accumulated: string) => void,
   image?: ImageAttachment,
+  allowedTools?: string[],
 ): Promise<string> {
   // When an image is attached, always route to the designated image model
   // (OpenAI) regardless of the active provider — MiniMax and Claude can't
@@ -49,7 +50,7 @@ export async function chat(
   if (image) {
     const imageModel = config.imageModel;
     console.log("[provider] Image detected — routing to image model: %s", imageModel);
-    return createOpenAiProvider(imageModel).chat(chatId, userMessage, onChunk, image);
+    return createOpenAiProvider(imageModel).chat(chatId, userMessage, onChunk, image, allowedTools);
   }
-  return getProvider().chat(chatId, userMessage, onChunk, image);
+  return getProvider().chat(chatId, userMessage, onChunk, image, allowedTools);
 }

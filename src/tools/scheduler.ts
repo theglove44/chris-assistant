@@ -13,7 +13,10 @@ function formatSchedule(s: Schedule): string {
   const lastRun = s.lastRun
     ? new Date(s.lastRun).toLocaleString()
     : "never";
-  return `- **${s.name}** (${s.id})\n  Schedule: \`${s.schedule}\`\n  Status: ${status}\n  Last run: ${lastRun}\n  Prompt: ${s.prompt.slice(0, 100)}${s.prompt.length > 100 ? "..." : ""}`;
+  const toolsLine = s.allowedTools
+    ? `\n  Tools: ${s.allowedTools.join(", ")}`
+    : "\n  Tools: all";
+  return `- **${s.name}** (${s.id})\n  Schedule: \`${s.schedule}\`\n  Status: ${status}\n  Last run: ${lastRun}${toolsLine}\n  Prompt: ${s.prompt.slice(0, 100)}${s.prompt.length > 100 ? "..." : ""}`;
 }
 
 registerTool({
@@ -33,6 +36,11 @@ registerTool({
       "Cron expression with 5 fields: minute hour day-of-month month day-of-week. Examples: '0 9 * * *' = daily at 9am, '*/30 * * * *' = every 30 min, '0 9 * * 1-5' = weekdays at 9am. Required for create.",
     ),
     id: z.string().optional().describe("Schedule ID (required for delete and toggle)"),
+    allowed_tools: z.array(z.string()).optional().describe(
+      "Optional list of tool names the scheduled task is allowed to use. When set, ONLY these tools are available during execution — all others are hidden from the AI. " +
+      "When omitted, all tools are available. Use this to restrict dangerous tasks. " +
+      "Available tools: update_memory, web_search, fetch_url, ssh, recall_conversations, journal_entry, manage_schedule, run_code, read_file, write_file, edit_file, list_files, search_files, git_status, git_diff, git_commit.",
+    ),
   },
   jsonSchemaParameters: {
     type: "object",
@@ -51,7 +59,7 @@ registerTool({
       prompt: {
         type: "string",
         description:
-          "The prompt to send to the AI when the schedule fires (required for create). The AI will have full tool access.",
+          "The prompt to send to the AI when the schedule fires (required for create). The AI will only have access to tools listed in allowed_tools (or all tools if omitted).",
       },
       schedule: {
         type: "string",
@@ -62,6 +70,12 @@ registerTool({
         type: "string",
         description: "Schedule ID (required for delete and toggle)",
       },
+      allowed_tools: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "Optional list of tool names the scheduled task is allowed to use. When set, ONLY these tools are available. When omitted, all tools are available.",
+      },
     },
   },
   execute: async (args: {
@@ -70,6 +84,7 @@ registerTool({
     prompt?: string;
     schedule?: string;
     id?: string;
+    allowed_tools?: string[];
   }): Promise<string> => {
     switch (args.action) {
       case "create": {
@@ -88,9 +103,13 @@ registerTool({
           prompt: args.prompt,
           schedule: args.schedule.trim(),
           enabled: true,
+          ...(args.allowed_tools ? { allowedTools: args.allowed_tools } : {}),
         });
 
-        return `Created schedule "${task.name}" (ID: ${task.id})\nCron: \`${task.schedule}\`\nThe task will run on the next matching minute.`;
+        const toolsInfo = task.allowedTools
+          ? `Tools: ${task.allowedTools.join(", ")}`
+          : "Tools: all";
+        return `Created schedule "${task.name}" (ID: ${task.id})\nCron: \`${task.schedule}\`\n${toolsInfo}\nThe task will run on the next matching minute.`;
       }
 
       case "list": {

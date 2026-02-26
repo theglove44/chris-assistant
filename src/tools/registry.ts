@@ -106,15 +106,20 @@ export function registerTool(reg: ToolRegistration): void {
 // OpenAI / MiniMax providers
 // ---------------------------------------------------------------------------
 
-function filterTools(includeCoding: boolean): ToolRegistration[] {
-  return Array.from(tools.values()).filter(
+function filterTools(includeCoding: boolean, allowedTools?: string[]): ToolRegistration[] {
+  let result = Array.from(tools.values()).filter(
     (t) => includeCoding || (t.category ?? "always") === "always",
   );
+  if (allowedTools) {
+    const allowed = new Set(allowedTools);
+    result = result.filter((t) => allowed.has(t.name));
+  }
+  return result;
 }
 
 /** Returns tool definitions in OpenAI ChatCompletionTool format. */
-export function getOpenAiToolDefinitions(includeCoding = true): ChatCompletionTool[] {
-  return filterTools(includeCoding).map((t) => ({
+export function getOpenAiToolDefinitions(includeCoding = true, allowedTools?: string[]): ChatCompletionTool[] {
+  return filterTools(includeCoding, allowedTools).map((t) => ({
     type: "function" as const,
     function: {
       name: t.name,
@@ -197,6 +202,6 @@ export function getMcpTools() {
  * MCP tools are namespaced as mcp__<serverName>__<toolName>.
  * The server is named "tools" in claude.ts.
  */
-export function getMcpAllowedToolNames(includeCoding = true): string[] {
-  return filterTools(includeCoding).map((t) => `mcp__tools__${t.name}`);
+export function getMcpAllowedToolNames(includeCoding = true, allowedTools?: string[]): string[] {
+  return filterTools(includeCoding, allowedTools).map((t) => `mcp__tools__${t.name}`);
 }

@@ -24,6 +24,7 @@ export interface Schedule {
   enabled: boolean;
   createdAt: number;
   lastRun: number | null;
+  allowedTools?: string[]; // when set, only these tools are available during execution
 }
 
 // ---------------------------------------------------------------------------
@@ -142,12 +143,15 @@ async function sendTelegramMessage(text: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function executeTask(task: Schedule): Promise<void> {
-  console.log("[scheduler] Executing task: %s (%s)", task.name, task.id);
+  const toolInfo = task.allowedTools
+    ? `tools: ${task.allowedTools.join(", ")}`
+    : "tools: all";
+  console.log("[scheduler] Executing task: %s (%s) — %s", task.name, task.id, toolInfo);
 
   try {
     // Use the user's actual chat ID so the AI has conversation context
     const chatId = config.telegram.allowedUserId;
-    const response = await chat(chatId, task.prompt);
+    const response = await chat(chatId, task.prompt, undefined, undefined, task.allowedTools);
 
     // Skip sending if response is empty, whitespace, or starts with NOUPDATE:
     const trimmed = response.trim();
@@ -231,7 +235,7 @@ export function getSchedules(): Schedule[] {
   return schedules;
 }
 
-export function addSchedule(task: Omit<Schedule, "id" | "createdAt" | "lastRun">): Schedule {
+export function addSchedule(task: Omit<Schedule, "id" | "createdAt" | "lastRun" | "allowedTools"> & { allowedTools?: string[] }): Schedule {
   const id = Math.random().toString(16).slice(2, 8);
   const schedule: Schedule = {
     ...task,

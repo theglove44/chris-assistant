@@ -22,8 +22,8 @@ type CodexInputItem =
 // Tool definitions — Responses API format
 // ---------------------------------------------------------------------------
 
-function getCodexToolDefinitions(): Array<{ type: "function"; name: string; description: string; parameters: any }> {
-  return getOpenAiToolDefinitions()
+function getCodexToolDefinitions(allowedTools?: string[]): Array<{ type: "function"; name: string; description: string; parameters: any }> {
+  return getOpenAiToolDefinitions(true, allowedTools)
     .filter((t): t is typeof t & { type: "function"; function: { name: string; description?: string; parameters?: any } } =>
       t.type === "function" && "function" in t)
     .map((t) => ({
@@ -179,7 +179,7 @@ async function codexRequest(
 export function createOpenAiProvider(model: string): Provider {
   return {
     name: "openai",
-    async chat(chatId, userMessage, onChunk, image?: ImageAttachment) {
+    async chat(chatId, userMessage, onChunk, image?: ImageAttachment, allowedTools?: string[]) {
       const accessToken = await getValidAccessToken();
       const accountId = getAccountId();
 
@@ -202,8 +202,13 @@ export function createOpenAiProvider(model: string): Provider {
         });
       }
 
-      const tools = getCodexToolDefinitions();
+      const tools = getCodexToolDefinitions(allowedTools);
+      // Few-shot examples to teach the model the expected formatting style
       let input: CodexInputItem[] = [
+        { role: "user", content: [{ type: "input_text", text: "should I use postgres or sqlite for this project" }] },
+        { type: "message", role: "assistant", content: [{ type: "output_text", text: "depends on the scale:\n\n📦 **PostgreSQL** — concurrent writes, multi-user, proper service deployment\n💡 **SQLite** — simpler, faster, zero config, great for solo projects\n\nfor a side project? sqlite all day. what's the project?" }], status: "completed" },
+        { role: "user", content: [{ type: "input_text", text: "remind me what we talked about yesterday" }] },
+        { type: "message", role: "assistant", content: [{ type: "output_text", text: "yesterday was mostly the CLI work:\n\n🛠️ **pm2 commands** — got start/stop/status wired up\n📦 **memory management** — connected to GitHub repo\n✅ **full flow tested** — everything running clean\n\nyou were on a roll with it" }], status: "completed" },
         { role: "user", content: userContentParts },
       ];
 

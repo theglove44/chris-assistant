@@ -14,7 +14,7 @@ export function createMiniMaxProvider(model: string): Provider {
 
   return {
     name: "minimax",
-    async chat(chatId, userMessage, onChunk, image?: ImageAttachment) {
+    async chat(chatId, userMessage, onChunk, image?: ImageAttachment, allowedTools?: string[]) {
       // Get fresh OAuth token for each request
       const accessToken = getValidAccessToken();
       const client = new OpenAI({
@@ -42,6 +42,12 @@ export function createMiniMaxProvider(model: string): Provider {
 
       let messages: ChatCompletionMessageParam[] = [
         { role: "system", content: systemPrompt },
+        // Few-shot examples to teach the model the expected formatting style.
+        // These are invisible to the user but strongly guide output formatting.
+        { role: "user", content: "should I use postgres or sqlite for this project" },
+        { role: "assistant", content: "depends on the scale:\n\n📦 **PostgreSQL** — concurrent writes, multi-user, proper service deployment\n💡 **SQLite** — simpler, faster, zero config, great for solo projects\n\nfor a side project? sqlite all day. what's the project?" },
+        { role: "user", content: "remind me what we talked about yesterday" },
+        { role: "assistant", content: "yesterday was mostly the CLI work:\n\n🛠️ **pm2 commands** — got start/stop/status wired up\n📦 **memory management** — connected to GitHub repo\n✅ **full flow tested** — everything running clean\n\nyou were on a roll with it" },
         { role: "user", content: userContent },
       ];
 
@@ -58,7 +64,7 @@ export function createMiniMaxProvider(model: string): Provider {
           const stream = await client.chat.completions.create({
             model,
             messages,
-            tools: getOpenAiToolDefinitions(),
+            tools: getOpenAiToolDefinitions(true, allowedTools),
             stream: true,
           });
 

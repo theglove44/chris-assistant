@@ -13,7 +13,7 @@ export function createClaudeProvider(model: string): Provider {
 
   return {
     name: "claude",
-    async chat(chatId, userMessage, _onChunk, _image?: ImageAttachment) {
+    async chat(chatId, userMessage, _onChunk, _image?: ImageAttachment, allowedTools?: string[]) {
       const systemPrompt = await getSystemPrompt();
       const conversationContext = await formatHistoryForPrompt(chatId);
 
@@ -39,7 +39,7 @@ export function createClaudeProvider(model: string): Provider {
             mcpServers: {
               tools: toolServer,
             },
-            allowedTools: getMcpAllowedToolNames(),
+            allowedTools: getMcpAllowedToolNames(true, allowedTools),
             permissionMode: "bypassPermissions",
             allowDangerouslySkipPermissions: true,
           },
