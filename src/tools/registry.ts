@@ -35,16 +35,37 @@ const tools = new Map<string, ToolRegistration>();
 // Loop detection
 // ---------------------------------------------------------------------------
 
-const LOOP_THRESHOLD = 3; // consecutive identical calls before breaking
+const LOOP_THRESHOLD = 3;    // consecutive identical calls before breaking
+const FREQUENCY_LIMIT = 20;  // total calls to same tool name before hard stop
+
 let recentFingerprints: string[] = [];
+const toolCallCounts = new Map<string, number>();
 
 /**
  * Check if a tool call is stuck in a loop. Returns an error message if so,
- * or null if the call should proceed. A "loop" is N consecutive identical
- * calls (same tool name + same arguments).
+ * or null if the call should proceed.
+ *
+ * Two independent checks run in sequence:
+ *   1. Frequency check — same tool name called >= FREQUENCY_LIMIT times this
+ *      conversation (catches slow loops where args vary between calls).
+ *   2. Exact-duplicate check — same tool name + same args called LOOP_THRESHOLD
+ *      times consecutively (catches tight identical loops quickly).
  */
 function checkLoopDetection(name: string, argsJson: string): string | null {
-  // Fingerprint: tool name + first 500 chars of args (enough to distinguish)
+  // 1. Frequency check
+  const count = (toolCallCounts.get(name) ?? 0) + 1;
+  toolCallCounts.set(name, count);
+
+  if (count >= FREQUENCY_LIMIT) {
+    console.warn(
+      "[tools] Frequency limit reached: %s called %d times this conversation",
+      name,
+      count,
+    );
+    return `Tool ${name} has been called ${count} times this conversation. You appear to be stuck — try a different approach or ask the user for help.`;
+  }
+
+  // 2. Exact-duplicate fingerprint check
   const fingerprint = `${name}:${argsJson.slice(0, 500)}`;
 
   recentFingerprints.push(fingerprint);
@@ -70,6 +91,7 @@ function checkLoopDetection(name: string, argsJson: string): string | null {
 /** Reset loop detection state (call between conversations). */
 export function resetLoopDetection(): void {
   recentFingerprints = [];
+  toolCallCounts.clear();
 }
 
 // ---------------------------------------------------------------------------

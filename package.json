@@ -12,14 +12,19 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit && node scripts/check-esbuild-compat.js",
     "chris": "tsx src/cli/index.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.0",
+    "@mozilla/readability": "^0.6.0",
     "@octokit/rest": "^21.0.0",
     "commander": "^13.0.0",
     "dotenv": "^16.4.0",
     "grammy": "^1.30.0",
+    "linkedom": "^0.18.12",
     "openai": "^6.22.0",
     "pm2": "^6.0.0",
     "zod": "^3.24.0"
@@ -28,6 +33,7 @@
     "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
+    "vitepress": "^1.6.4",
     "vitest": "^4.0.18"
   }
 }

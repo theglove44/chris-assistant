@@ -1,5 +1,7 @@
 import { promises as dns } from "dns";
 import { z } from "zod";
+import { Readability } from "@mozilla/readability";
+import { parseHTML } from "linkedom";
 import { registerTool } from "./registry.js";
 
 const MAX_CONTENT_LENGTH = 50_000;
@@ -83,6 +85,17 @@ function stripHtml(html: string): string {
   return text.trim();
 }
 
+function extractWithReadability(html: string, url: string): string | null {
+  try {
+    const { document } = parseHTML(html);
+    const article = new Readability(document as unknown as Document).parse();
+    const text = article?.textContent?.trim();
+    return text ? text : null;
+  } catch {
+    return null;
+  }
+}
+
 registerTool({
   name: "fetch_url",
   description:
@@ -146,7 +159,15 @@ registerTool({
 
       let content: string;
       if (contentType.includes("text/html")) {
-        content = stripHtml(rawText);
+        // Try Readability first for clean article extraction, fall back to regex
+        const readabilityResult = extractWithReadability(rawText, url);
+        if (readabilityResult !== null) {
+          content = readabilityResult;
+          console.log("[fetch-url] Extracted via readability (%d chars)", content.length);
+        } else {
+          content = stripHtml(rawText);
+          console.log("[fetch-url] Extracted via stripHtml (%d chars)", content.length);
+        }
       } else {
         content = rawText;
       }

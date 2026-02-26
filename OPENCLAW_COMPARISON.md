@@ -13,15 +13,15 @@ Areas where chris-assistant already matches or is close to OpenClaw.
 
 | Area | Chris-Assistant | OpenClaw | Gap |
 |------|----------------|----------|-----|
-| Web search | `web_search` — Brave API, query only, top 5 | `web_search` — Brave/Perplexity, count/country/freshness params | Minor |
-| URL fetch | `fetch_url` — regex HTML strip, 15s, 50KB | `web_fetch` — Readability parser, markdown/text modes, Firecrawl fallback, caching | Moderate |
+| Web search | `web_search` — Brave API, count/freshness/country params | `web_search` — Brave/Perplexity, count/country/freshness params | Parity |
+| URL fetch | `fetch_url` — Readability + regex fallback, 15s, 50KB | `web_fetch` — Readability parser, markdown/text modes, Firecrawl fallback, caching | Minor |
 | Code execution | `run_code` — execFile, 4 languages, 10s | `exec` — full shell, background, PTY, multiple hosts, 1800s, approvals | Large |
 | File read/write/list/search | 5 tools, workspace-scoped, path guard | `group:fs` | Parity |
 | File edit | `edit_file` — single exact-match replace | `apply_patch` — multi-file multi-hunk structured patches | Large |
 | Git | `git_status`, `git_diff`, `git_commit` (dedicated tools) | Via `exec` (no dedicated tools) | We're ahead |
 | Memory | `update_memory` — add/replace, 6 categories, GitHub | `memory_search` + `memory_get` — semantic vector + BM25, temporal decay | Large |
 | Scheduled tasks | `manage_schedule` + `scheduler.ts` — cron, AI execution | `cron` — gateway-managed jobs | Parity |
-| Loop detection | 3 consecutive identical calls | Configurable 3-tier thresholds (10/20/30) | Minor |
+| Loop detection | 3 consecutive identical + 20/tool frequency limit | Configurable 3-tier thresholds (10/20/30) | Parity |
 | Tool categories | `always` / `coding` | Layered profiles + allow/deny + provider policies | Moderate |
 
 ---
@@ -32,11 +32,11 @@ Low-effort improvements that can all be done in a single session. Each is a smal
 
 | # | Impact | Status | Item | Description |
 |---|--------|--------|------|-------------|
-| 1 | 🟠 | ⬜ | **Enhanced `web_search` params** | Add optional `count` (1-10), `freshness` (pd/pw/pm/py), `country` params. Brave API already supports all of these — we just need to pass them through. Lets the AI filter by recency and control result count. ~15 min. |
-| 2 | 🟠 | ⬜ | **Fix `run_code` working directory** | Set `cwd: getWorkspaceRoot()` on execFile options. Currently code runs from wherever pm2 started. Already flagged in ROADMAP. ~5 min. |
-| 3 | 🟡 | ⬜ | **Env sanitization for `run_code`** | Strip `GITHUB_TOKEN`, `TELEGRAM_BOT_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`, `BRAVE_SEARCH_API_KEY`, and any `*_SECRET`/`*_TOKEN`/`*_KEY` vars before spawning child processes. Prevents casual secret exfiltration via `echo $GITHUB_TOKEN`. Already flagged in ROADMAP. ~15 min. |
-| 4 | 🟠 | ⬜ | **Readability-based `web_fetch`** | Replace naive regex HTML stripping with Mozilla Readability + linkedom for clean article extraction. Fall back to current regex if Readability fails. Add optional `mode` param (`markdown` / `text`). Current approach includes nav menus, footers, ads — Readability gives the AI much cleaner content. New deps: `@mozilla/readability`, `linkedom`. ~30-60 min. |
-| 5 | 🟡 | ⬜ | **Better loop detection** | Add per-tool-name call counter (not just exact-duplicate fingerprints). Three tiers: warning after N calls, error after M, circuit breaker after P. Configurable thresholds. Current detection trivially bypassed by tweaking whitespace or reordering JSON keys. Keep existing exact-duplicate check too. ~30-60 min. |
+| 1 | 🟠 | ✅ | **Enhanced `web_search` params** | Added optional `count` (1-10, default 5), `freshness` (pd/pw/pm/py), and `country` params to `web-search.ts`. All three passed through to Brave API. |
+| 2 | 🟠 | ✅ | **Fix `run_code` working directory** | Already implemented — `run-code.ts` sets `cwd: getWorkspaceRoot()` on execFile options. |
+| 3 | 🟡 | ✅ | **Env sanitization for `run_code`** | Already implemented — `run-code.ts` uses `SAFE_ENV_KEYS` allowlist, only passes PATH/HOME/SHELL/LANG/TMPDIR/etc. All secrets automatically excluded. |
+| 4 | 🟠 | ✅ | **Readability-based `web_fetch`** | `fetch-url.ts` now uses Mozilla Readability + linkedom for clean article extraction, falling back to regex `stripHtml` when Readability returns nothing. New deps: `@mozilla/readability`, `linkedom`. Strips nav menus, footers, ads automatically. |
+| 5 | 🟡 | ✅ | **Better loop detection** | Added per-tool-name frequency counter (`FREQUENCY_LIMIT = 20`) alongside existing exact-duplicate check (`LOOP_THRESHOLD = 3`). Frequency counter catches slow loops where args vary between calls. Both reset via `resetLoopDetection()` between conversations. |
 
 ---
 
