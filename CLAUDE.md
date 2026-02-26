@@ -26,12 +26,14 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   ├── heartbeat.ts          # Periodic HEARTBEAT.md writer — bot status snapshot to GitHub (every 3h)
 │   ├── providers/
 │   │   ├── types.ts          # Provider interface ({ name, chat() }) + ImageAttachment type
-│   │   ├── shared.ts         # System prompt caching + model info injection
+│   │   ├── shared.ts         # System prompt builder — capabilities, formatting rules, project bootstrap, caching
 │   │   ├── claude.ts         # Claude Agent SDK provider
 │   │   ├── minimax.ts        # MiniMax provider (OpenAI-compatible API)
 │   │   ├── minimax-oauth.ts  # MiniMax OAuth device flow + token storage
 │   │   ├── openai.ts         # OpenAI provider — Codex Responses API + SSE streaming
 │   │   ├── openai-oauth.ts   # OpenAI OAuth — authorization code + PKCE + account ID
+│   │   ├── compaction.ts     # Context compaction — summarizes older turns when approaching context limit
+│   │   ├── context-limits.ts # Model context window sizes + compaction thresholds (70% trigger)
 │   │   └── index.ts          # Provider router — model string determines provider
 │   ├── tools/
 │   │   ├── registry.ts       # Shared tool registry — registerTool(), dispatch, MCP/OpenAI format gen
@@ -45,7 +47,8 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── scheduler.ts      # manage_schedule tool — create, list, delete, toggle scheduled tasks
 │   │   ├── ssh.ts            # SSH tool — exec, tmux, SCP, Tailnet device discovery (8 actions)
 │   │   ├── recall.ts         # Conversation recall tool — list, read, search, summarize past conversations
-│   │   └── journal.ts        # journal_entry tool — bot writes daily notes via tool call
+│   │   ├── journal.ts        # journal_entry tool — bot writes daily notes via tool call
+│   │   └── market-snapshot.ts # market_snapshot tool — SSHes to Mac Mini to run tasty-coach market data
 │   ├── memory/
 │   │   ├── github.ts         # Octokit wrapper — read/write/append files in memory repo
 │   │   ├── journal.ts        # Daily memory journal — local storage + periodic GitHub upload
@@ -91,7 +94,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 - **Multi-provider**: The model string determines the provider. `gpt-*`/`o3*`/`o4-*` → OpenAI, `MiniMax-*` → MiniMax, everything else → Claude. No separate "provider" config key.
 - **Authentication**: OpenAI uses authorization code OAuth + PKCE (`chris openai login`) — opens browser, local callback server on port 1455. Tokens + account ID in `~/.chris-assistant/openai-auth.json` with auto-refresh. Account ID is extracted from JWT for `chatgpt-account-id` header. MiniMax uses OAuth device flow (`chris minimax login`) — tokens in `~/.chris-assistant/minimax-auth.json`. Claude is optional — requires `CLAUDE_CODE_OAUTH_TOKEN` in `.env` from a Max subscription.
 - **Streaming responses**: OpenAI streams via SSE from the Codex Responses API (`response.output_text.delta` events). MiniMax streams via the OpenAI SDK. Both use the `onChunk` callback in the Provider interface. `telegram.ts` sends a "..." placeholder and edits it every 1.5s with accumulated text + cursor (▍). Claude SDK doesn't expose token streaming yet. Final render uses Markdown with plain text fallback.
-- **Image and document handling**: `telegram.ts` handles `message:photo` and `message:document` in addition to `message:text`. Photos are downloaded from Telegram, base64-encoded, and passed via `ImageAttachment` in the Provider interface. OpenAI/MiniMax use `image_url` content parts. Claude Agent SDK only accepts string prompts, so images get a text-only fallback. Text documents are downloaded, read as UTF-8, and prepended to the message (50KB truncation). Unsupported file types get a helpful error.
+- **Image and document handling**: `telegram.ts` handles `message:photo` and `message:document` in addition to `message:text`. Photos are downloaded from Telegram, base64-encoded, and passed via `ImageAttachment` in the Provider interface. All images are routed to `config.imageModel` (default `gpt-5.2`) via OpenAI regardless of the active provider — `providers/index.ts` intercepts images before provider dispatch. Claude Agent SDK only accepts string prompts, so images get a text-only fallback if Claude is the image model (it shouldn't be). Text documents are downloaded, read as UTF-8, and prepended to the message (50KB truncation). Unsupported file types get a helpful error.
 - **Web search tool**: `src/tools/web-search.ts` — Brave Search API, conditionally registered only when `BRAVE_SEARCH_API_KEY` is set. Supports optional `count` (1-10, default 5), `freshness` (pd/pw/pm/py), and `country` params. No new npm deps (native fetch). All providers pick it up automatically via the tool registry.
 - **URL fetch tool**: `src/tools/fetch-url.ts` — always registered, native `fetch` with 15s timeout (AbortController). HTML pages are extracted via Mozilla Readability + linkedom for clean article content (strips nav, ads, footers), falling back to regex stripping if Readability returns nothing. 50KB truncation. No API key needed. SSRF protection blocks private/internal IPs (127/8, 10/8, 172.16/12, 192.168/16, 169.254/16, ::1, fc00::/7, fe80::/10) and `localhost` via DNS resolution before fetching.
 - **File tools**: `src/tools/files.ts` — 5 tools (`read_file`, `write_file`, `edit_file`, `list_files`, `search_files`) scoped to `WORKSPACE_ROOT` (default `~/Projects`). All paths resolved relative to workspace root with a guard that rejects traversal outside it. `edit_file` requires exactly one match of `old_string`. `list_files` uses `find` with `node_modules`/`.git` pruning, capped at 200 results. `search_files` uses `grep -rn` with optional `--include` glob filter.
@@ -109,7 +112,8 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 - **Heartbeat file**: `src/heartbeat.ts` — writes `HEARTBEAT.md` to the root of the GitHub memory repo every 3 hours (+ immediately on startup). Collects uptime, started-at timestamp, current model/provider, health status for GitHub repo and MiniMax/OpenAI tokens (with warning thresholds matching `health.ts`), all scheduled tasks with cron expressions and last-run times, last message relative time (from `conversations.json`), and today's message count (from JSONL archive line count). SHA-256 dedup skips unchanged writes. Reads `conversations.json` directly via `fs` (no import from `conversation.ts`) to avoid circular deps. Integrated into `index.ts` lifecycle.
 - **System prompt caching**: Memory files are loaded from GitHub and cached for 5 minutes. Cache invalidates after any conversation (in case memory was updated). Shared across providers via `providers/shared.ts`.
 - **Tool loop detection**: `registry.ts` has two layers: (1) exact-duplicate check — 3 consecutive identical calls (same name + args) triggers a break; (2) per-tool frequency counter — 20 calls to the same tool name in one conversation triggers a hard stop. Both cover `dispatchToolCall()` (OpenAI/MiniMax) and MCP executor (Claude). State resets between conversations via `invalidatePromptCache()`.
-- **Tool turn limit**: All three providers share `config.maxToolTurns` (default 25, env `MAX_TOOL_TURNS`). SSH investigations and coding work need many turns. The "ran out of processing turns" message fires if exhausted.
+- **Tool turn limit**: All three providers share `config.maxToolTurns` (default 200, env `MAX_TOOL_TURNS`). Set high because SSH investigations and coding work need many turns; context compaction keeps conversations within the model's window. The "ran out of processing turns" message fires if exhausted.
+- **Context compaction**: `providers/compaction.ts` summarizes older conversation turns when approaching the model's context window limit (70% threshold, defined in `providers/context-limits.ts`). OpenAI compaction parses SSE responses (`compactCodexInput()`). MiniMax compaction uses the OpenAI SDK (`compactMessages()`). This allows the tool loop to continue indefinitely instead of hitting a hard context ceiling.
 - **Git tools**: `src/tools/git.ts` — 3 tools: `git_status` (short format), `git_diff` (optional `staged` flag for `--cached`), `git_commit` (optional `files` array to stage before committing). All use `git -C <workspaceRoot>`. No `git_push` — deliberate safety choice to prevent unreviewed pushes. 50KB truncation on diff output.
 - **Project bootstrap files**: `shared.ts` checks for `CLAUDE.md`, `AGENTS.md`, `README.md` (in that order) in the active workspace root. First found is loaded, truncated to 20K chars, and injected as a `# Project Context` section in the system prompt. Workspace change callback invalidates the prompt cache so bootstrap reloads for the new project.
 - **Workspace root**: File tools scope to `WORKSPACE_ROOT` (default `~/Projects`). Mutable at runtime via `/project` Telegram command or `setWorkspaceRoot()`. The guard in `resolveSafePath()` uses `fs.realpathSync` to canonicalize paths (following symlinks) before the boundary check — a symlink inside the workspace pointing outside it will be rejected.
@@ -144,9 +148,10 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 | `GITHUB_TOKEN` | Fine-grained PAT with Contents read/write on memory repo only |
 | `GITHUB_MEMORY_REPO` | `owner/repo` format — your private memory repo |
 | `AI_MODEL` | Model ID — determines provider. Defaults to `gpt-4o`. Accepts `CLAUDE_MODEL` for back-compat. |
+| `IMAGE_MODEL` | Optional — model for image processing. Defaults to `gpt-5.2`. All image messages route here regardless of active provider. |
 | `BRAVE_SEARCH_API_KEY` | Optional — Brave Search API key for web search tool |
 | `WORKSPACE_ROOT` | Optional — root directory for file tools. Defaults to `~/Projects`. Changeable at runtime via `/project` command. |
-| `MAX_TOOL_TURNS` | Optional — max tool call rounds per message. Defaults to `25`. |
+| `MAX_TOOL_TURNS` | Optional — max tool call rounds per message. Defaults to `200`. |
 | `CLAUDE_CODE_OAUTH_TOKEN` | Optional — only needed to use Claude models |
 
 Note: OpenAI uses authorization code OAuth (browser-based, `chris openai login`). MiniMax uses OAuth device flow (`chris minimax login`). Tokens stored in `~/.chris-assistant/`. Claude is optional and requires `CLAUDE_CODE_OAUTH_TOKEN` in `.env`.
@@ -225,4 +230,4 @@ npx tsx src/cli/index.ts # Run CLI directly without global install
 - **MiniMax OAuth API**: The `/oauth/code` endpoint requires `response_type: "code"` in the body. The `expired_in` field is a unix timestamp in **milliseconds** (not a duration). Token poll responses use a `status` field (`"success"` / `"pending"` / `"error"`) — don't rely on HTTP status codes. Tokens are stored in `~/.chris-assistant/minimax-auth.json`.
 - **OpenAI Codex OAuth**: Authorization code + PKCE flow — opens browser to `auth.openai.com/oauth/authorize`, local callback server on port 1455 catches the redirect, exchanges code for tokens. Account ID extracted from JWT (`payload["https://api.openai.com/auth"].chatgpt_account_id`). Tokens auto-refresh via refresh_token grant. Tokens + account ID in `~/.chris-assistant/openai-auth.json`.
 - **Codex Responses API constraints**: The `chatgpt.com/backend-api/codex/responses` endpoint requires `stream: true` and `store: false` in every request — there is no non-streaming mode. Headers must include `chatgpt-account-id` and `OpenAI-Beta: responses=experimental`. Only GPT-5.x models work; older models (gpt-4o, gpt-4.1) return a 400 error. Tool definitions use a flat format (`{ type, name, description, parameters }`) instead of the nested Chat Completions format.
-- **Compaction with Codex**: Since the API has no non-streaming mode, `compactCodexInput()` in `compaction.ts` parses SSE responses to extract the summary text. MiniMax compaction still uses the OpenAI SDK (`compactMessages()`).
+- **SSH config and pm2**: The SSH tool uses raw IPs/hostnames from Tailscale. The `~/.ssh/config` `Host` line must include both the alias and the IP (e.g. `Host office 100.99.188.80`) for SSH to resolve the correct user and identity file when the bot connects by IP. Without the IP in the `Host` line, SSH falls through to defaults (wrong user).
