@@ -69,6 +69,25 @@ function truncate(s: string): string {
   return s;
 }
 
+// Commands that could disrupt the bot's own process or system stability.
+const DANGEROUS_PATTERNS = [
+  /\bpm2\b/i,
+  /\bkill\b.*chris-assistant/i,
+  /\bsystemctl\b.*(restart|stop|disable)/i,
+  /\breboot\b/,
+  /\bshutdown\b/,
+  /\brm\s+-rf\s+[/~]/,
+];
+
+function isDangerous(code: string): string | null {
+  for (const pattern of DANGEROUS_PATTERNS) {
+    if (pattern.test(code)) {
+      return `Blocked: code matches dangerous pattern (${pattern.source}). The bot cannot restart or stop itself via code execution.`;
+    }
+  }
+  return null;
+}
+
 registerTool({
   name: "run_code",
   category: "coding",
@@ -102,6 +121,13 @@ registerTool({
       language,
       code.slice(0, 100),
     );
+
+    // Block dangerous commands that could disrupt the bot itself
+    const blocked = isDangerous(code);
+    if (blocked) {
+      console.warn("[run-code] %s", blocked);
+      return blocked;
+    }
 
     const spec = buildCommand(language, code);
     if (!spec) {
