@@ -23,12 +23,16 @@ const MEMORY_FILES = [
   "memory/learnings.md",
 ];
 
+/** Path to the weekly-consolidated curated summary (loaded separately) */
+const CURATED_SUMMARY_PATH = "memory/SUMMARY.md";
+
 interface LoadedMemory {
   identity: string;
   knowledge: string;
   memory: string;
   recentSummaries: string;
   recentJournal: string;
+  curatedSummary: string;
 }
 
 /** Generate the last 7 days of summary file paths. */
@@ -50,11 +54,12 @@ export async function loadMemory(): Promise<LoadedMemory> {
   const summaryPaths = recentSummaryPaths();
 
   // Load all files in parallel
-  const [identityResults, knowledgeResults, memoryResults, summaryResults] = await Promise.all([
+  const [identityResults, knowledgeResults, memoryResults, summaryResults, curatedSummaryContent] = await Promise.all([
     Promise.all(IDENTITY_FILES.map((f) => readMemoryFile(f).then((c) => ({ path: f, content: c })))),
     Promise.all(KNOWLEDGE_FILES.map((f) => readMemoryFile(f).then((c) => ({ path: f, content: c })))),
     Promise.all(MEMORY_FILES.map((f) => readMemoryFile(f).then((c) => ({ path: f, content: c })))),
     Promise.all(summaryPaths.map((s) => readMemoryFile(s.path).then((c) => ({ date: s.date, content: c })))),
+    readMemoryFile(CURATED_SUMMARY_PATH),
   ]);
 
   const formatSection = (files: { path: string; content: string | null }[]) =>
@@ -91,6 +96,7 @@ export async function loadMemory(): Promise<LoadedMemory> {
     memory: formatSection(memoryResults),
     recentSummaries: summaries,
     recentJournal: journalParts.join("\n\n"),
+    curatedSummary: curatedSummaryContent ?? "",
   };
 }
 
@@ -102,6 +108,10 @@ export function buildSystemPrompt(memory: LoadedMemory): string {
 
   if (memory.identity) {
     parts.push(`# Identity\n\n${memory.identity}`);
+  }
+
+  if (memory.curatedSummary) {
+    parts.push(`# Curated Memory\n\nThis is your consolidated understanding of Chris — actively maintained and updated weekly from your knowledge files, daily journals, and conversation summaries.\n\n${memory.curatedSummary}`);
   }
 
   if (memory.knowledge) {
