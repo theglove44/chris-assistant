@@ -11,6 +11,7 @@ import "./scheduler.js";
 import "./ssh.js";
 import "./recall.js";
 import "./journal.js";
+import "./market-snapshot.js";
 
 // Re-export registry functions so providers only need to import from one place.
 export {
@@ -18,6 +19,8 @@ export {
   dispatchToolCall,
   getMcpTools,
   getMcpAllowedToolNames,
+  getCustomMcpTools,
+  getCustomMcpAllowedToolNames,
   resetLoopDetection,
 } from "./registry.js";
 

@@ -10,6 +10,8 @@ import { authMiddleware, rateLimitMiddleware } from "./middleware.js";
 import { readMemoryFile } from "./memory/github.js";
 import { getWorkspaceRoot, setWorkspaceRoot, isProjectActive } from "./tools/files.js";
 import { invalidatePromptCache } from "./providers/shared.js";
+import { clearSession, getSessionId } from "./claude-sessions.js";
+import { abortClaudeQuery } from "./providers/claude.js";
 
 const bot = new Bot(config.telegram.botToken);
 
@@ -146,9 +148,10 @@ bot.command("start", async (ctx) => {
   await ctx.reply("Hey Chris. I'm here whenever you need me.");
 });
 
-// /clear — reset conversation history
+// /clear — reset conversation history and Claude session
 bot.command("clear", async (ctx) => {
   await clearHistory(ctx.chat.id);
+  clearSession(ctx.chat.id);
   await ctx.reply("Conversation cleared. Memory is still intact.");
 });
 
@@ -193,11 +196,39 @@ bot.command("reload", async (ctx) => {
   await ctx.reply("System prompt cache cleared. Next message will reload memory from GitHub.");
 });
 
+// /stop — abort the current Claude query
+bot.command("stop", async (ctx) => {
+  const aborted = abortClaudeQuery();
+  await ctx.reply(aborted ? "Stopping current query..." : "Nothing running to stop.");
+});
+
+// /session — show Claude session info
+bot.command("session", async (ctx) => {
+  const sessionId = getSessionId(ctx.chat.id);
+  const model = config.model;
+  const m = model.toLowerCase();
+  const isClaude = !m.startsWith("gpt-") && !m.startsWith("o3") && !m.startsWith("o4-") && !model.startsWith("MiniMax");
+
+  if (!isClaude) {
+    await ctx.reply("Claude session tracking is only active when using a Claude model.");
+    return;
+  }
+
+  if (!sessionId) {
+    await ctx.reply("No active Claude session. Send a message to start one.");
+    return;
+  }
+
+  await ctx.reply(`Claude session: ${sessionId.slice(0, 12)}...\nUse /clear to reset.`);
+});
+
 bot.command("help", async (ctx) => {
   await ctx.reply(
     "Available commands:\n\n" +
     "/start — Greeting\n" +
-    "/clear — Reset conversation history\n" +
+    "/clear — Reset conversation + Claude session\n" +
+    "/stop — Abort current Claude query\n" +
+    "/session — Show Claude session info\n" +
     "/model — Show current AI model\n" +
     "/memory — Show memory file status\n" +
     "/project — Show active workspace\n" +

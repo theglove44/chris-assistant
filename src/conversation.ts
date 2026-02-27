@@ -110,7 +110,10 @@ export async function clearHistory(chatId: number): Promise<void> {
 
 /**
  * Format conversation history as a string to prepend to the user prompt.
- * This gives Claude short-term memory within a conversation.
+ * This gives non-session providers (OpenAI, MiniMax) short-term memory.
+ *
+ * When Claude is the active provider with session resume, the SDK manages
+ * its own conversation context — call this only for non-Claude providers.
  */
 export async function formatHistoryForPrompt(chatId: number): Promise<string> {
   const history = await getHistory(chatId);

@@ -205,3 +205,71 @@ export function getMcpTools() {
 export function getMcpAllowedToolNames(includeCoding = true, allowedTools?: string[]): string[] {
   return filterTools(includeCoding, allowedTools).map((t) => `mcp__tools__${t.name}`);
 }
+
+// ---------------------------------------------------------------------------
+// Custom-only MCP tools (for Claude Agent SDK native mode)
+// ---------------------------------------------------------------------------
+
+/**
+ * Tools that Claude Code handles natively via its built-in tool set.
+ * When Claude is the primary agent, these are redundant — the SDK's
+ * built-in versions are superior.
+ */
+const NATIVE_CLAUDE_TOOLS = new Set([
+  "read_file",
+  "write_file",
+  "edit_file",
+  "list_files",
+  "search_files",
+  "run_code",
+  "git_status",
+  "git_diff",
+  "git_commit",
+  "web_search",
+  "fetch_url",
+]);
+
+/**
+ * Returns MCP tool objects for only custom tools (not handled natively by Claude Code).
+ * Used when the Claude Agent SDK is the primary agent and has its own built-in tools.
+ */
+export function getCustomMcpTools() {
+  return Array.from(tools.values())
+    .filter((t) => !NATIVE_CLAUDE_TOOLS.has(t.name))
+    .map((t) =>
+      createMcpTool(
+        t.name,
+        t.description,
+        t.zodSchema,
+        async (args: any) => {
+          const argsJson = JSON.stringify(args);
+          const loopError = checkLoopDetection(t.name, argsJson);
+          if (loopError) {
+            return {
+              content: [{ type: "text" as const, text: loopError }],
+              isError: true,
+            };
+          }
+          const result = await t.execute(args);
+          const isError = /^(Unknown|Failed|Error|rejected|denied)/i.test(result) || result.includes("rejected:");
+          return {
+            content: [{ type: "text" as const, text: result }],
+            ...(isError && { isError: true }),
+          };
+        },
+      ),
+    );
+}
+
+/**
+ * Returns allowedTools list for custom MCP tools only (Claude native mode).
+ * MCP tools are namespaced as mcp__<serverName>__<toolName>.
+ */
+export function getCustomMcpAllowedToolNames(serverName: string, allowedTools?: string[]): string[] {
+  let customTools = Array.from(tools.values()).filter((t) => !NATIVE_CLAUDE_TOOLS.has(t.name));
+  if (allowedTools) {
+    const allowed = new Set(allowedTools);
+    customTools = customTools.filter((t) => allowed.has(t.name));
+  }
+  return customTools.map((t) => `mcp__${serverName}__${t.name}`);
+}
