@@ -25,6 +25,7 @@ Message your bot on Telegram. That's it. On first contact, the assistant will in
 | `/memory` | Show memory file status with sizes |
 | `/project` | Show or set the active project/workspace directory |
 | `/reload` | Reload memory from GitHub (invalidates system prompt cache) |
+| `/restart` | Graceful bot restart (pm2 auto-restarts the process) |
 | `/help` | List all available commands |
 
 ## How Memory Works

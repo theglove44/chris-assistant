@@ -20,6 +20,7 @@ bot.api.setMyCommands([
   { command: "memory", description: "Show memory file status" },
   { command: "project", description: "Show or set active project directory" },
   { command: "reload", description: "Reload memory from GitHub" },
+  { command: "restart", description: "Graceful bot restart" },
   { command: "help", description: "List available commands" },
 ]).catch((err: any) => {
   console.error("[telegram] Failed to set command menu:", err.message);

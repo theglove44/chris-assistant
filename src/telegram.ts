@@ -222,6 +222,14 @@ bot.command("session", async (ctx) => {
   await ctx.reply(`Claude session: ${sessionId.slice(0, 12)}...\nUse /clear to reset.`);
 });
 
+// /restart — graceful bot restart via pm2
+bot.command("restart", async (ctx) => {
+  await ctx.reply("Restarting... back in a few seconds.");
+  // Give Telegram a moment to deliver the message, then exit.
+  // pm2 auto-restarts the process.
+  setTimeout(() => process.exit(0), 500);
+});
+
 bot.command("help", async (ctx) => {
   await ctx.reply(
     "Available commands:\n\n" +
@@ -234,6 +242,7 @@ bot.command("help", async (ctx) => {
     "/project — Show active workspace\n" +
     "/project <path> — Set active workspace\n" +
     "/reload — Reload memory from GitHub\n" +
+    "/restart — Graceful bot restart\n" +
     "/help — This message",
   );
 });
