@@ -196,9 +196,9 @@ bot.command("reload", async (ctx) => {
   await ctx.reply("System prompt cache cleared. Next message will reload memory from GitHub.");
 });
 
-// /stop — abort the current Claude query
+// /stop — abort the current Claude query for this chat
 bot.command("stop", async (ctx) => {
-  const aborted = abortClaudeQuery();
+  const aborted = abortClaudeQuery(ctx.chat.id);
   await ctx.reply(aborted ? "Stopping current query..." : "Nothing running to stop.");
 });
 

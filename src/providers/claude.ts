@@ -39,19 +39,30 @@ function getThinkingTokens(message: string): number | undefined {
 // Active query tracking (for abort support)
 // ---------------------------------------------------------------------------
 
-let activeAbortController: AbortController | null = null;
+/** One abort controller per concurrent chat. Keyed by chatId. */
+const activeControllers = new Map<number, AbortController>();
 
 /**
- * Abort the currently running Claude query (if any).
+ * Abort the running Claude query for a specific chat (or all if chatId omitted).
  * Called by the /stop Telegram command.
  */
-export function abortClaudeQuery(): boolean {
-  if (activeAbortController) {
-    activeAbortController.abort();
-    activeAbortController = null;
-    return true;
+export function abortClaudeQuery(chatId?: number): boolean {
+  if (chatId !== undefined) {
+    const ctrl = activeControllers.get(chatId);
+    if (ctrl) {
+      ctrl.abort();
+      activeControllers.delete(chatId);
+      return true;
+    }
+    return false;
   }
-  return false;
+  // No chatId — abort all active queries
+  if (activeControllers.size === 0) return false;
+  for (const [id, ctrl] of activeControllers) {
+    ctrl.abort();
+  }
+  activeControllers.clear();
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -79,7 +90,7 @@ export function createClaudeProvider(model: string): Provider {
       const existingSessionId = chatId !== 0 ? getSessionId(chatId) : null;
 
       const abortController = new AbortController();
-      activeAbortController = abortController;
+      activeControllers.set(chatId, abortController);
 
       // Image handling — Claude Agent SDK only accepts string prompts
       const messageWithImageNote = _image
@@ -149,7 +160,7 @@ export function createClaudeProvider(model: string): Provider {
           responseText = accumulatedText || "Sorry, I hit an error processing that. Try again in a moment.";
         }
       } finally {
-        activeAbortController = null;
+        activeControllers.delete(chatId);
       }
 
       invalidatePromptCache();
