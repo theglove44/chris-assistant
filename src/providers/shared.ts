@@ -87,7 +87,7 @@ Triggers for each category:
 - **Proactively update memory.** After any substantive conversation, ask yourself: did I learn anything new about Chris, his preferences, projects, or people in his life? If yes, call update_memory before finishing your response. Don't wait to be asked.
 - **Don't explore unprompted.** Never run tools to "orient yourself" or explore the filesystem unless Chris asks you to.
 - **Ask before big changes.** For destructive or multi-file edits, describe your plan and get confirmation before proceeding.
-- **Keep responses concise.** This is Telegram, not a document. Short, clear messages work best.`;
+- **Format for Telegram.** Use emoji as visual markers, bold key terms, and generous line breaks. Every message should be easy to scan on a phone. Follow the formatting patterns in your VOICE.md identity file.`;
 
   return section;
 }
@@ -108,7 +108,8 @@ export async function getSystemPrompt(): Promise<string> {
     cachedSystemPrompt = buildSystemPrompt(memory) +
       `\n\n---\n\n${buildCapabilitiesSection()}` +
       projectSection +
-      `\n\n---\n\n# System Info\n\nYou are currently running as model \`${model}\` via the ${provider} API. If asked what model you are, report this accurately.`;
+      `\n\n---\n\n# System Info\n\nYou are currently running as model \`${model}\` via the ${provider} API. If asked what model you are, report this accurately.` +
+      `\n\n---\n\n# CRITICAL: Message Formatting Rules\n\nThese formatting rules MUST be followed in EVERY response:\n\n1. **Use emoji as visual markers** — start key points with relevant emoji (🎯 📦 💡 ⚡ ✅ 🔍 📝 ⚠️ 🛠️ 🚀). One emoji per point, varied by meaning.\n2. **Bold key terms** — use **bold** for important words, options, names, and labels. Make every message scannable.\n3. **Use line breaks generously** — separate ideas with blank lines. Never write dense paragraphs.\n4. **Even short replies get personality** — a one-liner still uses emoji. "hey 👋 what's up?" not "hey, what's up?"\n\nExample of correct formatting:\n\n🎯 **Direct answer here**\n\n📦 **Option A** — description\n💡 **Option B** — description\n\nFollow-up question?\n\nNEVER send flat walls of unformatted text. ALWAYS use bold + emoji + spacing.`;
     lastPromptLoad = now;
     console.log("[prompt] System prompt loaded (%d chars)", cachedSystemPrompt.length);
   }
@@ -117,5 +118,102 @@ export async function getSystemPrompt(): Promise<string> {
 
 export function invalidatePromptCache(): void {
   cachedSystemPrompt = null;
+  cachedClaudeAppendPrompt = null;
   resetLoopDetection();
+}
+
+// ---------------------------------------------------------------------------
+// Claude Agent SDK append prompt
+// ---------------------------------------------------------------------------
+
+let cachedClaudeAppendPrompt: string | null = null;
+let lastClaudePromptLoad = 0;
+
+/**
+ * Build a system prompt designed to APPEND to Claude Code's default preset.
+ *
+ * This is lighter than getSystemPrompt() — it provides identity, memory,
+ * knowledge, and Telegram formatting rules, but skips the capabilities
+ * section since Claude Code's preset already handles tool descriptions.
+ */
+export async function getClaudeAppendPrompt(): Promise<string> {
+  const now = Date.now();
+  if (cachedClaudeAppendPrompt && now - lastClaudePromptLoad < PROMPT_CACHE_MS) {
+    return cachedClaudeAppendPrompt;
+  }
+
+  console.log("[prompt] Loading memory for Claude append prompt...");
+  const memory = await loadMemory();
+  const model = config.model;
+
+  const parts: string[] = [];
+
+  // Identity — who you are
+  if (memory.identity) {
+    parts.push(`# Identity\n\n${memory.identity}`);
+  }
+
+  // Curated memory summary
+  if (memory.curatedSummary) {
+    parts.push(`# Curated Memory\n\nYour consolidated understanding of Chris — updated weekly.\n\n${memory.curatedSummary}`);
+  }
+
+  // Knowledge
+  if (memory.knowledge) {
+    parts.push(`# Knowledge About Chris\n\n${memory.knowledge}`);
+  }
+
+  // Memories & learnings
+  if (memory.memory) {
+    parts.push(`# Memories & Learnings\n\n${memory.memory}`);
+  }
+
+  // Recent conversation summaries
+  if (memory.recentSummaries) {
+    parts.push(`# Recent Conversation History\n\nAI-generated summaries of recent conversations with Chris.\n\n${memory.recentSummaries}`);
+  }
+
+  // Journal
+  if (memory.recentJournal) {
+    parts.push(`# Your Recent Journal\n\nNotes you wrote during recent conversations.\n\n${memory.recentJournal}`);
+  }
+
+  // Custom tools description — Claude needs to know about the MCP tools it has
+  parts.push(`# Custom Tools (via MCP)
+
+You have the following custom tools in addition to your standard Claude Code tools:
+
+**update_memory** — Update persistent memory about Chris. Categories: about-chris, preferences, projects, people, decisions, learnings. Use proactively when you learn something worth remembering.
+
+**journal_entry** — Write a note in your daily journal. Use after substantive conversations.
+
+**ssh** — Remote device management via Tailscale. Actions: exec, send_keys, read_pane, devices, scp_push, scp_pull.
+
+**manage_schedule** — Create, list, delete, toggle scheduled tasks. These run on cron schedules.
+
+**recall_conversations** — Search and read past conversation archives and summaries.`);
+
+  // Telegram formatting rules
+  parts.push(`# CRITICAL: Message Formatting Rules
+
+You are Chris's personal AI assistant running as a Telegram bot. Every response is rendered in Telegram.
+
+1. **Use emoji as visual markers** — start key points with relevant emoji (🎯 📦 💡 ⚡ ✅ 🔍 📝 ⚠️ 🛠️ 🚀)
+2. **Bold key terms** — use **bold** for important words, options, names, labels
+3. **Use line breaks generously** — separate ideas with blank lines. Never write dense paragraphs.
+4. **Even short replies get personality** — a one-liner still uses emoji
+5. **Be conversational** — for greetings, questions, opinions, and casual chat, just reply naturally. Don't reach for tools unless there's a reason.
+6. **Proactively update memory** — if you learn something new about Chris, call update_memory
+7. **Ask before big changes** — for destructive or multi-file edits, describe your plan first`);
+
+  // System info
+  parts.push(`# System Info
+
+You are running as model \`${model}\` via the Anthropic Claude Agent SDK, authenticated through a Max subscription. You are accessible through Telegram as Chris's personal assistant.`);
+
+  cachedClaudeAppendPrompt = parts.join("\n\n---\n\n");
+  lastClaudePromptLoad = now;
+  console.log("[prompt] Claude append prompt loaded (%d chars)", cachedClaudeAppendPrompt.length);
+
+  return cachedClaudeAppendPrompt;
 }

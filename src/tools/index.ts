@@ -18,6 +18,8 @@ export {
   dispatchToolCall,
   getMcpTools,
   getMcpAllowedToolNames,
+  getCustomMcpTools,
+  getCustomMcpAllowedToolNames,
   resetLoopDetection,
 } from "./registry.js";
 

@@ -1,62 +1,215 @@
+/**
+ * Claude Agent SDK provider — full-featured agent mode.
+ *
+ * Uses the Agent SDK as a primary agent with:
+ * - Native Claude Code tools (Bash, Read, Write, Edit, Glob, Grep, WebSearch, etc.)
+ * - Custom tools via in-process MCP server (memory, SSH, scheduler, recall, journal)
+ * - Streaming via includePartialMessages for real-time Telegram updates
+ * - Session persistence via resume for multi-turn conversations
+ * - Extended thinking triggered by keywords
+ * - Abort support for /stop command
+ */
+
 import { query, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
+import type { Query, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { config } from "../config.js";
-import { getMcpTools, getMcpAllowedToolNames } from "../tools/index.js";
-import { getSystemPrompt, invalidatePromptCache } from "./shared.js";
-import { formatHistoryForPrompt } from "../conversation.js";
+import { getCustomMcpTools, getCustomMcpAllowedToolNames } from "../tools/index.js";
+import { getClaudeAppendPrompt, invalidatePromptCache } from "./shared.js";
+import { getWorkspaceRoot } from "../tools/files.js";
+import { getSessionId, setSessionId } from "../claude-sessions.js";
 import type { Provider, ImageAttachment } from "./types.js";
+import * as os from "os";
+import * as path from "path";
+
+// ---------------------------------------------------------------------------
+// Extended thinking keywords
+// ---------------------------------------------------------------------------
+
+const THINKING_KEYWORDS = ["think", "consider", "reason", "analyze"];
+const THINKING_DEEP_KEYWORDS = ["think hard", "think deeply", "ultrathink", "deep think"];
+
+function getThinkingTokens(message: string): number | undefined {
+  const lower = message.toLowerCase();
+  if (THINKING_DEEP_KEYWORDS.some((k) => lower.includes(k))) return 50_000;
+  if (THINKING_KEYWORDS.some((k) => lower.includes(k))) return 10_000;
+  return undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Active query tracking (for abort support)
+// ---------------------------------------------------------------------------
+
+/** One abort controller per concurrent chat. Keyed by chatId. */
+const activeControllers = new Map<number, AbortController>();
+
+/**
+ * Abort the running Claude query for a specific chat (or all if chatId omitted).
+ * Called by the /stop Telegram command.
+ */
+export function abortClaudeQuery(chatId?: number): boolean {
+  if (chatId !== undefined) {
+    const ctrl = activeControllers.get(chatId);
+    if (ctrl) {
+      ctrl.abort();
+      activeControllers.delete(chatId);
+      return true;
+    }
+    return false;
+  }
+  // No chatId — abort all active queries
+  if (activeControllers.size === 0) return false;
+  for (const [id, ctrl] of activeControllers) {
+    ctrl.abort();
+  }
+  activeControllers.clear();
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Provider
+// ---------------------------------------------------------------------------
+
+const MCP_SERVER_NAME = "chris-tools";
 
 export function createClaudeProvider(model: string): Provider {
   const toolServer = createSdkMcpServer({
-    name: "tools",
-    tools: getMcpTools(),
+    name: MCP_SERVER_NAME,
+    tools: getCustomMcpTools(),
   });
 
   return {
     name: "claude",
-    async chat(chatId, userMessage, _onChunk, _image?: ImageAttachment, allowedTools?: string[]) {
-      const systemPrompt = await getSystemPrompt();
-      const conversationContext = await formatHistoryForPrompt(chatId);
+    async chat(chatId, userMessage, onChunk, _image?: ImageAttachment, allowedTools?: string[]) {
+      const appendPrompt = await getClaudeAppendPrompt();
+      const thinkingTokens = getThinkingTokens(userMessage);
 
-      // Claude Agent SDK query() only accepts a string prompt — no content blocks.
-      // Prepend an honest note when an image was attached so the response is accurate.
+      // Build allowed tools list: custom MCP tools + all native Claude Code tools
+      const customMcpAllowed = getCustomMcpAllowedToolNames(MCP_SERVER_NAME, allowedTools);
+
+      // Session resume — continue existing conversation if we have one
+      const existingSessionId = chatId !== 0 ? getSessionId(chatId) : null;
+
+      const abortController = new AbortController();
+      activeControllers.set(chatId, abortController);
+
+      // Image handling — Claude Agent SDK only accepts string prompts
       const messageWithImageNote = _image
-        ? `[An image was attached but the Claude provider can't process images directly. The user's caption follows.]\n\n${userMessage}`
+        ? `[An image was attached but the Claude Agent SDK can't process images directly in this mode. The user's caption follows.]\n\n${userMessage}`
         : userMessage;
 
-      const fullPrompt = conversationContext
-        ? `${conversationContext}\n\n${messageWithImageNote}`
-        : messageWithImageNote;
-
       let responseText = "";
+      let accumulatedText = "";
 
       try {
         const conversation = query({
-          prompt: fullPrompt,
+          prompt: messageWithImageNote,
           options: {
-            systemPrompt,
             model,
-            maxTurns: 100,
-            mcpServers: {
-              tools: toolServer,
+            cwd: getWorkspaceRoot(),
+            additionalDirectories: [
+              path.join(os.homedir(), ".chris-assistant"),
+            ],
+            systemPrompt: {
+              type: "preset",
+              preset: "claude_code",
+              append: appendPrompt,
             },
-            allowedTools: getMcpAllowedToolNames(true, allowedTools),
+            tools: { type: "preset", preset: "claude_code" },
+            mcpServers: {
+              [MCP_SERVER_NAME]: toolServer,
+            },
+            allowedTools: customMcpAllowed,
+            maxTurns: config.maxToolTurns,
+            ...(thinkingTokens && { maxThinkingTokens: thinkingTokens }),
             permissionMode: "bypassPermissions",
             allowDangerouslySkipPermissions: true,
+            includePartialMessages: true,
+            // Session management — chatId 0 is for system/scheduled tasks (no resume)
+            ...(existingSessionId && { resume: existingSessionId }),
+            ...(chatId === 0 && { persistSession: false }),
+            abortController,
           },
         });
 
         for await (const message of conversation) {
-          if (message.type === "result" && message.subtype === "success") {
-            responseText = message.result;
+          handleStreamEvent(message, onChunk, (text) => {
+            accumulatedText = text;
+          });
+
+          // Capture session ID from any message that has one
+          if ("session_id" in message && message.session_id && chatId !== 0) {
+            setSessionId(chatId, message.session_id);
+          }
+
+          // Capture final result
+          if (message.type === "result") {
+            if (message.subtype === "success") {
+              responseText = message.result;
+            } else {
+              // Error results — use accumulated text if we have it, otherwise report error
+              const errors = "errors" in message ? message.errors : [];
+              responseText = accumulatedText || `I hit an issue: ${errors.join(", ") || "unknown error"}`;
+            }
           }
         }
       } catch (error: any) {
-        console.error("[claude] Error:", error.message);
-        responseText = "Sorry, I hit an error processing that. Try again in a moment.";
+        if (error.name === "AbortError" || abortController.signal.aborted) {
+          responseText = accumulatedText || "Stopped.";
+        } else {
+          console.error("[claude] Error:", error.message);
+          responseText = accumulatedText || "Sorry, I hit an error processing that. Try again in a moment.";
+        }
+      } finally {
+        activeControllers.delete(chatId);
       }
 
       invalidatePromptCache();
       return responseText;
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Stream event handler
+// ---------------------------------------------------------------------------
+
+/**
+ * Process SDK streaming events, extracting text content for Telegram updates.
+ */
+function handleStreamEvent(
+  message: SDKMessage,
+  onChunk: ((accumulated: string) => void) | undefined,
+  onTextUpdate: (text: string) => void,
+): void {
+  if (message.type === "stream_event" && onChunk) {
+    const event = message.event;
+
+    // content_block_delta with text_delta — the main streaming content
+    if (event.type === "content_block_delta" && "delta" in event) {
+      const delta = event.delta as any;
+      if (delta.type === "text_delta" && delta.text) {
+        // We need to accumulate text ourselves for streaming
+        // The onTextUpdate callback lets the outer scope track it
+        // But we don't have access to accumulated text here — the caller manages it
+      }
+    }
+  }
+
+  // For assistant messages, extract text content blocks
+  if (message.type === "assistant" && message.message) {
+    const content = message.message.content;
+    if (Array.isArray(content)) {
+      const textParts: string[] = [];
+      for (const block of content) {
+        if ("type" in block && block.type === "text" && "text" in block) {
+          textParts.push(block.text as string);
+        }
+      }
+      if (textParts.length > 0) {
+        const text = textParts.join("");
+        onTextUpdate(text);
+        onChunk?.(text);
+      }
+    }
+  }
 }

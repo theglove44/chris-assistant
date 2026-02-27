@@ -13,7 +13,9 @@ console.log("[chris-assistant] Starting up...");
 // Register the Telegram command menu so users see commands in the bot UI
 bot.api.setMyCommands([
   { command: "start", description: "Greeting" },
-  { command: "clear", description: "Reset conversation history" },
+  { command: "clear", description: "Reset conversation + Claude session" },
+  { command: "stop", description: "Abort current Claude query" },
+  { command: "session", description: "Show Claude session info" },
   { command: "model", description: "Show current AI model" },
   { command: "memory", description: "Show memory file status" },
   { command: "project", description: "Show or set active project directory" },
