@@ -5,7 +5,7 @@ import { config } from "./config.js";
 import { chat } from "./providers/index.js";
 import type { ImageAttachment } from "./providers/index.js";
 import { addMessage, clearHistory } from "./conversation.js";
-import { toMarkdownV2 } from "./markdown.js";
+import { toMarkdownV2, stripMarkdown } from "./markdown.js";
 import { authMiddleware, rateLimitMiddleware } from "./middleware.js";
 import { readMemoryFile } from "./memory/github.js";
 import { getWorkspaceRoot, setWorkspaceRoot, isProjectActive } from "./tools/files.js";
@@ -124,14 +124,14 @@ async function handleAiResponse(
         parse_mode: "MarkdownV2",
       })
       .catch(() =>
-        ctx.api.editMessageText(chatId, messageId, firstChunk).catch(() => {}),
+        ctx.api.editMessageText(chatId, messageId, stripMarkdown(firstChunk)).catch(() => {}),
       );
 
     // Remaining chunks: send as new messages
     for (let i = 1; i < chunks.length; i++) {
       const chunk = chunks[i];
       await ctx.reply(toMarkdownV2(chunk), { parse_mode: "MarkdownV2" }).catch(
-        () => ctx.reply(chunk),
+        () => ctx.reply(stripMarkdown(chunk)),
       );
     }
   } catch (error: any) {

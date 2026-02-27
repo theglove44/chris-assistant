@@ -36,6 +36,22 @@ function escapeUrl(text: string): string {
  * placeholders), perform the remaining transformations on plain-text regions,
  * then restore placeholders with properly escaped code content.
  */
+/**
+ * Strip Markdown formatting to produce clean plain text.
+ * Used as a fallback when MarkdownV2 parsing fails in Telegram.
+ */
+export function stripMarkdown(text: string): string {
+  return text
+    .replace(/```[\w]*\n?([\s\S]*?)```/g, "$1")  // fenced code blocks
+    .replace(/`([^`\n]+)`/g, "$1")                // inline code
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")      // links → link text only
+    .replace(/^#{1,6} /gm, "")                    // headers
+    .replace(/\*\*\*([^*]+)\*\*\*/g, "$1")        // bold-italic
+    .replace(/\*\*([^*]+)\*\*/g, "$1")            // bold
+    .replace(/\*([^*\n]+)\*/g, "$1")              // italic
+    .replace(/^> ?/gm, "");                        // blockquotes
+}
+
 export function toMarkdownV2(text: string): string {
   const placeholders: string[] = [];
 
