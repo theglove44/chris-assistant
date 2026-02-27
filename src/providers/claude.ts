@@ -66,6 +66,60 @@ export function abortClaudeQuery(chatId?: number): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Safety hook — block dangerous commands in native Bash tool
+// ---------------------------------------------------------------------------
+
+/**
+ * Patterns that must never run via Claude's native Bash tool.
+ * Mirrors DANGEROUS_PATTERNS from src/tools/run-code.ts but applies to
+ * the Agent SDK's built-in Bash, which bypasses our tool registry.
+ */
+const BLOCKED_BASH_PATTERNS = [
+  /\bpm2\b/i,
+  /\bkill\b.*chris-assistant/i,
+  /\bsystemctl\b.*(restart|stop|disable)/i,
+  /\breboot\b/,
+  /\bshutdown\b/,
+  /\brm\s+-rf\s+[/~]/,
+  /\bnpm\s+run\s+(start|dev)\b/i,
+  /\bchris\s+(start|stop|restart)\b/i,
+];
+
+/**
+ * PreToolUse hook callback. Inspects Bash commands before execution and
+ * blocks anything matching BLOCKED_BASH_PATTERNS.
+ */
+async function safetyHook(
+  input: any,
+  _toolUseID: string | undefined,
+  _options: { signal: AbortSignal },
+): Promise<any> {
+  if (input.hook_event_name !== "PreToolUse") return { continue: true };
+  if (input.tool_name !== "Bash") return { continue: true };
+
+  const command = input.tool_input?.command;
+  if (typeof command !== "string") return { continue: true };
+
+  for (const pattern of BLOCKED_BASH_PATTERNS) {
+    if (pattern.test(command)) {
+      console.warn("[claude] Blocked dangerous Bash command: %s", command.slice(0, 200));
+      return {
+        hookSpecificOutput: {
+          hookEventName: "PreToolUse",
+          permissionDecision: "deny",
+          permissionDecisionReason:
+            `Blocked: command matches dangerous pattern (${pattern.source}). ` +
+            "You cannot restart, stop, or destroy the bot process via Bash. " +
+            "Ask Chris to restart manually if needed.",
+        },
+      };
+    }
+  }
+
+  return { continue: true };
+}
+
+// ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
 
@@ -124,6 +178,12 @@ export function createClaudeProvider(model: string): Provider {
             permissionMode: "bypassPermissions",
             allowDangerouslySkipPermissions: true,
             includePartialMessages: true,
+            hooks: {
+              PreToolUse: [{
+                matcher: "Bash",
+                hooks: [safetyHook],
+              }],
+            },
             // Session management — chatId 0 is for system/scheduled tasks (no resume)
             ...(existingSessionId && { resume: existingSessionId }),
             ...(chatId === 0 && { persistSession: false }),
