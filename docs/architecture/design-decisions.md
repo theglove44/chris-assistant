@@ -39,6 +39,10 @@ When Claude is the active model, the bot uses the `@anthropic-ai/claude-agent-sd
 
 Each schedule has an optional `allowedTools` field. When set, only those tools are available during execution (e.g. `["ssh", "web_search"]`). When omitted, all tools are available. Tool filtering threads through `chat()` → provider → `getOpenAiToolDefinitions()`/`getMcpAllowedToolNames()` via a `filterTools()` function in `registry.ts`.
 
+## Claude Bash Safety Hook
+
+When Claude is the primary agent, its native Bash tool bypasses the tool registry — so the `DANGEROUS_PATTERNS` blocklist in `run-code.ts` doesn't apply. A `PreToolUse` hook in `src/providers/claude.ts` intercepts every Bash command before execution and blocks: `pm2`, `kill chris-assistant`, `systemctl restart/stop`, `reboot`, `shutdown`, `rm -rf /`, `npm run start/dev`, and `chris start/stop/restart`. Denied commands return a message telling Claude to ask Chris to restart manually. This prevents restart loops caused by Claude running process management commands via native Bash.
+
 ## Persistent Conversation History
 
 Last 20 messages per chat stored in `~/.chris-assistant/conversations.json`. Loaded lazily on first access, saved asynchronously via a write queue that serializes concurrent saves. Callers use fire-and-forget for `addMessage()` and await `clearHistory()`. Survives restarts. `/clear` wipes both memory and disk.
