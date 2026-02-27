@@ -225,9 +225,9 @@ bot.command("session", async (ctx) => {
 // /restart — graceful bot restart via pm2
 bot.command("restart", async (ctx) => {
   await ctx.reply("Restarting... back in a few seconds.");
-  // Give Telegram a moment to deliver the message, then exit.
+  // Give Telegram time to deliver the reply, then exit cleanly.
   // pm2 auto-restarts the process.
-  setTimeout(() => process.exit(0), 500);
+  setTimeout(() => process.exit(0), 1500);
 });
 
 bot.command("help", async (ctx) => {
@@ -273,8 +273,9 @@ bot.command("project", async (ctx) => {
   await ctx.reply(`Workspace set to: ${resolved}\nCoding tools: enabled`);
 });
 
-// Handle text messages
+// Handle text messages (skip commands — they're handled above)
 bot.on("message:text", async (ctx) => {
+  if (ctx.message.text.startsWith("/")) return;
   await handleAiResponse(ctx, ctx.message.text);
 });
 
