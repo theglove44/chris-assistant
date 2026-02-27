@@ -191,9 +191,7 @@ You have the following custom tools in addition to your standard Claude Code too
 
 **manage_schedule** — Create, list, delete, toggle scheduled tasks. These run on cron schedules.
 
-**recall_conversations** — Search and read past conversation archives and summaries.
-
-**market_snapshot** — Get market data via tasty-coach on the Mac Mini.`);
+**recall_conversations** — Search and read past conversation archives and summaries.`);
 
   // Telegram formatting rules
   parts.push(`# CRITICAL: Message Formatting Rules
