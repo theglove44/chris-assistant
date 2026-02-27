@@ -121,7 +121,7 @@ async function handleAiResponse(
     const firstChunk = chunks[0];
     await ctx.api
       .editMessageText(chatId, messageId, toMarkdownV2(firstChunk), {
-        parse_mode: "MarkdownV2",
+        parse_mode: "HTML",
       })
       .catch(() =>
         ctx.api.editMessageText(chatId, messageId, stripMarkdown(firstChunk)).catch(() => {}),
@@ -130,7 +130,7 @@ async function handleAiResponse(
     // Remaining chunks: send as new messages
     for (let i = 1; i < chunks.length; i++) {
       const chunk = chunks[i];
-      await ctx.reply(toMarkdownV2(chunk), { parse_mode: "MarkdownV2" }).catch(
+      await ctx.reply(toMarkdownV2(chunk), { parse_mode: "HTML" }).catch(
         () => ctx.reply(stripMarkdown(chunk)),
       );
     }
