@@ -28,7 +28,7 @@ How the bot feels to use day-to-day.
 
 | # | Impact | Status | Item | Description |
 |---|--------|--------|------|-------------|
-| 1 | 🔴 | ✅ | **Streaming responses** | OpenAI and MiniMax providers stream via `onChunk` callback. Telegram handler sends "..." placeholder, then edits it every 1.5s with accumulated text + cursor (▍). Final render replaces with Markdown. Claude SDK doesn't expose token streaming yet — `onChunk` param accepted but unused. |
+| 1 | 🔴 | ✅ | **Streaming responses** | All three providers stream via `onChunk` callback. OpenAI streams via SSE, MiniMax via the OpenAI SDK, Claude via the Agent SDK's `includePartialMessages` events. Telegram handler sends "..." placeholder, then edits it every 1.5s with accumulated text + cursor (▍). Final render replaces with Markdown. |
 | 2 | 🟠 | ✅ | **Persistent conversation history** | `src/conversation.ts` persists the last 20 messages per chat to `~/.chris-assistant/conversations.json`. Loads lazily on first access, saves after each message. Handles missing/corrupt files gracefully. No new dependencies. |
 | 3 | 🟠 | ✅ | **MarkdownV2 rendering** | `src/markdown.ts` converts standard AI markdown to Telegram MarkdownV2 with proper context-aware escaping (plain text, code, URLs). `telegram.ts` uses `parse_mode: "MarkdownV2"` with plain text fallback. Streaming preview stays plain text. |
 | 4 | 🟡 | ⬜ | **Voice message support** | Telegram voice messages are common on mobile. Transcribe incoming voice via Whisper API or similar, and optionally respond with TTS audio. |
