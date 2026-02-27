@@ -29,8 +29,8 @@ The assistant has its own identity, personality, and evolving memory. Everything
 ## Features
 
 - **Multi-provider AI** — Claude (Agent SDK), OpenAI, and MiniMax via a single bot. Switch models with `chris model set <name>`.
-- **Streaming responses** — OpenAI and MiniMax stream tokens in real-time. Telegram message updates every 1.5s with a typing cursor.
-- **Image understanding** — Send a photo and the AI will describe/analyze it (OpenAI and MiniMax). Claude falls back to text-only.
+- **Streaming responses** — All three providers stream tokens in real-time. Telegram message updates every 1.5s with a typing cursor.
+- **Image understanding** — Send a photo and the AI will describe/analyze it. Images route to `IMAGE_MODEL` (default `gpt-5.2`) regardless of active provider.
 - **Document reading** — Send text files (.txt, .json, .csv, .md, etc.) and the AI reads the contents inline.
 - **Web search** — AI can search the web via Brave Search API (optional, needs API key).
 - **URL fetching** — AI can read any URL, with HTML stripping and 50KB truncation.
@@ -38,7 +38,11 @@ The assistant has its own identity, personality, and evolving memory. Everything
 - **File tools** — AI can read, write, edit, list, and search files in the active workspace. All paths scoped to `WORKSPACE_ROOT` (default `~/Projects`) with symlink-aware traversal guard.
 - **Git tools** — AI can check `git status`, view diffs, and commit changes in the active workspace. No `git push` — deliberate safety choice.
 - **SSH & remote access** — AI can SSH into Tailnet devices, run commands in persistent tmux sessions (attachable from iPhone), transfer files via SCP, and discover online devices. See the [SSH Tool Guide](docs/ssh-tool.md) for full details.
-- **Scheduled tasks** — Tell the bot "check X every morning" and it creates a cron-scheduled task. Tasks fire by sending the prompt to the AI with full tool access, and the response is delivered via Telegram. Managed via `manage_schedule` tool or by editing `~/.chris-assistant/schedules.json`.
+- **Scheduled tasks** — Tell the bot "check X every morning" and it creates a cron-scheduled task. Tasks fire by sending the prompt to the AI with per-task tool allowlists, and the response is delivered via Telegram. Managed via `manage_schedule` tool or by editing `~/.chris-assistant/schedules.json`.
+- **Conversation archive & recall** — Every message archived as JSONL. AI-generated daily summaries at 23:55. Last 7 days of summaries loaded into system prompt. `recall_conversations` tool for searching past conversations.
+- **Daily journal** — The bot writes structured notes throughout the day via `journal_entry` tool. Today's and yesterday's journals included in system prompt.
+- **Weekly memory consolidation** — Curated `SUMMARY.md` generated weekly from all knowledge, summaries, and journal entries.
+- **Heartbeat file** — Bot writes `HEARTBEAT.md` to memory repo every 3 hours with status snapshot (uptime, model, health, schedules, message count).
 - **Project context** — When a workspace has a `CLAUDE.md`, `AGENTS.md`, or `README.md`, it's loaded into the system prompt so the AI understands the project.
 - **Persistent memory** — Long-term facts stored as markdown in a GitHub repo. Every update is a git commit.
 - **Persistent conversation history** — Last 20 messages per chat saved to disk. Survives restarts. `/clear` wipes it.
@@ -62,6 +66,12 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   ├── health.ts             # Periodic health checks + Telegram alerts
 │   ├── scheduler.ts          # Cron-like scheduled tasks — tick loop, AI execution, Telegram delivery
 │   ├── conversation.ts       # Persistent conversation history (~/.chris-assistant/)
+│   ├── conversation-archive.ts # Daily JSONL archiver — every message to ~/.chris-assistant/archive/
+│   ├── conversation-backup.ts # Periodic backup of conversations to GitHub (every 6 hours)
+│   ├── conversation-summary.ts # Daily AI summarizer — generates summaries at 23:55
+│   ├── memory-consolidation.ts # Weekly memory consolidation — curates SUMMARY.md
+│   ├── heartbeat.ts          # Periodic HEARTBEAT.md writer — status snapshot every 3h
+│   ├── claude-sessions.ts    # Claude Agent SDK session persistence (per-chat)
 │   ├── providers/
 │   │   ├── types.ts          # Provider interface + ImageAttachment type
 │   │   ├── shared.ts         # System prompt caching + model info injection
@@ -83,9 +93,13 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── files.ts          # File tools — read, write, edit, list, search (workspace-scoped)
 │   │   ├── git.ts            # Git tools — status, diff, commit (workspace-scoped)
 │   │   ├── scheduler.ts      # manage_schedule tool — create, list, delete, toggle
-│   │   └── ssh.ts            # SSH tool — exec, tmux, SCP, Tailnet device discovery
+│   │   ├── ssh.ts            # SSH tool — exec, tmux, SCP, Tailnet device discovery
+│   │   ├── recall.ts         # Conversation recall — list, read, search, summarize
+│   │   ├── journal.ts        # journal_entry tool — bot writes daily notes
+│   │   └── market-snapshot.ts # market_snapshot tool — market data via SSH
 │   ├── memory/
 │   │   ├── github.ts         # Read/write memory files via GitHub API
+│   │   ├── journal.ts        # Daily memory journal — local storage + GitHub upload
 │   │   ├── loader.ts         # Assembles system prompt from memory
 │   │   └── tools.ts          # Memory tool executor + prompt injection validation
 │   └── cli/
@@ -107,6 +121,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 │           └── minimax-login.ts # chris minimax login|status
 
 chris-assistant-memory/       ← Separate private repo (the brain)
+├── HEARTBEAT.md              # Bot status snapshot (updated every 3h)
 ├── identity/
 │   ├── SOUL.md               # Personality, purpose, communication style
 │   ├── RULES.md              # Hard boundaries
@@ -116,9 +131,13 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 │   ├── preferences.md        # Likes, dislikes, style
 │   ├── projects.md           # Current work
 │   └── people.md             # People you mention
-└── memory/
-    ├── decisions.md           # Important decisions
-    └── learnings.md           # Self-improvement notes
+├── memory/
+│   ├── decisions.md          # Important decisions
+│   ├── learnings.md          # Self-improvement notes
+│   └── SUMMARY.md            # Weekly-consolidated curated summary
+├── archive/YYYY-MM-DD.jsonl  # Daily JSONL message logs
+├── journal/YYYY-MM-DD.md     # Bot's daily journal notes
+└── conversations/summaries/YYYY-MM-DD.md  # AI-generated daily summaries
 ```
 
 ## Setup
@@ -181,10 +200,10 @@ chris setup       # Interactive wizard to create .env
 
 ### 5. Authenticate with OpenAI
 
-The default provider is OpenAI, authenticated via Codex OAuth device flow. This uses your ChatGPT Plus/Pro subscription — no API key or prepaid credits needed.
+The default provider is OpenAI, authenticated via browser-based OAuth (authorization code + PKCE). This uses your ChatGPT Plus/Pro subscription — no API key or prepaid credits needed.
 
 ```bash
-chris openai login       # Opens browser for OAuth approval
+chris openai login       # Opens browser for OAuth approval (callback on port 1455)
 chris openai status      # Check token status
 ```
 
@@ -233,11 +252,14 @@ Message your bot on Telegram. That's it. On first contact, the assistant will in
 ### Telegram Commands
 
 - `/start` — Initial greeting
-- `/clear` — Reset conversation history (long-term memory is preserved)
+- `/clear` — Reset conversation history and Claude session (long-term memory is preserved)
+- `/stop` — Abort the current Claude query
+- `/session` — Show active Claude session info
 - `/model` — Show current AI model and provider
 - `/memory` — Show memory file status with sizes
 - `/project` — Show or set the active project/workspace directory
 - `/reload` — Reload memory from GitHub (invalidates system prompt cache)
+- `/restart` — Graceful bot restart (pm2 auto-restarts the process)
 - `/help` — List all available commands
 
 ### How Memory Works
@@ -267,6 +289,9 @@ The assistant has access to these tools (all providers pick them up automaticall
 | `git_diff` | Coding | Show git diff (staged or unstaged) |
 | `git_commit` | Coding | Stage files and commit (no push — safety choice) |
 | `ssh` | Always | SSH into Tailnet devices — 8 actions ([full guide](docs/ssh-tool.md)) |
+| `recall_conversations` | Always | List, read, search, and summarize past conversations |
+| `journal_entry` | Always | Bot writes structured daily notes (timestamped markdown) |
+| `market_snapshot` | Always | Fetch market data via SSH to Mac Mini |
 
 "Always" tools are available in every conversation. "Coding" tools are only sent when a project workspace is active (set via `/project` command or `WORKSPACE_ROOT` env var).
 
@@ -368,7 +393,7 @@ chris config set <k> <v> # Set a value in .env (run chris restart to apply)
 ### Provider Authentication
 
 ```bash
-chris openai login       # Authenticate via Codex OAuth device flow
+chris openai login       # Authenticate via browser OAuth (callback on port 1455)
 chris openai status      # Check OAuth token status (auto-refreshes)
 
 chris minimax login      # Authenticate via OAuth device flow
@@ -406,6 +431,7 @@ chris setup              # Interactive first-time setup wizard (creates .env)
 | `GITHUB_TOKEN` | Yes | Fine-grained PAT with Contents read/write on memory repo |
 | `GITHUB_MEMORY_REPO` | Yes | `owner/repo` format — your private memory repo |
 | `AI_MODEL` | No | Model ID — determines provider. Default: `gpt-4o` |
+| `IMAGE_MODEL` | No | Model for image processing. Default: `gpt-5.2`. All images route here. |
 | `BRAVE_SEARCH_API_KEY` | No | Brave Search API key for web search tool |
 | `WORKSPACE_ROOT` | No | Root directory for file/git tools. Default: `~/Projects`. Changeable at runtime via `/project`. |
 | `MAX_TOOL_TURNS` | No | Safety ceiling for tool call rounds per message. Default: `200`. Context compaction handles the real limit. |
@@ -434,7 +460,8 @@ chris logs -f            # Watch logs in real-time
 
 ```bash
 npm run dev              # Run bot with tsx watch (auto-reload on changes)
-npm run typecheck        # TypeScript type checking
+npm run typecheck        # TypeScript type checking + esbuild compat check
+npm test                 # Run vitest test suite
 npx tsx src/cli/index.ts # Run CLI directly without global install
 ```
 
@@ -442,7 +469,7 @@ npx tsx src/cli/index.ts # Run CLI directly without global install
 
 - **Runtime**: Node.js 22+ / TypeScript
 - **AI (Claude)**: Claude Agent SDK with Max subscription OAuth
-- **AI (OpenAI)**: OpenAI SDK with Codex OAuth (ChatGPT Plus/Pro subscription)
+- **AI (OpenAI)**: Raw fetch to Codex Responses API with ChatGPT OAuth (Plus/Pro subscription)
 - **AI (MiniMax)**: OpenAI SDK with custom baseURL (`api.minimax.io`)
 - **Telegram**: grammY
 - **Memory**: GitHub API via Octokit
