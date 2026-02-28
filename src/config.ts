@@ -19,6 +19,9 @@ export const config = {
     token: required("GITHUB_TOKEN"),
     memoryRepo: required("GITHUB_MEMORY_REPO"),
   },
+  discord: {
+    botToken: process.env.DISCORD_BOT_TOKEN || null,
+  },
   braveSearchApiKey: process.env.BRAVE_SEARCH_API_KEY || null,
   maxToolTurns: Number(process.env.MAX_TOOL_TURNS || "200"),
 } as const;

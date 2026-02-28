@@ -1,4 +1,5 @@
 import { bot } from "./telegram.js";
+import { startDiscord, stopDiscord } from "./discord.js";
 import { startHealthMonitor, stopHealthMonitor } from "./health.js";
 import { startScheduler, stopScheduler } from "./scheduler.js";
 import { startConversationBackup, stopConversationBackup } from "./conversation-backup.js";
@@ -40,6 +41,7 @@ bot.start({
     startJournalUploader();
     startMemoryConsolidation();
     startHeartbeat();
+    startDiscord();
   },
 });
 
@@ -55,6 +57,7 @@ const shutdown = () => {
   stopMemoryConsolidation();
   stopHeartbeat();
   bot.stop();
+  stopDiscord();
   process.exit(0);
 };
 
