@@ -22,6 +22,13 @@ Discord message (text only)
   → Same provider pipeline as Telegram (chat() function)
   → Response sent as Discord reply (headers → bold, 2000 char limit)
 
+Web dashboard (http://localhost:3000):
+  → Built-in HTTP server, starts with the bot (zero extra deps)
+  → JSON API serves status, health, schedules, archives, memory, logs
+  → Single-page dark-mode UI with 5 tabs (all HTML/CSS/JS inlined)
+  → Real-time log streaming via Server-Sent Events
+  → Auth: token-based (for Tailnet) or localhost-only
+
 Scheduler (background):
   → Ticks every 60s, checks cron expressions
   → Fires matching tasks by sending prompt to active AI provider
@@ -52,7 +59,8 @@ The assistant has its own identity, personality, and evolving memory. Everything
 - **Project context** — When a workspace has a `CLAUDE.md`, `AGENTS.md`, or `README.md`, it's loaded into the system prompt so the AI understands the project.
 - **Persistent memory** — Long-term facts stored as markdown in a GitHub repo. Every update is a git commit.
 - **Persistent conversation history** — Last 20 messages per chat saved to disk. Survives restarts. `/clear` wipes it.
-- **MarkdownV2 rendering** — AI responses are formatted for Telegram with bold, italic, code blocks, and links.
+- **Web dashboard** — Built-in HTTP server at `localhost:3000` with a dark-mode SPA. Five tabs: Status & Health, Schedules, Conversations, Memory viewer/editor, and real-time log streaming. Token auth for Tailnet access or localhost-only mode.
+- **HTML rendering** — AI responses are formatted as HTML for Telegram with bold, italic, code blocks, and links.
 - **Rate limiting** — Sliding window limiter (10 messages/minute per user).
 - **Health monitoring** — Startup notification, periodic checks (GitHub access, token expiry), alerts with dedup.
 - **Context compaction** — When the conversation approaches the model's context window limit, older tool turns are summarized into a structured checkpoint and the loop continues. No hard turn ceiling — the bot can handle arbitrarily long SSH investigations and multi-file coding tasks.
@@ -77,6 +85,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   ├── conversation-backup.ts # Periodic backup of conversations to GitHub (every 6 hours)
 │   ├── conversation-summary.ts # Daily AI summarizer — generates summaries at 23:55
 │   ├── memory-consolidation.ts # Weekly memory consolidation — curates SUMMARY.md
+│   ├── dashboard.ts          # Built-in web dashboard — HTTP server, JSON API, inline SPA
 │   ├── heartbeat.ts          # Periodic HEARTBEAT.md writer — status snapshot every 3h
 │   ├── claude-sessions.ts    # Claude Agent SDK session persistence (per-chat)
 │   ├── providers/
@@ -242,7 +251,28 @@ DISCORD_ALLOWED_USER_ID=your_discord_user_id
 
 8. Restart the bot — it will connect to Discord automatically. You can message it in any channel without `@` mentioning it.
 
-### 8. (Optional) Set up additional providers
+### 8. (Optional) Web dashboard
+
+The bot includes a built-in web dashboard for monitoring — no extra setup needed. It starts automatically on port 3000.
+
+```bash
+# Access locally (no auth required)
+open http://localhost:3000
+
+# Access over Tailnet (set a token for auth)
+chris config set DASHBOARD_TOKEN your-secret-here
+chris restart
+# Then visit http://<tailnet-ip>:3000?token=your-secret-here
+```
+
+**Dashboard tabs:**
+- **Status & Health** — Uptime, model/provider, pm2 stats (PID, memory, restarts), health check indicators
+- **Schedules** — All cron jobs with expression, enabled/disabled, last run, allowed tools, prompt preview
+- **Conversations** — Browse message archives by date, view daily AI summaries
+- **Memory** — View and edit all memory files (saves directly to GitHub)
+- **Logs** — Real-time log streaming via SSE, or snapshot of recent log lines
+
+### 9. (Optional) Set up additional providers
 
 **MiniMax** — uses your MiniMax Coding Plan subscription via OAuth. No API credits needed.
 
@@ -253,7 +283,7 @@ chris minimax status     # Check token expiry
 
 **Claude** — requires a Claude Max subscription. Add `CLAUDE_CODE_OAUTH_TOKEN` to your `.env` file (get it via `claude setup-token`), then switch with `chris model set sonnet`.
 
-### 8. (Optional) Set up web search
+### 10. (Optional) Set up web search
 
 Get a free Brave Search API key at [brave.com/search/api](https://brave.com/search/api), then:
 
@@ -463,6 +493,8 @@ chris setup              # Interactive first-time setup wizard (creates .env)
 | `CLAUDE_CODE_OAUTH_TOKEN` | No | Only needed to use Claude models |
 | `DISCORD_BOT_TOKEN` | No | Discord bot token from the Developer Portal |
 | `DISCORD_ALLOWED_USER_ID` | No | Your Discord numeric user ID — bot ignores all other users |
+| `DASHBOARD_PORT` | No | Port for the web dashboard. Default: `3000`. |
+| `DASHBOARD_TOKEN` | No | API key for dashboard auth. If unset, dashboard is localhost-only. |
 
 OpenAI and MiniMax authenticate via OAuth device flows (`chris openai login` / `chris minimax login`) with tokens stored in `~/.chris-assistant/`.
 
