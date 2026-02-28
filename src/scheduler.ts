@@ -117,13 +117,18 @@ function fieldMatches(field: string, value: number, isDow: boolean): boolean {
 // Telegram sender (raw fetch, same pattern as health.ts)
 // ---------------------------------------------------------------------------
 
-async function sendTelegramMessage(text: string): Promise<void> {
+async function sendTelegramMessage(text: string, title?: string): Promise<void> {
   const url = `https://api.telegram.org/bot${config.telegram.botToken}/sendMessage`;
   try {
     // Telegram has a 4096 char limit — truncate if needed
-    const truncated = text.length > 4000
-      ? text.slice(0, 4000) + "\n\n[truncated]"
-      : text;
+    let fullText = text;
+    if (title) {
+      fullText = `🧾 <b>${title}</b>\n\n${text}`;
+    }
+
+    const truncated = fullText.length > 4000
+      ? fullText.slice(0, 4000) + "\n\n[truncated]"
+      : fullText;
 
     await fetch(url, {
       method: "POST",
@@ -131,6 +136,7 @@ async function sendTelegramMessage(text: string): Promise<void> {
       body: JSON.stringify({
         chat_id: config.telegram.allowedUserId,
         text: truncated,
+        parse_mode: "HTML",
       }),
     });
   } catch (err: any) {
@@ -158,7 +164,7 @@ async function executeTask(task: Schedule): Promise<void> {
     if (!trimmed || trimmed.startsWith("NOUPDATE:")) {
       console.log("[scheduler] No update for task: %s — staying quiet", task.name);
     } else {
-      await sendTelegramMessage(`[${task.name}]\n\n${trimmed}`);
+      await sendTelegramMessage(trimmed, task.name);
     }
 
     // Update lastRun
