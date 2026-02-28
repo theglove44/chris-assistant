@@ -16,9 +16,25 @@ interface AlertState {
 
 const alertState = new Map<string, AlertState>();
 
+// --- Cached health results for dashboard ---
+
+const lastResults = new Map<string, { ok: boolean; detail?: string; checkedAt: number }>();
+
+export function getHealthStatus(): Array<{ name: string; ok: boolean; detail?: string; checkedAt: number }> {
+  return checks.map((check) => {
+    const cached = lastResults.get(check.name);
+    return {
+      name: check.name,
+      ok: cached?.ok ?? true,
+      detail: cached?.detail,
+      checkedAt: cached?.checkedAt ?? 0,
+    };
+  });
+}
+
 // --- Provider name helper ---
 
-function getProviderName(model: string): string {
+export function getProviderName(model: string): string {
   const m = model.toLowerCase();
   if (m.startsWith("gpt-") || m.startsWith("o3") || m.startsWith("o4-")) return "OpenAI";
   if (model.startsWith("MiniMax")) return "MiniMax";
@@ -141,6 +157,7 @@ const checks: HealthCheck[] = [
 // --- Alert state logic ---
 
 async function processCheckResult(name: string, result: CheckResult): Promise<void> {
+  lastResults.set(name, { ok: result.ok, detail: result.detail, checkedAt: Date.now() });
   const state = alertState.get(name);
 
   if (!result.ok) {

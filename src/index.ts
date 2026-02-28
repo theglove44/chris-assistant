@@ -8,6 +8,7 @@ import { startDailySummarizer, stopDailySummarizer } from "./conversation-summar
 import { startJournalUploader, stopJournalUploader } from "./memory/journal.js";
 import { startMemoryConsolidation, stopMemoryConsolidation } from "./memory-consolidation.js";
 import { startHeartbeat, stopHeartbeat } from "./heartbeat.js";
+import { startDashboard, stopDashboard } from "./dashboard.js";
 
 console.log("[chris-assistant] Starting up...");
 
@@ -41,6 +42,7 @@ bot.start({
     startJournalUploader();
     startMemoryConsolidation();
     startHeartbeat();
+    startDashboard();
     startDiscord();
   },
 });
@@ -56,6 +58,7 @@ const shutdown = () => {
   stopJournalUploader();
   stopMemoryConsolidation();
   stopHeartbeat();
+  stopDashboard();
   bot.stop();
   stopDiscord();
   process.exit(0);

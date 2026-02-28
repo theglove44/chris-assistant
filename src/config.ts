@@ -25,6 +25,10 @@ export const config = {
   },
   braveSearchApiKey: process.env.BRAVE_SEARCH_API_KEY || null,
   maxToolTurns: Number(process.env.MAX_TOOL_TURNS || "200"),
+  dashboard: {
+    port: Number(process.env.DASHBOARD_PORT || "3000"),
+    token: process.env.DASHBOARD_TOKEN || null,
+  },
 } as const;
 
 export const [repoOwner, repoName] = config.github.memoryRepo.split("/");
