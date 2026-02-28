@@ -1,6 +1,6 @@
 # Chris Assistant
 
-A personal AI assistant accessible through Telegram. Supports multiple AI providers (Claude, OpenAI, MiniMax) with persistent memory stored in GitHub.
+A personal AI assistant accessible through Telegram and Discord. Supports multiple AI providers (Claude, OpenAI, MiniMax) with persistent memory stored in GitHub.
 
 ## How It Works
 
@@ -15,7 +15,12 @@ Telegram message (text, photo, or document)
   → Streams response back to Telegram with live updates
   → AI can call tools: memory, web search, fetch URLs, run code,
     read/write/edit files, git operations, manage scheduled tasks
-  → Response rendered as Telegram MarkdownV2 (with plain text fallback)
+  → Response rendered as HTML (with plain text fallback)
+
+Discord message (text only)
+  → discord.js client (guards to your Discord user ID only)
+  → Same provider pipeline as Telegram (chat() function)
+  → Response sent as Discord reply (headers → bold, 2000 char limit)
 
 Scheduler (background):
   → Ticks every 60s, checks cron expressions
@@ -29,6 +34,7 @@ The assistant has its own identity, personality, and evolving memory. Everything
 ## Features
 
 - **Multi-provider AI** — Claude (Agent SDK), OpenAI, and MiniMax via a single bot. Switch models with `chris model set <name>`.
+- **Discord bot** — Runs alongside Telegram. Responds to direct messages and channel messages from your authorised Discord user ID. Shares the same AI pipeline and all tools.
 - **Streaming responses** — All three providers stream tokens in real-time. Telegram message updates every 1.5s with a typing cursor.
 - **Image understanding** — Send a photo and the AI will describe/analyze it. Images route to `IMAGE_MODEL` (default `gpt-5.2`) regardless of active provider.
 - **Document reading** — Send text files (.txt, .json, .csv, .md, etc.) and the AI reads the contents inline.
@@ -61,7 +67,8 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   ├── index.ts              # Bot entry point
 │   ├── config.ts             # Environment config
 │   ├── telegram.ts           # Telegram bot — text/photo/document handlers, streaming
-│   ├── markdown.ts           # Standard markdown → Telegram MarkdownV2 converter
+│   ├── discord.ts            # Discord bot — message handler, typing indicator, reply chunking
+│   ├── markdown.ts           # Standard markdown → HTML converter (Telegram + plain text fallback)
 │   ├── rate-limit.ts         # Sliding window rate limiter
 │   ├── health.ts             # Periodic health checks + Telegram alerts
 │   ├── scheduler.ts          # Cron-like scheduled tasks — tick loop, AI execution, Telegram delivery
@@ -217,7 +224,25 @@ chris start       # Start the bot via pm2
 chris status      # Confirm it's running
 ```
 
-### 7. (Optional) Set up additional providers
+### 7. (Optional) Set up Discord
+
+1. Go to the [Discord Developer Portal](https://discord.com/developers/applications) and create a new application
+2. Under **Bot**, click **Add Bot** and copy the token
+3. Enable **Message Content Intent** under Privileged Gateway Intents
+4. Under **OAuth2 → URL Generator**, select `bot` scope and these permissions:
+   - View Channels, Send Messages, Read Message History
+5. Open the generated URL to invite the bot to your server
+6. Get your Discord user ID: enable Developer Mode in Discord settings, right-click your name → **Copy User ID**
+7. Add to your `.env`:
+
+```
+DISCORD_BOT_TOKEN=your_bot_token
+DISCORD_ALLOWED_USER_ID=your_discord_user_id
+```
+
+8. Restart the bot — it will connect to Discord automatically. You can message it in any channel without `@` mentioning it.
+
+### 8. (Optional) Set up additional providers
 
 **MiniMax** — uses your MiniMax Coding Plan subscription via OAuth. No API credits needed.
 
@@ -436,6 +461,8 @@ chris setup              # Interactive first-time setup wizard (creates .env)
 | `WORKSPACE_ROOT` | No | Root directory for file/git tools. Default: `~/Projects`. Changeable at runtime via `/project`. |
 | `MAX_TOOL_TURNS` | No | Safety ceiling for tool call rounds per message. Default: `200`. Context compaction handles the real limit. |
 | `CLAUDE_CODE_OAUTH_TOKEN` | No | Only needed to use Claude models |
+| `DISCORD_BOT_TOKEN` | No | Discord bot token from the Developer Portal |
+| `DISCORD_ALLOWED_USER_ID` | No | Your Discord numeric user ID — bot ignores all other users |
 
 OpenAI and MiniMax authenticate via OAuth device flows (`chris openai login` / `chris minimax login`) with tokens stored in `~/.chris-assistant/`.
 
@@ -472,6 +499,7 @@ npx tsx src/cli/index.ts # Run CLI directly without global install
 - **AI (OpenAI)**: Raw fetch to Codex Responses API with ChatGPT OAuth (Plus/Pro subscription)
 - **AI (MiniMax)**: OpenAI SDK with custom baseURL (`api.minimax.io`)
 - **Telegram**: grammY
+- **Discord**: discord.js
 - **Memory**: GitHub API via Octokit
 - **Tools**: zod (schema validation), native fetch, child_process
 - **CLI**: Commander.js

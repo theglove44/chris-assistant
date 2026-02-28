@@ -13,7 +13,8 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   ├── index.ts              # Bot entry point (starts Telegram long-polling)
 │   ├── config.ts             # Loads .env, exports typed config object
 │   ├── telegram.ts           # grammY bot — message handler (text/photo/document), streaming edits
-│   ├── markdown.ts           # Standard markdown → Telegram MarkdownV2 converter
+│   ├── discord.ts            # discord.js bot — message handler, typing indicator, reply chunking (2000 char limit)
+│   ├── markdown.ts           # Standard markdown → HTML converter for Telegram (with stripMarkdown() fallback)
 │   ├── middleware.ts          # grammY middleware — auth guard + rate limiting
 │   ├── rate-limit.ts         # Sliding window rate limiter (10 msgs/min per user)
 │   ├── health.ts             # Periodic health checks + Telegram alerts (startup, token expiry, GitHub)
@@ -97,6 +98,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 - **Claude session persistence**: `src/claude-sessions.ts` stores session IDs per chat in `~/.chris-assistant/claude-sessions.json`. Each message passes `resume: sessionId` to continue the conversation. Scheduled tasks (chatId 0) use one-shot queries with `persistSession: false`. The SDK manages its own context window — no manual conversation history formatting needed for Claude.
 - **Custom vs native tools**: `registry.ts` has `NATIVE_CLAUDE_TOOLS` set — tools Claude Code handles natively. `getCustomMcpTools()` returns only non-native tools for the Claude provider's MCP server. `getCustomMcpAllowedToolNames()` generates the corresponding allowed tool names. OpenAI/MiniMax providers still use all registered tools as before.
 - **Authentication**: OpenAI uses authorization code OAuth + PKCE (`chris openai login`) — opens browser, local callback server on port 1455. Tokens + account ID in `~/.chris-assistant/openai-auth.json` with auto-refresh. Account ID is extracted from JWT for `chatgpt-account-id` header. MiniMax uses OAuth device flow (`chris minimax login`) — tokens in `~/.chris-assistant/minimax-auth.json`. Claude is optional — requires `CLAUDE_CODE_OAUTH_TOKEN` in `.env` from a Max subscription.
+- **Discord bot**: `src/discord.ts` — discord.js `Client` with `Guilds`, `GuildMessages`, `MessageContent`, `DirectMessages` intents + `Partials.Channel` for DMs. Restricted to `DISCORD_ALLOWED_USER_ID` via `message.author.id` check. Shows typing indicator via `sendTyping()` (guarded with `"sendTyping" in message.channel` to avoid type error on `PartialGroupDMChannel`). Calls `chat()` directly — no streaming (Discord's API doesn't support live message edits cleanly). Strips `<think>` tags from response. Converts Markdown headers (`# Foo`) to Discord bold (`**Foo**`) via `toDiscordMarkdown()`. Splits at 2000 char limit (Discord max). Fallback: `stripMarkdown()` if reply fails. Discord channelIds are strings — uses `parseInt(channelId.slice(-9), 10)` as numeric chatId for conversation tracking compatibility. `startDiscord()`/`stopDiscord()` wired into `index.ts` lifecycle. Bot silently skips startup if `DISCORD_BOT_TOKEN` is not set.
 - **Streaming responses**: All three providers stream via the `onChunk` callback in the Provider interface. OpenAI streams via SSE from the Codex Responses API (`response.output_text.delta` events). MiniMax streams via the OpenAI SDK. Claude streams via the Agent SDK's `includePartialMessages` option — `SDKAssistantMessage` content blocks are extracted and fed to `onChunk()`. `telegram.ts` sends a "..." placeholder and edits it every 1.5s with accumulated text + cursor (▍). Final render uses Markdown with plain text fallback.
 - **Image and document handling**: `telegram.ts` handles `message:photo` and `message:document` in addition to `message:text`. Photos are downloaded from Telegram, base64-encoded, and passed via `ImageAttachment` in the Provider interface. All images are routed to `config.imageModel` (default `gpt-5.2`) via OpenAI regardless of the active provider — `providers/index.ts` intercepts images before provider dispatch. Claude Agent SDK only accepts string prompts, so images get a text-only fallback if Claude is the image model (it shouldn't be). Text documents are downloaded, read as UTF-8, and prepended to the message (50KB truncation). Unsupported file types get a helpful error.
 - **Web search tool**: `src/tools/web-search.ts` — Brave Search API, conditionally registered only when `BRAVE_SEARCH_API_KEY` is set. Supports optional `count` (1-10, default 5), `freshness` (pd/pw/pm/py), and `country` params. No new npm deps (native fetch). All providers pick it up automatically via the tool registry.
@@ -140,6 +142,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 - **AI (OpenAI)**: Raw fetch to Codex Responses API (`chatgpt.com/backend-api/codex/responses`) with ChatGPT OAuth
 - **AI (MiniMax)**: `openai` npm package with custom baseURL (`https://api.minimax.io/v1`)
 - **Telegram**: grammY
+- **Discord**: discord.js
 - **Memory**: `@octokit/rest` for GitHub API
 - **CLI**: Commander.js
 - **Process management**: pm2
@@ -159,6 +162,8 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 | `WORKSPACE_ROOT` | Optional — root directory for file tools. Defaults to `~/Projects`. Changeable at runtime via `/project` command. |
 | `MAX_TOOL_TURNS` | Optional — max tool call rounds per message. Defaults to `200`. |
 | `CLAUDE_CODE_OAUTH_TOKEN` | Optional — only needed to use Claude models |
+| `DISCORD_BOT_TOKEN` | Optional — Discord bot token from the Developer Portal |
+| `DISCORD_ALLOWED_USER_ID` | Optional — your Discord numeric user ID; bot ignores all other users |
 
 Note: OpenAI uses authorization code OAuth (browser-based, `chris openai login`). MiniMax uses OAuth device flow (`chris minimax login`). Tokens stored in `~/.chris-assistant/`. Claude is optional and requires `CLAUDE_CODE_OAUTH_TOKEN` in `.env`.
 
@@ -223,7 +228,7 @@ npx tsx src/cli/index.ts # Run CLI directly without global install
 
 - **pm2 PATH isolation**: pm2 spawns processes in its own daemon. It doesn't inherit your shell PATH. That's why `pm2-helper.ts` exports `TSX_BIN` as an absolute path to `node_modules/.bin/tsx`.
 - **Node.js console.log**: Does not support C-style `%-16s` padding. Use `String.padEnd()` instead.
-- **Telegram MarkdownV2**: `markdown.ts` converts standard AI markdown to MarkdownV2. Key difference: `*bold*` not `**bold**`, `_italic_` not `*italic*`. 18 special chars must be escaped in plain text, fewer in code/URL contexts. If conversion fails, `telegram.ts` falls back to plain text. Streaming preview uses no parse_mode (partial MarkdownV2 would fail).
+- **Telegram HTML formatting**: `markdown.ts` converts standard AI markdown to Telegram HTML (`parse_mode: "HTML"`). `**bold**` → `<b>`, `*italic*` → `<i>`, `` `code` `` → `<code>`, fenced code → `<pre>`, links → `<a href="...">`. Only `&`, `<`, `>` need escaping — far simpler than MarkdownV2's 18-char escape list. If the HTML send fails, `telegram.ts` falls back to `stripMarkdown()` plain text. Streaming preview uses no parse_mode (partial HTML would fail).
 - **Telegram message limit**: 4096 characters max. `telegram.ts` has a `splitMessage()` function that breaks at paragraph then sentence boundaries. Splitting happens on original text before MarkdownV2 conversion (escaping inflates length).
 - **Telegram streaming rate limit**: `telegram.ts` rate-limits `editMessageText` calls to one per 1.5 seconds during streaming. Edits are fire-and-forget (`.catch(() => {})`) so failures don't interrupt the stream.
 - **Thinking tags**: Reasoning models (o3, MiniMax, etc.) may emit `<think>...</think>` blocks. `telegram.ts` strips these both during streaming preview and in the final response. Providers (`minimax.ts`, `openai.ts`) also strip them during streaming. **Important**: Never use `</` inside regex literals anywhere in the codebase — esbuild misparses it as an HTML closing tag and throws a `TransformError` that crashes the bot. Use `new RegExp("<" + "/tag>", "g")` instead. The `npm run typecheck` command includes an automated check (`scripts/check-esbuild-compat.js`) that catches this.

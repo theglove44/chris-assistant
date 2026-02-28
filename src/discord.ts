@@ -1,4 +1,14 @@
-import { Client, GatewayIntentBits, Message, TextChannel, Partials } from "discord.js";
+import {
+  Client,
+  GatewayIntentBits,
+  Message,
+  TextChannel,
+  Partials,
+  ChannelType,
+  Guild,
+  CategoryChannel,
+  PermissionsBitField,
+} from "discord.js";
 import { config } from "./config.js";
 import { chat } from "./providers/index.js";
 import { addMessage } from "./conversation.js";
@@ -17,6 +27,64 @@ const client = new Client({
   ],
   partials: [Partials.Channel],
 });
+
+/**
+ * Project channels to create under the "Projects" category.
+ */
+const PROJECT_CHANNELS: { name: string; topic: string }[] = [
+  {
+    name: "chris-assistant",
+    topic: "Jarvis — personal AI assistant via Telegram & Discord. Active dev.",
+  },
+  {
+    name: "tasty-coach",
+    topic: "Tastytrade automation: IVR scanning, position review, roll analysis, GEX tracking.",
+  },
+  {
+    name: "tasty0dte-ironcondor",
+    topic: "Automated 0DTE SPX Iron Condor/Iron Fly trading bot. Paper trading mode.",
+  },
+];
+
+/**
+ * Ensure the "Projects" category and all project channels exist in the guild.
+ */
+async function setupProjectChannels(guild: Guild): Promise<void> {
+  const CATEGORY_NAME = "Projects";
+
+  // Find or create the Projects category
+  let category = guild.channels.cache.find(
+    (c) => c.type === ChannelType.GuildCategory && c.name === CATEGORY_NAME
+  ) as CategoryChannel | undefined;
+
+  if (!category) {
+    category = await guild.channels.create({
+      name: CATEGORY_NAME,
+      type: ChannelType.GuildCategory,
+    });
+    console.log("[discord] Created category: %s", CATEGORY_NAME);
+  }
+
+  // Create any missing project channels under the category
+  for (const proj of PROJECT_CHANNELS) {
+    const exists = guild.channels.cache.find(
+      (c) =>
+        c.type === ChannelType.GuildText &&
+        c.name === proj.name &&
+        (c as TextChannel).parentId === category!.id
+    );
+
+    if (!exists) {
+      await guild.channels.create({
+        name: proj.name,
+        type: ChannelType.GuildText,
+        topic: proj.topic,
+        parent: category.id,
+      });
+      console.log("[discord] Created channel: #%s", proj.name);
+    }
+  }
+}
 
 /**
  * Split a message into chunks at paragraph boundaries.
@@ -52,8 +120,18 @@ function toDiscordMarkdown(text: string): string {
   return text.replace(/^#{1,6} (.+)$/gm, "**$1**");
 }
 
-client.once("ready", () => {
+client.once("ready", async () => {
   console.log("[discord] Bot is live as %s", client.user?.tag);
+
+  if (config.discord.guildId) {
+    try {
+      const guild = await client.guilds.fetch(config.discord.guildId);
+      await setupProjectChannels(guild);
+      console.log("[discord] Project channels ready");
+    } catch (err: any) {
+      console.error("[discord] Failed to setup project channels:", err.message);
+    }
+  }
 });
 
 client.on("messageCreate", async (message: Message) => {

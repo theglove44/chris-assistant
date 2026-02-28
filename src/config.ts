@@ -21,6 +21,7 @@ export const config = {
   },
   discord: {
     botToken: process.env.DISCORD_BOT_TOKEN || null,
+    guildId: process.env.DISCORD_GUILD_ID || null,
   },
   braveSearchApiKey: process.env.BRAVE_SEARCH_API_KEY || null,
   maxToolTurns: Number(process.env.MAX_TOOL_TURNS || "200"),
