@@ -44,6 +44,14 @@ const PROJECT_CHANNELS: { name: string; topic: string }[] = [
     name: "tasty0dte-ironcondor",
     topic: "Automated 0DTE SPX Iron Condor/Iron Fly trading bot. Paper trading mode.",
   },
+  {
+    name: "stock-research",
+    topic: "Daily AI infrastructure stock research. Chips, energy, data centres — companies with strong moats benefiting from the AI buildout.",
+  },
+  {
+    name: "belfast-trip",
+    topic: "City break to Belfast — plans, itineraries, recommendations, and logistics.",
+  },
 ];
 
 /**
@@ -190,4 +198,37 @@ export function startDiscord(): void {
 
 export function stopDiscord(): void {
   client.destroy();
+}
+
+/**
+ * Post a message to a specific Discord channel by name within the configured guild.
+ * Used by the scheduler to send reports to project-specific channels.
+ */
+export async function sendToDiscordChannel(channelName: string, content: string): Promise<void> {
+  if (!config.discord.guildId) {
+    console.warn("[discord] sendToDiscordChannel: no DISCORD_GUILD_ID configured");
+    return;
+  }
+
+  try {
+    const guild = await client.guilds.fetch(config.discord.guildId);
+    await guild.channels.fetch(); // populate cache
+
+    const channel = guild.channels.cache.find(
+      (c) => c.type === ChannelType.GuildText && c.name === channelName
+    ) as TextChannel | undefined;
+
+    if (!channel) {
+      console.error("[discord] sendToDiscordChannel: channel #%s not found", channelName);
+      return;
+    }
+
+    // Discord max message length is 2000 chars — split if needed
+    const chunks = content.length <= 2000 ? [content] : splitMessage(content, 2000);
+    for (const chunk of chunks) {
+      await channel.send(chunk);
+    }
+  } catch (err: any) {
+    console.error("[discord] sendToDiscordChannel failed:", err.message);
+  }
 }
