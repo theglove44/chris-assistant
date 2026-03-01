@@ -56,12 +56,10 @@ export function toMarkdownV2(text: string): string {
   });
 
   // --- Step 3: Escape HTML in remaining text (before adding HTML tags) ---
-  processed = processed.replace(/[^&<>\x00-\x08\x0e-\x1f]|[\x00-\x08\x0e-\x1f]/g, (char) => {
-    if (char === "&") return "&amp;";
-    if (char === "<") return "&lt;";
-    if (char === ">") return "&gt;";
-    return char;
-  });
+  processed = processed
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 
   // --- Step 4: Convert links [text](url) ---
   processed = processed.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, linkText, url) => {
@@ -88,8 +86,12 @@ export function toMarkdownV2(text: string): string {
     return `<i>${inner}</i>`;
   });
 
-  // --- Step 9: Convert blockquotes ---
+  // --- Step 9: Convert blockquotes (> is now escaped to &gt;) ---
   processed = processed.replace(/^&gt; ?(.*)$/gm, (_match, content) => {
+    return `<blockquote>${content}</blockquote>`;
+  });
+  // Also handle unescaped > that might appear (safety)
+  processed = processed.replace(/^> ?(.*)$/gm, (_match, content) => {
     return `<blockquote>${content}</blockquote>`;
   });
 
