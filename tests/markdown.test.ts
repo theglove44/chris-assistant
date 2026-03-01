@@ -1,183 +1,189 @@
 /**
- * Tests for toMarkdownV2 — the standard Markdown → Telegram MarkdownV2 converter.
+ * Tests for toMarkdownV2 — the standard Markdown → Telegram HTML converter.
  *
- * Assertions match the actual current output of the converter. Where the
- * converter has known behavior (e.g. headers render as italic underscores rather
- * than bold asterisks — a known quirk of the regex ordering), the tests document
- * that behavior and are marked with a comment so it's easy to update when fixed.
+ * Despite the legacy function name, this converter outputs Telegram HTML
+ * (parse_mode: "HTML") since the codebase switched from MarkdownV2 to HTML.
+ * Only &, <, > need escaping in plain text. Tags: <b>, <i>, <code>, <pre>, <a>.
  */
 import { describe, it, expect } from "vitest";
-import { toMarkdownV2 } from "../src/markdown.js";
+import { toMarkdownV2, stripMarkdown } from "../src/markdown.js";
 
-describe("toMarkdownV2", () => {
+describe("toMarkdownV2 (Telegram HTML output)", () => {
   describe("plain text escaping", () => {
-    it("escapes exclamation mark in plain text", () => {
-      expect(toMarkdownV2("Hello!")).toBe("Hello\\!");
+    it("escapes ampersand in plain text", () => {
+      expect(toMarkdownV2("A & B")).toBe("A &amp; B");
     });
 
-    it("does not escape question mark (not a MarkdownV2 special char)", () => {
-      // ? is not in the 18-char MarkdownV2 escape set — it should pass through unchanged
-      expect(toMarkdownV2("Hello! How are you?")).toBe("Hello\\! How are you?");
-    });
-
-    it("escapes dots in plain text", () => {
-      expect(toMarkdownV2("Version 1.0.0")).toBe("Version 1\\.0\\.0");
-    });
-
-    it("escapes parentheses in plain text", () => {
-      expect(toMarkdownV2("Call foo(bar)")).toBe("Call foo\\(bar\\)");
+    it("escapes angle brackets in plain text", () => {
+      expect(toMarkdownV2("a < b > c")).toBe("a &lt; b &gt; c");
     });
 
     it("passes through plain text with no special chars unchanged", () => {
       expect(toMarkdownV2("Hello world")).toBe("Hello world");
     });
 
-    it("escapes hyphens in plain text", () => {
-      expect(toMarkdownV2("step-by-step")).toBe("step\\-by\\-step");
+    it("does not escape dots, parens, hyphens, or exclamation marks", () => {
+      // HTML mode doesn't need to escape these (MarkdownV2 did)
+      expect(toMarkdownV2("Hello! Version 1.0.0")).toBe("Hello! Version 1.0.0");
+      expect(toMarkdownV2("foo(bar)")).toBe("foo(bar)");
+      expect(toMarkdownV2("step-by-step")).toBe("step-by-step");
     });
   });
 
   describe("italic conversion (*text*)", () => {
-    it("converts *text* to _text_", () => {
-      expect(toMarkdownV2("*italic text*")).toBe("_italic text_");
+    it("converts *text* to <i>text</i>", () => {
+      expect(toMarkdownV2("*italic text*")).toBe("<i>italic text</i>");
     });
 
     it("handles italic mid-sentence", () => {
-      expect(toMarkdownV2("This is *really* good")).toBe("This is _really_ good");
-    });
-  });
-
-  describe("inline code", () => {
-    it("preserves inline code content verbatim", () => {
-      expect(toMarkdownV2("`npm install`")).toBe("`npm install`");
-    });
-
-    it("does not escape MarkdownV2 special chars inside inline code", () => {
-      // Dot and parens inside code must not be escaped as plain-text special chars
-      const result = toMarkdownV2("Run `foo.bar()`");
-      expect(result).toContain("`foo.bar()`");
-    });
-
-    it("escapes backslash inside inline code", () => {
-      // The only chars that need escaping inside code are \ and `
-      const result = toMarkdownV2("Use `a\\b` for paths");
-      expect(result).toContain("`a\\\\b`");
-    });
-
-    it("surrounding plain text is still escaped", () => {
-      const result = toMarkdownV2("Run `git status` and check.");
-      expect(result).toContain("`git status`");
-      expect(result).toContain("and check\\.");
-    });
-  });
-
-  describe("fenced code blocks", () => {
-    it("preserves fenced code block content verbatim", () => {
-      const result = toMarkdownV2("```js\nconsole.log('hi')\n```");
-      expect(result).toContain("```js\nconsole.log('hi')\n```");
-    });
-
-    it("does not escape MarkdownV2 special chars inside code blocks", () => {
-      // . ( ) ! are special in plain text but must not be escaped inside a code block
-      const result = toMarkdownV2("```\nfoo.bar() + baz!\n```");
-      expect(result).toContain("foo.bar() + baz!");
-    });
-
-    it("preserves the language tag on fenced code blocks", () => {
-      const result = toMarkdownV2("```typescript\nconst x = 1;\n```");
-      expect(result).toContain("```typescript\n");
-    });
-  });
-
-  describe("link conversion", () => {
-    it("passes links through in [text](url) format", () => {
-      const result = toMarkdownV2("[click here](https://example.com)");
-      expect(result).toBe("[click here](https://example.com)");
-    });
-
-    it("escapes MarkdownV2 special chars in link text", () => {
-      const result = toMarkdownV2("[hello world!](https://example.com)");
-      expect(result).toContain("[hello world\\!]");
-      expect(result).toContain("(https://example.com)");
-    });
-  });
-
-  describe("blockquotes", () => {
-    it("converts '> text' to '>text' (MarkdownV2 blockquote)", () => {
-      expect(toMarkdownV2("> some text")).toBe(">some text");
-    });
-
-    it("escapes special chars in blockquote content", () => {
-      expect(toMarkdownV2("> hello world!")).toBe(">hello world\\!");
-    });
-  });
-
-  describe("combined content", () => {
-    it("handles code next to plain text without mangling either", () => {
-      const result = toMarkdownV2("Run `git status` and check.");
-      expect(result).toContain("`git status`");
-      expect(result).toContain("and check\\.");
-    });
-
-    it("handles plain text with trailing period", () => {
-      const result = toMarkdownV2("Use npm install to set up.");
-      expect(result).toBe("Use npm install to set up\\.");
-    });
-
-    it("handles multiple special characters on one line", () => {
-      const result = toMarkdownV2("foo.bar() is a method!");
-      expect(result).toBe("foo\\.bar\\(\\) is a method\\!");
-    });
-  });
-
-  describe("header conversion (# → bold-style)", () => {
-    // NOTE: Headers currently render using the italic marker (_text_) rather
-    // than the bold marker (*text*) due to regex ordering. This is the actual
-    // current behavior; update these tests if the converter is fixed.
-
-    it("converts # Header to a formatted span", () => {
-      const result = toMarkdownV2("# My Header");
-      // The converter wraps header text in some MarkdownV2 formatting
-      expect(result).toMatch(/My Header/);
-    });
-
-    it("renders # Header using the italic marker (current behavior)", () => {
-      // Headers are processed before bold in the pipeline but the bold regex
-      // runs first in escapeOuterPlainText, causing them to be wrapped as _text_
-      expect(toMarkdownV2("# My Header")).toBe("_My Header_");
-    });
-
-    it("renders ## Header using the italic marker (current behavior)", () => {
-      expect(toMarkdownV2("## Section Title")).toBe("_Section Title_");
-    });
-
-    it("renders ### Header using the italic marker (current behavior)", () => {
-      expect(toMarkdownV2("### Subsection")).toBe("_Subsection_");
-    });
-
-    it("escapes special chars in header content", () => {
-      // ! inside the header text should still be escaped
-      const result = toMarkdownV2("# Hello World!");
-      expect(result).toContain("Hello World");
-      // The ! must be escaped somewhere in the output
-      expect(result).toContain("\\!");
+      expect(toMarkdownV2("This is *really* good")).toBe("This is <i>really</i> good");
     });
   });
 
   describe("bold conversion (**text**)", () => {
-    // NOTE: **text** currently renders as _text_ (italic) rather than *text*
-    // (bold) because the bold regex fires but the result's * markers are then
-    // matched by the italic pass in escapeOuterPlainText. This is the actual
-    // current behavior.
-
-    it("converts **text** — current output uses italic markers", () => {
-      expect(toMarkdownV2("**bold text**")).toBe("_bold text_");
+    it("converts **text** to <b>text</b>", () => {
+      expect(toMarkdownV2("**bold text**")).toBe("<b>bold text</b>");
     });
 
-    it("handles **text** mid-sentence — current output uses italic markers", () => {
+    it("handles **text** mid-sentence", () => {
       expect(toMarkdownV2("This is **important** stuff")).toBe(
-        "This is _important_ stuff",
+        "This is <b>important</b> stuff",
       );
     });
+  });
+
+  describe("bold-italic conversion (***text***)", () => {
+    it("converts ***text*** to <b><i>text</i></b>", () => {
+      expect(toMarkdownV2("***bold italic***")).toBe("<b><i>bold italic</i></b>");
+    });
+  });
+
+  describe("inline code", () => {
+    it("wraps inline code in <code> tags", () => {
+      expect(toMarkdownV2("`npm install`")).toBe("<code>npm install</code>");
+    });
+
+    it("escapes HTML inside inline code", () => {
+      expect(toMarkdownV2("`a < b & c`")).toBe("<code>a &lt; b &amp; c</code>");
+    });
+
+    it("does not convert markdown formatting inside inline code", () => {
+      const result = toMarkdownV2("`**not bold**`");
+      expect(result).toBe("<code>**not bold**</code>");
+    });
+
+    it("surrounding plain text is unaffected", () => {
+      const result = toMarkdownV2("Run `git status` and check.");
+      expect(result).toContain("<code>git status</code>");
+      expect(result).toContain("and check.");
+    });
+  });
+
+  describe("fenced code blocks", () => {
+    it("wraps fenced code blocks in <pre> tags", () => {
+      const result = toMarkdownV2("```\nconsole.log('hi')\n```");
+      expect(result).toContain("<pre>");
+      expect(result).toContain("console.log(");
+    });
+
+    it("escapes HTML inside code blocks", () => {
+      const result = toMarkdownV2("```\na < b & c\n```");
+      expect(result).toContain("a &lt; b &amp; c");
+    });
+
+    it("preserves the language tag on fenced code blocks", () => {
+      const result = toMarkdownV2("```typescript\nconst x = 1;\n```");
+      expect(result).toContain('class="language-typescript"');
+    });
+
+    it("does not escape MarkdownV2 special chars inside code blocks", () => {
+      // . ( ) ! are not special in HTML — should appear literally (HTML-escaped only)
+      const result = toMarkdownV2("```\nfoo.bar() + baz!\n```");
+      expect(result).toContain("foo.bar() + baz!");
+    });
+  });
+
+  describe("link conversion", () => {
+    it("converts links to <a> tags", () => {
+      const result = toMarkdownV2("[click here](https://example.com)");
+      expect(result).toBe('<a href="https://example.com">click here</a>');
+    });
+
+    it("preserves link text content", () => {
+      const result = toMarkdownV2("[hello world](https://example.com)");
+      expect(result).toContain("hello world");
+      expect(result).toContain("https://example.com");
+    });
+  });
+
+  describe("blockquotes", () => {
+    it("converts '> text' to <blockquote>", () => {
+      const result = toMarkdownV2("> some text");
+      expect(result).toBe("<blockquote>some text</blockquote>");
+    });
+  });
+
+  describe("header conversion", () => {
+    it("converts # Header to <b>", () => {
+      expect(toMarkdownV2("# My Header")).toBe("<b>My Header</b>");
+    });
+
+    it("converts ## Header to <b>", () => {
+      expect(toMarkdownV2("## Section Title")).toBe("<b>Section Title</b>");
+    });
+
+    it("converts ### Header to <b>", () => {
+      expect(toMarkdownV2("### Subsection")).toBe("<b>Subsection</b>");
+    });
+  });
+
+  describe("combined content", () => {
+    it("handles code next to plain text", () => {
+      const result = toMarkdownV2("Run `git status` and check.");
+      expect(result).toContain("<code>git status</code>");
+      expect(result).toContain("and check.");
+    });
+
+    it("handles plain text with trailing period", () => {
+      const result = toMarkdownV2("Use npm install to set up.");
+      expect(result).toBe("Use npm install to set up.");
+    });
+
+    it("handles multiple formatting types", () => {
+      const result = toMarkdownV2("Use **bold** and *italic* and `code`");
+      expect(result).toContain("<b>bold</b>");
+      expect(result).toContain("<i>italic</i>");
+      expect(result).toContain("<code>code</code>");
+    });
+  });
+});
+
+describe("stripMarkdown", () => {
+  it("strips bold markers", () => {
+    expect(stripMarkdown("**bold**")).toBe("bold");
+  });
+
+  it("strips italic markers", () => {
+    expect(stripMarkdown("*italic*")).toBe("italic");
+  });
+
+  it("strips inline code backticks", () => {
+    expect(stripMarkdown("`code`")).toBe("code");
+  });
+
+  it("strips fenced code blocks", () => {
+    expect(stripMarkdown("```js\ncode\n```")).toBe("code\n");
+  });
+
+  it("strips links to text only", () => {
+    expect(stripMarkdown("[click](https://example.com)")).toBe("click");
+  });
+
+  it("strips headers", () => {
+    expect(stripMarkdown("# Header")).toBe("Header");
+  });
+
+  it("strips blockquotes", () => {
+    expect(stripMarkdown("> quoted")).toBe("quoted");
   });
 });
