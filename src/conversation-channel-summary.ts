@@ -41,7 +41,7 @@ function isoWeek(d: Date): string {
 /** Generate the last N days of dates as YYYY-MM-DD strings. */
 function lastNDates(n: number): string[] {
   const dates: string[] = [];
-  for (let i = 0; i <= n; i++) {
+  for (let i = 1; i <= n; i++) {
     const d = new Date();
     d.setDate(d.getDate() - i);
     dates.push(datestamp(d.getTime()));
