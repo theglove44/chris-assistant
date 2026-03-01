@@ -3,7 +3,7 @@ import { startDiscord, stopDiscord } from "./discord.js";
 import { startHealthMonitor, stopHealthMonitor } from "./health.js";
 import { startScheduler, stopScheduler } from "./scheduler.js";
 import { startConversationBackup, stopConversationBackup } from "./conversation-backup.js";
-import { startArchiveUploader, stopArchiveUploader } from "./conversation-archive.js";
+import { startArchiveUploader, stopArchiveUploader, uploadArchives } from "./conversation-archive.js";
 import { startDailySummarizer, stopDailySummarizer } from "./conversation-summary.js";
 import { startJournalUploader, stopJournalUploader } from "./memory/journal.js";
 import { startMemoryConsolidation, stopMemoryConsolidation } from "./memory-consolidation.js";
@@ -48,11 +48,12 @@ bot.start({
 });
 
 // Graceful shutdown
-const shutdown = () => {
+const shutdown = async () => {
   console.log("[chris-assistant] Shutting down...");
   stopHealthMonitor();
   stopScheduler();
   stopConversationBackup();
+  await uploadArchives();
   stopArchiveUploader();
   stopDailySummarizer();
   stopJournalUploader();
