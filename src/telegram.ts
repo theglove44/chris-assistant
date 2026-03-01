@@ -12,6 +12,7 @@ import { getWorkspaceRoot, setWorkspaceRoot, isProjectActive } from "./tools/fil
 import { invalidatePromptCache } from "./providers/shared.js";
 import { clearSession, getSessionId } from "./claude-sessions.js";
 import { abortClaudeQuery } from "./providers/claude.js";
+import { datestamp, redactArchiveEntries, uploadArchives } from "./conversation-archive.js";
 
 const bot = new Bot(config.telegram.botToken);
 
@@ -156,6 +157,32 @@ bot.command("clear", async (ctx) => {
   await ctx.reply("Conversation cleared. Memory is still intact.");
 });
 
+// /purge — full clear including archives
+bot.command("purge", async (ctx) => {
+  const chatId = ctx.chat.id;
+
+  // Clear rolling window + Claude session
+  await clearHistory(chatId);
+  clearSession(chatId);
+
+  // Redact today's archive
+  const today = datestamp();
+  const removed = redactArchiveEntries(chatId, today);
+
+  // Push redacted archive to GitHub immediately
+  if (removed > 0) {
+    uploadArchives().catch((err: any) => {
+      console.error("[telegram] Failed to upload redacted archive:", err.message);
+    });
+  }
+
+  await ctx.reply(
+    removed > 0
+      ? `Conversation purged. ${removed} archive entries removed from today's log.`
+      : "Conversation cleared. No archive entries found for today.",
+  );
+});
+
 // /model — show current model and provider
 bot.command("model", async (ctx) => {
   const model = config.model;
@@ -236,6 +263,7 @@ bot.command("help", async (ctx) => {
     "Available commands:\n\n" +
     "/start — Greeting\n" +
     "/clear — Reset conversation + Claude session\n" +
+    "/purge — Full clear — conversation + today's archive\n" +
     "/stop — Abort current Claude query\n" +
     "/session — Show Claude session info\n" +
     "/model — Show current AI model\n" +

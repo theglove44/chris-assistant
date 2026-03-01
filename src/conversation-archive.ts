@@ -115,6 +115,47 @@ function hashContent(content: string): string {
   return createHash("sha256").update(content).digest("hex");
 }
 
+/**
+ * Remove all archive entries for a given chatId from a date's JSONL file.
+ * Rewrites the file in place, excluding entries matching the chatId.
+ * Returns the number of entries removed.
+ */
+export function redactArchiveEntries(chatId: number, date: string): number {
+  const filePath = localArchivePath(date);
+  try {
+    const raw = fs.readFileSync(filePath, "utf-8");
+    const lines = raw.split("\n").filter(Boolean);
+    const kept: string[] = [];
+    let removed = 0;
+
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line) as ArchiveEntry;
+        if (entry.chatId === chatId) {
+          removed++;
+        } else {
+          kept.push(line);
+        }
+      } catch {
+        kept.push(line); // preserve unparseable lines
+      }
+    }
+
+    if (removed > 0) {
+      if (kept.length > 0) {
+        fs.writeFileSync(filePath, kept.join("\n") + "\n");
+      } else {
+        fs.writeFileSync(filePath, ""); // empty file so uploadArchives() overwrites GitHub copy
+      }
+    }
+
+    return removed;
+  } catch {
+    return 0; // file doesn't exist or can't be read
+  }
+}
+
+
 export async function uploadArchives(): Promise<void> {
   let files: string[];
   try {

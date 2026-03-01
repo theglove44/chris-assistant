@@ -16,6 +16,7 @@ console.log("[chris-assistant] Starting up...");
 bot.api.setMyCommands([
   { command: "start", description: "Greeting" },
   { command: "clear", description: "Reset conversation + Claude session" },
+  { command: "purge", description: "Full clear — conversation + today's archive" },
   { command: "stop", description: "Abort current Claude query" },
   { command: "session", description: "Show Claude session info" },
   { command: "model", description: "Show current AI model" },
