@@ -161,7 +161,12 @@ client.on("messageCreate", async (message: Message) => {
     // Use last 9 digits of channelId as numeric chatId for conversation tracking
     const chatId = parseInt(message.channelId.slice(-9), 10);
 
-    void addMessage(chatId, "user", userMessage);
+    const channelName = message.channel.type === ChannelType.DM
+      ? "dm"
+      : (message.channel as TextChannel).name ?? "unknown";
+    const meta = { source: "discord" as const, channelName };
+
+    void addMessage(chatId, "user", userMessage, meta);
 
     const rawResponse = await chat(chatId, userMessage);
 
@@ -171,7 +176,7 @@ client.on("messageCreate", async (message: Message) => {
       .replace(new RegExp("<think>[\\s\\S]*?" + thinkClose, "g"), "")
       .trim();
 
-    void addMessage(chatId, "assistant", response);
+    void addMessage(chatId, "assistant", response, meta);
 
     // Discord max message length is 2000 chars
     const formatted = toDiscordMarkdown(response);

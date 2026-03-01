@@ -75,7 +75,8 @@ function saveToDisk(store: Map<number, Message[]>): Promise<void> {
 export async function addMessage(
   chatId: number,
   role: "user" | "assistant",
-  content: string
+  content: string,
+  meta?: { source?: "telegram" | "discord"; channelName?: string },
 ): Promise<void> {
   const store = await ensureLoaded();
 
@@ -87,7 +88,7 @@ export async function addMessage(
   history.push({ role, content, timestamp: now });
 
   // Archive every message before the rolling window clips it
-  archiveMessage(chatId, role, content, now);
+  archiveMessage(chatId, role, content, now, meta);
 
   // Trim to max length
   if (history.length > MAX_HISTORY) {

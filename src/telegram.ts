@@ -102,7 +102,8 @@ async function handleAiResponse(
 
   try {
     // Fire-and-forget — don't block message processing on disk writes
-    void addMessage(chatId, "user", userMessage);
+    const meta = { source: "telegram" as const };
+    void addMessage(chatId, "user", userMessage, meta);
 
     const rawResponse = await chatWithRetry(chatId, userMessage, onChunk, image);
 
@@ -110,7 +111,7 @@ async function handleAiResponse(
     const thinkClose = "<" + "/think>";
     const response = rawResponse.replace(new RegExp("<think>[\\s\\S]*?" + thinkClose, "g"), "").trim();
 
-    void addMessage(chatId, "assistant", response);
+    void addMessage(chatId, "assistant", response, meta);
 
     // Final render — replace the streaming message with the complete response.
     // Split on the original text (before MarkdownV2 conversion) so escape
