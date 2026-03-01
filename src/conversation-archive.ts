@@ -20,7 +20,7 @@ import { writeMemoryFile } from "./memory/github.js";
 // ---------------------------------------------------------------------------
 
 const ARCHIVE_DIR = path.join(os.homedir(), ".chris-assistant", "archive");
-const UPLOAD_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const UPLOAD_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 
 // ---------------------------------------------------------------------------
 // Local archiving (called from addMessage — must be fast & never throw)
@@ -111,7 +111,7 @@ function hashContent(content: string): string {
   return createHash("sha256").update(content).digest("hex");
 }
 
-async function uploadArchives(): Promise<void> {
+export async function uploadArchives(): Promise<void> {
   let files: string[];
   try {
     files = fs.readdirSync(ARCHIVE_DIR).filter((f) => f.endsWith(".jsonl"));
@@ -143,7 +143,7 @@ export function startArchiveUploader(): void {
     return;
   }
 
-  console.log("[archive] Starting archive uploader (every 6 hours)");
+  console.log("[archive] Starting archive uploader (every 30 minutes)");
 
   // Immediate upload on startup
   uploadArchives().catch((err: any) => {
