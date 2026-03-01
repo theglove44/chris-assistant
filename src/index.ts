@@ -5,6 +5,7 @@ import { startScheduler, stopScheduler } from "./scheduler.js";
 import { startConversationBackup, stopConversationBackup } from "./conversation-backup.js";
 import { startArchiveUploader, stopArchiveUploader, uploadArchives } from "./conversation-archive.js";
 import { startDailySummarizer, stopDailySummarizer } from "./conversation-summary.js";
+import { startChannelSummarizer, stopChannelSummarizer } from "./conversation-channel-summary.js";
 import { startJournalUploader, stopJournalUploader } from "./memory/journal.js";
 import { startMemoryConsolidation, stopMemoryConsolidation } from "./memory-consolidation.js";
 import { startHeartbeat, stopHeartbeat } from "./heartbeat.js";
@@ -40,6 +41,7 @@ bot.start({
     startConversationBackup();
     startArchiveUploader();
     startDailySummarizer();
+    startChannelSummarizer();
     startJournalUploader();
     startMemoryConsolidation();
     startHeartbeat();
@@ -56,6 +58,7 @@ const shutdown = async () => {
   stopConversationBackup();
   await uploadArchives();
   stopArchiveUploader();
+  stopChannelSummarizer();
   stopDailySummarizer();
   stopJournalUploader();
   stopMemoryConsolidation();
