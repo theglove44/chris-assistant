@@ -31,6 +31,8 @@ export interface ArchiveEntry {
   chatId: number;
   role: "user" | "assistant";
   content: string;
+  source?: "telegram" | "discord";
+  channelName?: string;
 }
 
 /** YYYY-MM-DD for a timestamp (or now). */
@@ -56,10 +58,12 @@ export function archiveMessage(
   role: "user" | "assistant",
   content: string,
   ts: number,
+  meta?: { source?: "telegram" | "discord"; channelName?: string },
 ): void {
   try {
     fs.mkdirSync(ARCHIVE_DIR, { recursive: true });
-    const line = JSON.stringify({ ts, chatId, role, content } satisfies ArchiveEntry);
+    const entry: ArchiveEntry = { ts, chatId, role, content, ...meta };
+    const line = JSON.stringify(entry);
     fs.appendFileSync(localArchivePath(datestamp(ts)), line + "\n");
   } catch (err: any) {
     // Never let archiving crash the bot
