@@ -149,7 +149,32 @@ client.on("messageCreate", async (message: Message) => {
   // Only respond to the authorised user
   if (message.author.id !== process.env.DISCORD_ALLOWED_USER_ID) return;
 
-  const userMessage = message.content.trim();
+  let userMessage = message.content.trim();
+
+  // Handle file attachments — Discord sends large pasted text as message.txt
+  if (message.attachments.size > 0) {
+    const textExtensions = [".txt", ".md", ".json", ".csv", ".xml", ".js", ".ts", ".py", ".html", ".css", ".yaml", ".yml", ".toml", ".log", ".sh"];
+    for (const attachment of message.attachments.values()) {
+      const name = (attachment.name ?? "").toLowerCase();
+      const isText = textExtensions.some((ext) => name.endsWith(ext)) || (attachment.contentType ?? "").startsWith("text/");
+      if (isText) {
+        try {
+          const res = await fetch(attachment.url);
+          if (res.ok) {
+            const MAX_BYTES = 50_000;
+            const text = await res.text();
+            const content = text.length > MAX_BYTES ? text.slice(0, MAX_BYTES) + "\n\n[... truncated ...]" : text;
+            userMessage = userMessage
+              ? `[File: ${attachment.name}]\n\n${content}\n\n---\n\n${userMessage}`
+              : `[File: ${attachment.name}]\n\n${content}`;
+          }
+        } catch (err: any) {
+          console.error("[discord] Failed to download attachment:", err.message);
+        }
+      }
+    }
+  }
+
   if (!userMessage) return;
 
   // Show typing indicator
