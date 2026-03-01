@@ -11,6 +11,7 @@ import * as os from "os";
 import * as path from "path";
 import { config } from "./config.js";
 import { chat } from "./providers/index.js";
+import { sendToDiscordChannel } from "./discord.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -25,6 +26,7 @@ export interface Schedule {
   createdAt: number;
   lastRun: number | null;
   allowedTools?: string[]; // when set, only these tools are available during execution
+  discordChannel?: string; // when set, posts to this Discord channel name instead of Telegram
 }
 
 // ---------------------------------------------------------------------------
@@ -163,6 +165,8 @@ async function executeTask(task: Schedule): Promise<void> {
     const trimmed = response.trim();
     if (!trimmed || trimmed.startsWith("NOUPDATE:")) {
       console.log("[scheduler] No update for task: %s — staying quiet", task.name);
+    } else if (task.discordChannel) {
+      await sendToDiscordChannel(task.discordChannel, trimmed);
     } else {
       await sendTelegramMessage(trimmed, task.name);
     }
@@ -241,7 +245,7 @@ export function getSchedules(): Schedule[] {
   return schedules;
 }
 
-export function addSchedule(task: Omit<Schedule, "id" | "createdAt" | "lastRun" | "allowedTools"> & { allowedTools?: string[] }): Schedule {
+export function addSchedule(task: Omit<Schedule, "id" | "createdAt" | "lastRun" | "allowedTools" | "discordChannel"> & { allowedTools?: string[]; discordChannel?: string }): Schedule {
   const id = Math.random().toString(16).slice(2, 8);
   const schedule: Schedule = {
     ...task,
@@ -262,6 +266,23 @@ export function removeSchedule(id: string): boolean {
   saveSchedules();
   console.log("[scheduler] Removed schedule: %s (%s)", removed.name, removed.id);
   return true;
+}
+
+export function updateSchedule(
+  id: string,
+  updates: Partial<Pick<Schedule, "name" | "prompt" | "schedule" | "enabled" | "allowedTools" | "discordChannel">>,
+): Schedule | null {
+  const task = schedules.find((s) => s.id === id);
+  if (!task) return null;
+  if (updates.name !== undefined) task.name = updates.name;
+  if (updates.prompt !== undefined) task.prompt = updates.prompt;
+  if (updates.schedule !== undefined) task.schedule = updates.schedule;
+  if (updates.enabled !== undefined) task.enabled = updates.enabled;
+  if (updates.allowedTools !== undefined) task.allowedTools = updates.allowedTools.length > 0 ? updates.allowedTools : undefined;
+  if (updates.discordChannel !== undefined) task.discordChannel = updates.discordChannel || undefined;
+  saveSchedules();
+  console.log("[scheduler] Updated schedule: %s (%s)", task.name, task.id);
+  return task;
 }
 
 export function toggleSchedule(id: string): Schedule | null {

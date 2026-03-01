@@ -12,7 +12,7 @@ import * as os from "os";
 import * as path from "path";
 import { config } from "./config.js";
 import { getHealthStatus, getProviderName } from "./health.js";
-import { getSchedules, type Schedule } from "./scheduler.js";
+import { getSchedules, updateSchedule, removeSchedule, type Schedule } from "./scheduler.js";
 import { listLocalArchiveDates, readLocalArchive } from "./conversation-archive.js";
 import { listLocalJournalDates, readLocalJournal } from "./memory/journal.js";
 import { readMemoryFile, writeMemoryFile } from "./memory/github.js";
@@ -146,6 +146,29 @@ function handleHealth(res: ServerResponse): void {
 
 function handleSchedules(res: ServerResponse): void {
   json(res, getSchedules());
+}
+
+async function handleScheduleUpdate(req: IncomingMessage, res: ServerResponse, id: string): Promise<void> {
+  try {
+    const body = JSON.parse(await readBody(req));
+    const updated = updateSchedule(id, body);
+    if (!updated) {
+      json(res, { error: "Schedule not found" }, 404);
+      return;
+    }
+    json(res, updated);
+  } catch (err: any) {
+    json(res, { error: err.message }, 500);
+  }
+}
+
+function handleScheduleDelete(res: ServerResponse, id: string): void {
+  const removed = removeSchedule(id);
+  if (!removed) {
+    json(res, { error: "Schedule not found" }, 404);
+    return;
+  }
+  json(res, { ok: true });
 }
 
 function handleArchives(res: ServerResponse): void {
@@ -306,7 +329,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
   if (req.method === "OPTIONS") {
     res.writeHead(204, {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, PUT, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, PUT, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Authorization, Content-Type",
     });
     res.end();
@@ -332,6 +355,9 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     if (req.method === "GET" && pathname === "/api/status") return await handleStatus(res);
     if (req.method === "GET" && pathname === "/api/health") return handleHealth(res);
     if (req.method === "GET" && pathname === "/api/schedules") return handleSchedules(res);
+    const scheduleIdMatch = pathname.match(/^\/api\/schedules\/([a-f0-9]+)$/);
+    if (req.method === "PUT" && scheduleIdMatch) return await handleScheduleUpdate(req, res, scheduleIdMatch[1]);
+    if (req.method === "DELETE" && scheduleIdMatch) return handleScheduleDelete(res, scheduleIdMatch[1]);
     if (req.method === "GET" && pathname === "/api/conversation") return await handleConversationHistory(res);
 
     if (req.method === "GET" && pathname === "/api/archives") return handleArchives(res);
@@ -463,6 +489,38 @@ tr:last-child td { border-bottom: none; }
 .log-controls { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
 .log-controls label { font-size: 13px; color: var(--text2); }
 
+/* Schedule rows clickable */
+tr.clickable { cursor: pointer; transition: background 0.15s; }
+tr.clickable:hover { background: var(--bg3); }
+
+/* Modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
+.modal-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px; width: 90%; max-width: 640px; max-height: 90vh; overflow-y: auto; }
+.modal-card h2 { font-size: 18px; font-weight: 600; margin-bottom: 20px; }
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.form-group input[type="text"], .form-group textarea, .form-group select {
+  width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-family: var(--font); font-size: 14px; padding: 8px 12px;
+}
+.form-group textarea { font-family: var(--mono); font-size: 13px; min-height: 120px; resize: vertical; line-height: 1.5; }
+.form-group select { appearance: none; cursor: pointer; }
+.form-row { display: flex; gap: 12px; }
+.form-row .form-group { flex: 1; }
+.cron-preview { font-family: var(--mono); font-size: 13px; color: var(--accent); padding: 6px 0; min-height: 24px; }
+.toggle-wrap { display: flex; align-items: center; gap: 10px; }
+.toggle { position: relative; width: 44px; height: 24px; cursor: pointer; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle .slider { position: absolute; inset: 0; background: var(--bg3); border-radius: 12px; transition: background 0.2s; }
+.toggle .slider::before { content: ""; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: var(--text2); border-radius: 50%; transition: transform 0.2s, background 0.2s; }
+.toggle input:checked + .slider { background: var(--accent); }
+.toggle input:checked + .slider::before { transform: translateX(20px); background: #fff; }
+.modal-actions { display: flex; gap: 8px; margin-top: 20px; }
+.modal-actions .btn { flex: 1; text-align: center; }
+.btn-danger { background: var(--red); }
+.btn-cancel { background: var(--bg3); color: var(--text); }
+.modal-status { font-size: 13px; margin-top: 8px; min-height: 20px; }
+
 /* Utility */
 .loading { color: var(--text2); font-style: italic; }
 .empty { color: var(--text2); font-size: 14px; padding: 20px 0; }
@@ -520,6 +578,78 @@ tr:last-child td { border-bottom: none; }
       <div id="memory-files" class="file-list"><span class="loading">Loading...</span></div>
     </div>
     <div id="memory-editor"></div>
+  </div>
+
+  <!-- Schedule Editor Modal (hidden by default) -->
+  <div class="modal-overlay" id="schedule-modal" style="display:none" onclick="if(event.target===this)closeScheduleModal()">
+    <div class="modal-card">
+      <h2 id="modal-title">Edit Schedule</h2>
+      <input type="hidden" id="sched-id">
+
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="sched-name">
+      </div>
+
+      <div class="form-group">
+        <label>Schedule Type</label>
+        <select id="sched-type" onchange="onSchedTypeChange()">
+          <option value="interval">Every N minutes</option>
+          <option value="hourly">Every hour</option>
+          <option value="daily">Daily at specific time(s)</option>
+          <option value="weekdays">Weekdays at specific time(s)</option>
+          <option value="custom">Custom cron</option>
+        </select>
+      </div>
+
+      <div id="sched-interval-row" class="form-group" style="display:none">
+        <label>Interval (minutes)</label>
+        <input type="text" id="sched-interval" value="30" oninput="updateCronPreview()">
+      </div>
+
+      <div id="sched-times-row" class="form-group" style="display:none">
+        <label>Time(s) — comma-separated, e.g. 8:00 AM, 2:30 PM</label>
+        <input type="text" id="sched-times" placeholder="8:00 AM" oninput="updateCronPreview()">
+      </div>
+
+      <div id="sched-custom-row" class="form-group" style="display:none">
+        <label>Cron Expression (min hour dom month dow)</label>
+        <input type="text" id="sched-cron-input" placeholder="0 8 * * *" oninput="updateCronPreview()">
+      </div>
+
+      <div class="cron-preview" id="cron-preview"></div>
+
+      <div class="form-group">
+        <label>Enabled</label>
+        <div class="toggle-wrap">
+          <label class="toggle"><input type="checkbox" id="sched-enabled" checked><span class="slider"></span></label>
+          <span id="sched-enabled-label">Enabled</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Prompt</label>
+        <textarea id="sched-prompt"></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Allowed Tools (comma-separated, or leave blank for all)</label>
+          <input type="text" id="sched-tools" placeholder="all">
+        </div>
+        <div class="form-group">
+          <label>Discord Channel (optional)</label>
+          <input type="text" id="sched-discord" placeholder="">
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-cancel" onclick="closeScheduleModal()">Cancel</button>
+        <button class="btn btn-danger" onclick="deleteSchedule()">Delete</button>
+        <button class="btn" id="sched-save-btn" onclick="saveSchedule()">Save</button>
+      </div>
+      <div class="modal-status" id="sched-status"></div>
+    </div>
   </div>
 
   <!-- Logs -->
@@ -606,25 +736,233 @@ function stat(label, value) {
 }
 
 // --- Schedules ---
+let schedulesData = [];
 async function loadSchedules() {
   try {
-    const schedules = await api("/api/schedules");
-    if (schedules.length === 0) {
+    schedulesData = await api("/api/schedules");
+    if (schedulesData.length === 0) {
       document.getElementById("schedules-table").innerHTML = '<span class="empty">No scheduled tasks</span>';
       return;
     }
     let html = '<table><thead><tr><th>Name</th><th>Schedule</th><th>Status</th><th>Last Run</th><th>Tools</th><th>Prompt</th></tr></thead><tbody>';
-    for (const s of schedules) {
+    for (const s of schedulesData) {
       const lastRun = s.lastRun ? timeAgo(s.lastRun) : "never";
       const status = s.enabled ? '<span class="badge-enabled on">enabled</span>' : '<span class="badge-enabled off">disabled</span>';
       const tools = s.allowedTools ? esc(s.allowedTools.join(", ")) : '<span style="color:var(--text2)">all</span>';
       const prompt = esc(s.prompt.length > 80 ? s.prompt.slice(0, 80) + "..." : s.prompt);
-      html += '<tr><td><strong>' + esc(s.name) + '</strong></td><td class="mono">' + esc(s.schedule) + '</td><td>' + status + '</td><td>' + lastRun + '</td><td style="font-size:12px">' + tools + '</td><td style="font-size:12px;color:var(--text2)">' + prompt + '</td></tr>';
+      const cronDesc = cronToHuman(s.schedule);
+      html += '<tr class="clickable" data-id="' + s.id + '"><td><strong>' + esc(s.name) + '</strong></td><td class="mono" title="' + esc(cronDesc) + '">' + esc(s.schedule) + '</td><td>' + status + '</td><td>' + lastRun + '</td><td style="font-size:12px">' + tools + '</td><td style="font-size:12px;color:var(--text2)">' + prompt + '</td></tr>';
     }
     html += '</tbody></table>';
     document.getElementById("schedules-table").innerHTML = html;
+    document.querySelectorAll("tr.clickable").forEach(function(row) {
+      row.addEventListener("click", function() { openScheduleModal(row.dataset.id); });
+    });
   } catch (e) {
     document.getElementById("schedules-table").innerHTML = '<span class="loading">Error: ' + esc(e.message) + '</span>';
+  }
+}
+
+// --- Cron conversion ---
+function cronToHuman(expr) {
+  const f = expr.trim().split(/\\s+/);
+  if (f.length !== 5) return expr;
+  const [min, hour, dom, mon, dow] = f;
+
+  // */N * * * *
+  if (min.startsWith("*/") && hour === "*" && dom === "*" && mon === "*" && dow === "*") {
+    return "Every " + min.slice(2) + " minutes";
+  }
+  // 0 * * * *
+  if (min === "0" && hour === "*" && dom === "*" && mon === "*" && dow === "*") {
+    return "Every hour";
+  }
+  // min hour(s) * * dow
+  if (dom === "*" && mon === "*") {
+    const hours = hour.split(",");
+    const times = hours.map(function(h) { return fmtTime(parseInt(h,10), parseInt(min,10)); }).join(", ");
+    if (dow === "*") return "Daily at " + times;
+    if (dow === "1-5") return "Weekdays at " + times;
+    return times + " (dow: " + dow + ")";
+  }
+  return expr;
+}
+
+function fmtTime(h, m) {
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return h12 + ":" + String(m).padStart(2, "0") + " " + ampm;
+}
+
+function parseTimes(str) {
+  // Parse "8:00 AM, 2:30 PM" into [{h:8,m:0},{h:14,m:30}]
+  const results = [];
+  const parts = str.split(",");
+  for (const p of parts) {
+    const match = p.trim().match(/^(\\d{1,2}):(\\d{2})\\s*(AM|PM)?$/i);
+    if (!match) continue;
+    let h = parseInt(match[1], 10);
+    const m = parseInt(match[2], 10);
+    const ampm = (match[3] || "").toUpperCase();
+    if (ampm === "PM" && h < 12) h += 12;
+    if (ampm === "AM" && h === 12) h = 0;
+    results.push({ h, m });
+  }
+  return results;
+}
+
+function buildCron() {
+  const type = document.getElementById("sched-type").value;
+  if (type === "custom") return document.getElementById("sched-cron-input").value.trim();
+  if (type === "interval") {
+    const n = parseInt(document.getElementById("sched-interval").value, 10);
+    if (!n || n <= 0) return "*/5 * * * *";
+    return "*/" + n + " * * * *";
+  }
+  if (type === "hourly") return "0 * * * *";
+
+  // daily or weekdays
+  const times = parseTimes(document.getElementById("sched-times").value);
+  if (times.length === 0) return "0 8 * * *";
+  const dow = type === "weekdays" ? "1-5" : "*";
+  // If all times share the same minute
+  const mins = [...new Set(times.map(t => t.m))];
+  const hours = times.map(t => t.h).join(",");
+  const minute = mins.length === 1 ? String(mins[0]) : "0";
+  return minute + " " + hours + " * * " + dow;
+}
+
+function updateCronPreview() {
+  const cron = buildCron();
+  document.getElementById("cron-preview").textContent = "Cron: " + cron + "  —  " + cronToHuman(cron);
+}
+
+function onSchedTypeChange() {
+  const type = document.getElementById("sched-type").value;
+  document.getElementById("sched-interval-row").style.display = type === "interval" ? "block" : "none";
+  document.getElementById("sched-times-row").style.display = (type === "daily" || type === "weekdays") ? "block" : "none";
+  document.getElementById("sched-custom-row").style.display = type === "custom" ? "block" : "none";
+  updateCronPreview();
+}
+
+function cronToType(expr) {
+  const f = expr.trim().split(/\\s+/);
+  if (f.length !== 5) return { type: "custom" };
+  const [min, hour, dom, mon, dow] = f;
+  if (min.startsWith("*/") && hour === "*" && dom === "*" && mon === "*" && dow === "*") {
+    return { type: "interval", interval: min.slice(2) };
+  }
+  if (min === "0" && hour === "*" && dom === "*" && mon === "*" && dow === "*") {
+    return { type: "hourly" };
+  }
+  if (dom === "*" && mon === "*" && (dow === "*" || dow === "1-5")) {
+    const hours = hour.split(",").map(Number);
+    const m = parseInt(min, 10);
+    const timesStr = hours.map(function(h) { return fmtTime(h, m); }).join(", ");
+    return { type: dow === "1-5" ? "weekdays" : "daily", times: timesStr };
+  }
+  return { type: "custom" };
+}
+
+// --- Schedule modal ---
+function openScheduleModal(id) {
+  const s = schedulesData.find(function(x) { return x.id === id; });
+  if (!s) return;
+
+  document.getElementById("sched-id").value = s.id;
+  document.getElementById("modal-title").textContent = "Edit: " + s.name;
+  document.getElementById("sched-name").value = s.name;
+  document.getElementById("sched-enabled").checked = s.enabled;
+  document.getElementById("sched-enabled-label").textContent = s.enabled ? "Enabled" : "Disabled";
+  document.getElementById("sched-prompt").value = s.prompt;
+  document.getElementById("sched-tools").value = s.allowedTools ? s.allowedTools.join(", ") : "";
+  document.getElementById("sched-discord").value = s.discordChannel || "";
+  document.getElementById("sched-status").textContent = "";
+
+  // Parse cron into UI type
+  const parsed = cronToType(s.schedule);
+  document.getElementById("sched-type").value = parsed.type;
+  if (parsed.type === "interval") {
+    document.getElementById("sched-interval").value = parsed.interval;
+  } else if (parsed.type === "daily" || parsed.type === "weekdays") {
+    document.getElementById("sched-times").value = parsed.times;
+  } else if (parsed.type === "custom") {
+    document.getElementById("sched-cron-input").value = s.schedule;
+  }
+
+  onSchedTypeChange();
+  document.getElementById("schedule-modal").style.display = "flex";
+}
+
+function closeScheduleModal() {
+  document.getElementById("schedule-modal").style.display = "none";
+}
+
+document.getElementById("sched-enabled").addEventListener("change", function() {
+  document.getElementById("sched-enabled-label").textContent = this.checked ? "Enabled" : "Disabled";
+});
+
+async function saveSchedule() {
+  const id = document.getElementById("sched-id").value;
+  const statusEl = document.getElementById("sched-status");
+  const btn = document.getElementById("sched-save-btn");
+
+  const toolsRaw = document.getElementById("sched-tools").value.trim();
+  const allowedTools = toolsRaw && toolsRaw.toLowerCase() !== "all"
+    ? toolsRaw.split(",").map(function(t) { return t.trim(); }).filter(Boolean)
+    : [];
+
+  const updates = {
+    name: document.getElementById("sched-name").value.trim(),
+    schedule: buildCron(),
+    enabled: document.getElementById("sched-enabled").checked,
+    prompt: document.getElementById("sched-prompt").value,
+    allowedTools: allowedTools,
+    discordChannel: document.getElementById("sched-discord").value.trim(),
+  };
+
+  btn.disabled = true;
+  statusEl.textContent = "Saving...";
+  statusEl.style.color = "var(--text2)";
+
+  try {
+    const res = await fetch(apiUrl("/api/schedules/" + id), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || res.statusText);
+    statusEl.textContent = "Saved!";
+    statusEl.style.color = "var(--green)";
+    setTimeout(function() { closeScheduleModal(); loadSchedules(); }, 800);
+  } catch (e) {
+    statusEl.textContent = "Error: " + e.message;
+    statusEl.style.color = "var(--red)";
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteSchedule() {
+  const id = document.getElementById("sched-id").value;
+  const name = document.getElementById("sched-name").value;
+  if (!confirm("Delete schedule: " + name + "? This cannot be undone.")) return;
+
+  const statusEl = document.getElementById("sched-status");
+  statusEl.textContent = "Deleting...";
+  statusEl.style.color = "var(--text2)";
+
+  try {
+    const res = await fetch(apiUrl("/api/schedules/" + id), {
+      method: "DELETE",
+    });
+    if (!res.ok) throw new Error((await res.json()).error || res.statusText);
+    statusEl.textContent = "Deleted!";
+    statusEl.style.color = "var(--green)";
+    setTimeout(function() { closeScheduleModal(); loadSchedules(); }, 500);
+  } catch (e) {
+    statusEl.textContent = "Error: " + e.message;
+    statusEl.style.color = "var(--red)";
   }
 }
 
