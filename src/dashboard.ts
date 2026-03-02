@@ -457,9 +457,6 @@ th { text-align: left; padding: 8px 12px; color: var(--text2); font-weight: 500;
 td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
 tr:last-child td { border-bottom: none; }
 .mono { font-family: var(--mono); font-size: 13px; }
-.badge-enabled { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
-.badge-enabled.on { background: rgba(74,222,128,0.15); color: var(--green); }
-.badge-enabled.off { background: rgba(248,113,113,0.15); color: var(--red); }
 
 /* Date list */
 .date-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
@@ -494,8 +491,9 @@ tr.clickable { cursor: pointer; transition: background 0.15s; }
 tr.clickable:hover { background: var(--bg3); }
 
 /* Modal */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
-.modal-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px; width: 90%; max-width: 640px; max-height: 90vh; overflow-y: auto; }
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 100; }
+.modal-card { position: fixed; top: 0; right: 0; height: 100vh; width: 480px; max-width: 90vw; background: var(--bg); border-left: 1px solid var(--border); padding: 24px; overflow-y: auto; transform: translateX(100%); transition: transform 0.3s ease; z-index: 101; }
+.modal-overlay.open .modal-card { transform: translateX(0); }
 .modal-card h2 { font-size: 18px; font-weight: 600; margin-bottom: 20px; }
 .form-group { margin-bottom: 16px; }
 .form-group label { display: block; font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
@@ -560,6 +558,11 @@ tr.clickable:hover { background: var(--bg3); }
 .segmented button { background: none; border: none; color: var(--text2); padding: 6px 16px; font-size: 13px; font-family: var(--font); cursor: pointer; transition: all 0.15s; }
 .segmented button.active { background: var(--accent); color: #fff; }
 .segmented button:not(.active):hover { background: var(--bg3); color: var(--text); }
+.badge-pill { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+.badge-success { background: rgba(74, 222, 128, 0.15); color: var(--green); }
+.badge-error { background: rgba(248, 113, 113, 0.15); color: var(--red); }
+.badge-neutral { background: var(--bg3); color: var(--text2); }
+.badge-accent { background: rgba(108, 138, 255, 0.15); color: var(--accent); }
 .flex-between { display: flex; justify-content: space-between; align-items: center; }
 </style>
 </head>
@@ -834,8 +837,8 @@ async function loadSchedules() {
     let html = '<table><thead><tr><th>Name</th><th>Schedule</th><th>Status</th><th>Last Run</th><th>Tools</th><th>Prompt</th></tr></thead><tbody>';
     for (const s of schedulesData) {
       const lastRun = s.lastRun ? timeAgo(s.lastRun) : "never";
-      const status = s.enabled ? '<span class="badge-enabled on">enabled</span>' : '<span class="badge-enabled off">disabled</span>';
-      const tools = s.allowedTools ? esc(s.allowedTools.join(", ")) : '<span style="color:var(--text2)">all</span>';
+      const status = s.enabled ? '<span class="badge-pill badge-success">enabled</span>' : '<span class="badge-pill badge-error">disabled</span>';
+      const tools = s.allowedTools ? '<span class="badge-pill badge-neutral">' + s.allowedTools.length + ' tools</span>' : '<span class="badge-pill badge-accent">all</span>';
       var promptText = esc(s.prompt.length > 80 ? s.prompt.slice(0, 80) + "..." : s.prompt);
       var promptTooltip = s.prompt.length > 80 ? ' data-tooltip="' + esc(s.prompt).replace(/"/g, '&quot;') + '"' : '';
       var cronDesc = cronToHuman(s.schedule);
@@ -979,11 +982,17 @@ function openScheduleModal(id) {
   }
 
   onSchedTypeChange();
-  document.getElementById("schedule-modal").style.display = "flex";
+  var overlay = document.getElementById("schedule-modal");
+  overlay.style.display = "block";
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() { overlay.classList.add("open"); });
+  });
 }
 
 function closeScheduleModal() {
-  document.getElementById("schedule-modal").style.display = "none";
+  var overlay = document.getElementById("schedule-modal");
+  overlay.classList.remove("open");
+  setTimeout(function() { overlay.style.display = "none"; }, 300);
 }
 
 document.getElementById("sched-enabled").addEventListener("change", function() {
