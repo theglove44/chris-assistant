@@ -179,7 +179,7 @@ async function codexRequest(
 export function createOpenAiProvider(model: string): Provider {
   return {
     name: "openai",
-    async chat(chatId, userMessage, onChunk, image?: ImageAttachment, allowedTools?: string[]) {
+    async chat(chatId, userMessage, onChunk, images?: ImageAttachment[], allowedTools?: string[]) {
       const accessToken = await getValidAccessToken();
       const accountId = getAccountId();
 
@@ -194,12 +194,14 @@ export function createOpenAiProvider(model: string): Provider {
       const userContentParts: Array<{ type: "input_text"; text: string } | { type: "input_image"; detail: "auto"; image_url: string }> = [
         { type: "input_text", text: fullUserMessage },
       ];
-      if (image) {
-        userContentParts.push({
-          type: "input_image",
-          detail: "auto",
-          image_url: `data:${image.mimeType};base64,${image.base64}`,
-        });
+      if (images && images.length > 0) {
+        for (const img of images) {
+          userContentParts.push({
+            type: "input_image",
+            detail: "auto",
+            image_url: `data:${img.mimeType};base64,${img.base64}`,
+          });
+        }
       }
 
       const tools = getCodexToolDefinitions(allowedTools);

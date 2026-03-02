@@ -13,6 +13,7 @@ import { config } from "./config.js";
 import { chat } from "./providers/index.js";
 import { addMessage } from "./conversation.js";
 import { stripMarkdown } from "./markdown.js";
+import type { ImageAttachment } from "./providers/types.js";
 
 if (!config.discord.botToken) {
   throw new Error("DISCORD_BOT_TOKEN is not set");
@@ -51,6 +52,10 @@ const PROJECT_CHANNELS: { name: string; topic: string }[] = [
   {
     name: "belfast-trip",
     topic: "City break to Belfast — plans, itineraries, recommendations, and logistics.",
+  },
+  {
+    name: "valencia-holiday",
+    topic: "Holiday to Valencia — plans, itineraries, recommendations, and logistics.",
   },
 ];
 
@@ -150,14 +155,34 @@ client.on("messageCreate", async (message: Message) => {
   if (message.author.id !== process.env.DISCORD_ALLOWED_USER_ID) return;
 
   let userMessage = message.content.trim();
+  const imageAttachments: ImageAttachment[] = [];
 
-  // Handle file attachments — Discord sends large pasted text as message.txt
+  // Handle file and image attachments
   if (message.attachments.size > 0) {
     const textExtensions = [".txt", ".md", ".json", ".csv", ".xml", ".js", ".ts", ".py", ".html", ".css", ".yaml", ".yml", ".toml", ".log", ".sh"];
+
     for (const attachment of message.attachments.values()) {
       const name = (attachment.name ?? "").toLowerCase();
-      const isText = textExtensions.some((ext) => name.endsWith(ext)) || (attachment.contentType ?? "").startsWith("text/");
-      if (isText) {
+      const contentType = (attachment.contentType ?? "").split(";")[0].trim().toLowerCase();
+
+      const isText = textExtensions.some((ext) => name.endsWith(ext)) || contentType.startsWith("text/");
+      const isImage = contentType.startsWith("image/");
+
+      if (isImage) {
+        // Download each image as base64 and collect for the AI
+        try {
+          const res = await fetch(attachment.url);
+          if (res.ok) {
+            const buffer = Buffer.from(await res.arrayBuffer());
+            imageAttachments.push({
+              base64: buffer.toString("base64"),
+              mimeType: contentType || "image/jpeg",
+            });
+          }
+        } catch (err: any) {
+          console.error("[discord] Failed to download image attachment:", err.message);
+        }
+      } else if (isText) {
         try {
           const res = await fetch(attachment.url);
           if (res.ok) {
@@ -173,6 +198,11 @@ client.on("messageCreate", async (message: Message) => {
         }
       }
     }
+  }
+
+  // Default prompt if only images were sent with no text
+  if (!userMessage && imageAttachments.length > 0) {
+    userMessage = imageAttachments.length === 1 ? "What's in this image?" : "What's in these images?";
   }
 
   if (!userMessage) return;
@@ -193,7 +223,7 @@ client.on("messageCreate", async (message: Message) => {
 
     void addMessage(chatId, "user", userMessage, meta);
 
-    const rawResponse = await chat(chatId, userMessage);
+    const rawResponse = await chat(chatId, userMessage, undefined, imageAttachments.length > 0 ? imageAttachments : undefined);
 
     // Strip <think> tags
     const thinkClose = "<" + "/think>";

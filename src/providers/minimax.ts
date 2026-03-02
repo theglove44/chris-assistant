@@ -14,7 +14,7 @@ export function createMiniMaxProvider(model: string): Provider {
 
   return {
     name: "minimax",
-    async chat(chatId, userMessage, onChunk, image?: ImageAttachment, allowedTools?: string[]) {
+    async chat(chatId, userMessage, onChunk, _images?: ImageAttachment[], allowedTools?: string[]) {
       // Get fresh OAuth token for each request
       const accessToken = getValidAccessToken();
       const client = new OpenAI({
@@ -29,14 +29,14 @@ export function createMiniMaxProvider(model: string): Provider {
         ? `${conversationContext}\n\n${userMessage}`
         : userMessage;
 
-      // Build user content — text only, or text + image when an attachment is present
-      const userContent: ChatCompletionContentPart[] = image
+      // Build user content — text only, or text + images when attachments are present
+      const userContent: ChatCompletionContentPart[] = _images && _images.length > 0
         ? [
             { type: "text", text: fullUserMessage },
-            {
-              type: "image_url",
-              image_url: { url: `data:${image.mimeType};base64,${image.base64}` },
-            },
+            ..._images.map((img) => ({
+              type: "image_url" as const,
+              image_url: { url: `data:${img.mimeType};base64,${img.base64}` },
+            })),
           ]
         : [{ type: "text", text: fullUserMessage }];
 

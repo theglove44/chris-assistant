@@ -45,8 +45,9 @@ async function chatWithRetry(
   onChunk: (accumulated: string) => void,
   image?: ImageAttachment,
 ): Promise<string> {
+  const images = image ? [image] : undefined;
   try {
-    return await chat(chatId, userMessage, onChunk, image);
+    return await chat(chatId, userMessage, onChunk, images);
   } catch (firstError: any) {
     console.warn(
       "[telegram] chat() failed, retrying in %dms. Error: %s",
@@ -55,7 +56,7 @@ async function chatWithRetry(
     );
     await new Promise<void>((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
     console.log("[telegram] Retrying chat() now...");
-    return await chat(chatId, userMessage, onChunk, image);
+    return await chat(chatId, userMessage, onChunk, images);
   }
 }
 

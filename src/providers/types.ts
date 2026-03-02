@@ -11,7 +11,7 @@ export interface Provider {
     chatId: number,
     userMessage: string,
     onChunk?: (accumulated: string) => void,
-    image?: ImageAttachment,
+    images?: ImageAttachment[],
     allowedTools?: string[],
   ): Promise<string>;
 }

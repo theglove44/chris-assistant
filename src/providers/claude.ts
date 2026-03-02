@@ -133,7 +133,7 @@ export function createClaudeProvider(model: string): Provider {
 
   return {
     name: "claude",
-    async chat(chatId, userMessage, onChunk, _image?: ImageAttachment, allowedTools?: string[]) {
+    async chat(chatId, userMessage, onChunk, _images?: ImageAttachment[], allowedTools?: string[]) {
       const appendPrompt = await getClaudeAppendPrompt();
       const thinkingTokens = getThinkingTokens(userMessage);
 
@@ -147,8 +147,8 @@ export function createClaudeProvider(model: string): Provider {
       activeControllers.set(chatId, abortController);
 
       // Image handling — Claude Agent SDK only accepts string prompts
-      const messageWithImageNote = _image
-        ? `[An image was attached but the Claude Agent SDK can't process images directly in this mode. The user's caption follows.]\n\n${userMessage}`
+      const messageWithImageNote = _images && _images.length > 0
+        ? `[${_images.length} image(s) attached but the Claude Agent SDK can't process images directly in this mode. The user's caption follows.]\n\n${userMessage}`
         : userMessage;
 
       let responseText = "";
