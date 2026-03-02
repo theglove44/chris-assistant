@@ -546,6 +546,10 @@ tr.clickable:hover { background: var(--bg3); }
 .progress-bar { position: fixed; top: 0; left: 0; height: 3px; width: 0%; background: var(--accent); z-index: 300; transition: width 0.3s ease; pointer-events: none; }
 .progress-bar.active { transition: width 8s cubic-bezier(0.1, 0.5, 0.3, 1); width: 70%; }
 .progress-bar.done { width: 100%; opacity: 0; transition: width 0.2s ease, opacity 0.3s ease 0.2s; }
+[data-tooltip] { position: relative; }
+[data-tooltip]::before { content: attr(data-tooltip); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); padding: 6px 10px; background: var(--bg3); color: var(--text); font-size: 12px; border-radius: 6px; white-space: pre-wrap; max-width: 320px; width: max-content; pointer-events: none; opacity: 0; transition: opacity 0.15s; z-index: 100; border: 1px solid var(--border); line-height: 1.4; }
+[data-tooltip]::after { content: ""; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: var(--bg3); pointer-events: none; opacity: 0; transition: opacity 0.15s; z-index: 100; }
+[data-tooltip]:hover::before, [data-tooltip]:hover::after { opacity: 1; }
 .flex-between { display: flex; justify-content: space-between; align-items: center; }
 </style>
 </head>
@@ -786,9 +790,10 @@ async function loadStatus() {
       : health.map(h => {
           const cls = h.checkedAt === 0 ? "unknown" : h.ok ? "ok" : "fail";
           const ago = h.checkedAt ? timeAgo(h.checkedAt) : "not yet";
-          return '<div class="health-row"><span class="health-dot ' + cls + '"></span><span>' +
+          var detailAttr = h.detail ? ' data-tooltip="' + esc(h.detail).replace(/"/g, '&quot;') + '"' : '';
+          return '<div class="health-row"' + detailAttr + '><span class="health-dot ' + cls + '"></span><span>' +
             esc(h.name) + '</span><span style="color:var(--text2);font-size:12px;margin-left:auto">' +
-            ago + '</span>' + (h.detail ? '<div style="font-size:12px;color:var(--red);margin-left:18px">' + esc(h.detail) + '</div>' : '') + '</div>';
+            ago + '</span></div>';
         }).join("");
   } catch (e) {
     document.getElementById("status-stats").innerHTML = '<span class="loading">Error: ' + esc(e.message) + '</span>';
@@ -813,9 +818,10 @@ async function loadSchedules() {
       const lastRun = s.lastRun ? timeAgo(s.lastRun) : "never";
       const status = s.enabled ? '<span class="badge-enabled on">enabled</span>' : '<span class="badge-enabled off">disabled</span>';
       const tools = s.allowedTools ? esc(s.allowedTools.join(", ")) : '<span style="color:var(--text2)">all</span>';
-      const prompt = esc(s.prompt.length > 80 ? s.prompt.slice(0, 80) + "..." : s.prompt);
-      const cronDesc = cronToHuman(s.schedule);
-      html += '<tr class="clickable" data-id="' + s.id + '"><td><strong>' + esc(s.name) + '</strong></td><td class="mono" title="' + esc(cronDesc) + '">' + esc(s.schedule) + '</td><td>' + status + '</td><td>' + lastRun + '</td><td style="font-size:12px">' + tools + '</td><td style="font-size:12px;color:var(--text2)">' + prompt + '</td></tr>';
+      var promptText = esc(s.prompt.length > 80 ? s.prompt.slice(0, 80) + "..." : s.prompt);
+      var promptTooltip = s.prompt.length > 80 ? ' data-tooltip="' + esc(s.prompt).replace(/"/g, '&quot;') + '"' : '';
+      var cronDesc = cronToHuman(s.schedule);
+      html += '<tr class="clickable" data-id="' + s.id + '"><td><strong>' + esc(s.name) + '</strong></td><td class="mono" data-tooltip="' + esc(cronDesc).replace(/"/g, '&quot;') + '">' + esc(s.schedule) + '</td><td>' + status + '</td><td>' + lastRun + '</td><td style="font-size:12px">' + tools + '</td><td style="font-size:12px;color:var(--text2)"' + promptTooltip + '>' + promptText + '</td></tr>';
     }
     html += '</tbody></table>';
     document.getElementById("schedules-table").innerHTML = html;
