@@ -528,6 +528,15 @@ tr.clickable:hover { background: var(--bg3); }
 .empty-state-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.6; }
 .empty-state-heading { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
 .empty-state-description { font-size: 13px; color: var(--text2); }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+.skeleton { background: linear-gradient(90deg, var(--bg3) 25%, #2e3450 50%, var(--bg3) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px; }
+.skeleton-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.skeleton-stat { height: 72px; }
+.skeleton-row { height: 18px; margin-bottom: 10px; }
+.skeleton-row.short { width: 60%; }
+.skeleton-row.medium { width: 80%; }
+.skeleton-pill { height: 14px; width: 120px; margin-bottom: 8px; }
+.skeleton-msg { height: 48px; margin-bottom: 12px; border-left: 3px solid var(--bg3); padding-left: 12px; }
 .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
 .toast { background: var(--bg2); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 16px; font-size: 13px; color: var(--text); max-width: 320px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transform: translateX(120%); transition: transform 0.3s ease, opacity 0.3s ease; opacity: 0; }
 .toast.show { transform: translateX(0); opacity: 1; }
@@ -556,11 +565,11 @@ tr.clickable:hover { background: var(--bg3); }
   <div class="section active" id="sec-status">
     <div class="card">
       <h3>System</h3>
-      <div class="stat-grid" id="status-stats"></div>
+      <div class="stat-grid" id="status-stats"><div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-stat"></div></div>
     </div>
     <div class="card">
       <h3>Health Checks</h3>
-      <div id="health-checks"><span class="loading">Loading...</span></div>
+      <div id="health-checks"><div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row short"></div><div class="skeleton skeleton-row medium"></div></div></div>
     </div>
   </div>
 
@@ -568,7 +577,7 @@ tr.clickable:hover { background: var(--bg3); }
   <div class="section" id="sec-schedules">
     <div class="card">
       <h3>Scheduled Tasks</h3>
-      <div id="schedules-table"><span class="loading">Loading...</span></div>
+      <div id="schedules-table"><div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row medium"></div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row short"></div><div class="skeleton skeleton-row medium"></div></div></div>
     </div>
   </div>
 
@@ -576,7 +585,7 @@ tr.clickable:hover { background: var(--bg3); }
   <div class="section" id="sec-conversations">
     <div class="card">
       <h3>Archive Dates</h3>
-      <div id="archive-dates" class="date-list"><span class="loading">Loading...</span></div>
+      <div id="archive-dates" class="date-list"><div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div></div></div>
     </div>
     <div id="conversation-view"></div>
   </div>
@@ -585,7 +594,7 @@ tr.clickable:hover { background: var(--bg3); }
   <div class="section" id="sec-memory">
     <div class="card">
       <h3>Memory Files</h3>
-      <div id="memory-files" class="file-list"><span class="loading">Loading...</span></div>
+      <div id="memory-files" class="file-list"><div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div></div></div>
     </div>
     <div id="memory-editor"><div class="empty-state"><div class="empty-state-icon">\uD83D\uDDC2</div><div class="empty-state-heading">Select a file</div><div class="empty-state-description">Choose a memory file from the list to view or edit it</div></div></div>
   </div>
@@ -1010,7 +1019,7 @@ async function loadArchiveDates() {
 
 async function loadConversation(date) {
   const view = document.getElementById("conversation-view");
-  view.innerHTML = '<div class="card"><span class="loading">Loading...</span></div>';
+  view.innerHTML = '<div class="card"><div><div class="skeleton skeleton-msg"></div><div class="skeleton skeleton-msg"></div><div class="skeleton skeleton-msg"></div><div class="skeleton skeleton-msg"></div></div></div>';
   try {
     const [archive, summary] = await Promise.all([
       api("/api/archives/" + date),
@@ -1060,7 +1069,7 @@ async function loadMemoryFiles() {
 async function loadMemoryFile(filePath) {
   activeMemoryFile = filePath;
   const el = document.getElementById("memory-editor");
-  el.innerHTML = '<div class="card"><span class="loading">Loading...</span></div>';
+  el.innerHTML = '<div class="card"><div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row medium"></div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row short"></div><div class="skeleton skeleton-row medium"></div><div class="skeleton skeleton-row"></div></div></div>';
   try {
     const data = await api("/api/memory/" + encodeURIComponent(filePath));
     el.innerHTML = '<div class="card"><div class="flex-between"><h3>' + esc(filePath) + '</h3><div><button class="btn" id="save-btn" onclick="saveMemory()">Save</button><span class="save-status" id="save-status"></span></div></div><textarea class="editor" id="memory-textarea">' + esc(data.content) + '</textarea></div>';
