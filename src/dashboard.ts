@@ -956,9 +956,12 @@ function cronToType(expr) {
 }
 
 // --- Schedule modal ---
+var drawerCloseTimer = null;
 function openScheduleModal(id) {
   const s = schedulesData.find(function(x) { return x.id === id; });
   if (!s) return;
+
+  if (drawerCloseTimer) { clearTimeout(drawerCloseTimer); drawerCloseTimer = null; }
 
   document.getElementById("sched-id").value = s.id;
   document.getElementById("modal-title").textContent = "Edit: " + s.name;
@@ -992,7 +995,7 @@ function openScheduleModal(id) {
 function closeScheduleModal() {
   var overlay = document.getElementById("schedule-modal");
   overlay.classList.remove("open");
-  setTimeout(function() { overlay.style.display = "none"; }, 300);
+  drawerCloseTimer = setTimeout(function() { overlay.style.display = "none"; drawerCloseTimer = null; }, 300);
 }
 
 document.getElementById("sched-enabled").addEventListener("change", function() {
