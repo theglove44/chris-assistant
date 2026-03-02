@@ -27,6 +27,7 @@ export default defineConfig({
           { text: 'Overview', link: '/architecture/overview' },
           { text: 'Design Decisions', link: '/architecture/design-decisions' },
           { text: 'Providers', link: '/architecture/providers' },
+          { text: 'Agent SDKs', link: '/architecture/agent-sdks' },
           { text: 'Security', link: '/architecture/security' },
         ],
       },

@@ -15,7 +15,7 @@ The model string determines the provider. No separate "provider" config key need
 
 ## Claude
 
-Uses the `@anthropic-ai/claude-agent-sdk` as a full agent with Claude Code's native tools (Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch, etc.) running natively. Custom tools (memory, SSH, scheduler, recall, journal) are exposed via an in-process MCP server.
+Uses the `@anthropic-ai/claude-agent-sdk` as a full agent with Claude Code's native tools (Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch, etc.) running natively. Custom tools (memory, SSH, scheduler, recall, journal) are exposed via an in-process MCP server. See the [Agent SDKs](./agent-sdks) page for a deep dive into how this works, the MCP bridge, session persistence, and safety hooks.
 
 **System prompt**: Uses `{ type: 'preset', preset: 'claude_code', append: <identity/memory> }` — extends Claude Code's default system prompt with personality, knowledge, and Telegram formatting rules.
 
