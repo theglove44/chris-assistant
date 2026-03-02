@@ -556,6 +556,10 @@ tr.clickable:hover { background: var(--bg3); }
 .alert-info { background: rgba(108, 138, 255, 0.1); border: 1px solid rgba(108, 138, 255, 0.25); color: var(--accent); }
 .alert-icon { flex-shrink: 0; font-size: 16px; }
 .alert-message { flex: 1; }
+.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.segmented button { background: none; border: none; color: var(--text2); padding: 6px 16px; font-size: 13px; font-family: var(--font); cursor: pointer; transition: all 0.15s; }
+.segmented button.active { background: var(--accent); color: #fff; }
+.segmented button:not(.active):hover { background: var(--bg3); color: var(--text); }
 .flex-between { display: flex; justify-content: space-between; align-items: center; }
 </style>
 </head>
@@ -689,7 +693,7 @@ tr.clickable:hover { background: var(--bg3); }
   <div class="section" id="sec-logs">
     <div class="log-controls">
       <label><input type="checkbox" id="log-autoscroll" checked> Auto-scroll</label>
-      <label><input type="checkbox" id="log-live" checked> Live tail</label>
+      <div class="segmented" id="log-mode"><button class="active" data-mode="live">Live</button><button data-mode="snapshot">Snapshot</button></div>
     </div>
     <div class="log-container" id="log-output"><span class="loading">Connecting...</span></div>
   </div>
@@ -1161,14 +1165,18 @@ async function saveMemory() {
 
 // --- Logs ---
 let logSource = null;
+function getLogMode() {
+  var active = document.querySelector("#log-mode button.active");
+  return active ? active.dataset.mode : "live";
+}
+
 function startLogStream() {
   const el = document.getElementById("log-output");
-  const liveCheckbox = document.getElementById("log-live");
 
   // Close existing stream
   if (logSource) { logSource.close(); logSource = null; }
 
-  if (!liveCheckbox.checked) {
+  if (getLogMode() !== "live") {
     // Snapshot mode
     loadLogSnapshot();
     return;
@@ -1215,8 +1223,12 @@ function appendLogLines(lines) {
   if (autoScroll) el.scrollTop = el.scrollHeight;
 }
 
-document.getElementById("log-live").addEventListener("change", () => {
-  if (activeTab === "logs") startLogStream();
+document.querySelectorAll("#log-mode button").forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    document.querySelectorAll("#log-mode button").forEach(function(b) { b.classList.remove("active"); });
+    btn.classList.add("active");
+    if (activeTab === "logs") startLogStream();
+  });
 });
 
 // --- Utilities ---
