@@ -550,6 +550,12 @@ tr.clickable:hover { background: var(--bg3); }
 [data-tooltip]::before { content: attr(data-tooltip); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); padding: 6px 10px; background: var(--bg3); color: var(--text); font-size: 12px; border-radius: 6px; white-space: pre-wrap; max-width: 320px; width: max-content; pointer-events: none; opacity: 0; transition: opacity 0.15s; z-index: 100; border: 1px solid var(--border); line-height: 1.4; }
 [data-tooltip]::after { content: ""; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: var(--bg3); pointer-events: none; opacity: 0; transition: opacity 0.15s; z-index: 100; }
 [data-tooltip]:hover::before, [data-tooltip]:hover::after { opacity: 1; }
+.alert { display: flex; align-items: flex-start; gap: 10px; padding: 12px 16px; border-radius: 8px; font-size: 13px; line-height: 1.5; margin-bottom: 12px; }
+.alert-error { background: rgba(248, 113, 113, 0.1); border: 1px solid rgba(248, 113, 113, 0.25); color: var(--red); }
+.alert-warning { background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.25); color: var(--yellow); }
+.alert-info { background: rgba(108, 138, 255, 0.1); border: 1px solid rgba(108, 138, 255, 0.25); color: var(--accent); }
+.alert-icon { flex-shrink: 0; font-size: 16px; }
+.alert-message { flex: 1; }
 .flex-between { display: flex; justify-content: space-between; align-items: center; }
 </style>
 </head>
@@ -785,7 +791,14 @@ async function loadStatus() {
       stat("Started", new Date(status.startedAt).toLocaleString()),
     ].join("");
 
-    document.getElementById("health-checks").innerHTML = health.length === 0
+    var failedChecks = health.filter(function(h) { return h.checkedAt > 0 && !h.ok; });
+    var alertHtml = "";
+    if (failedChecks.length > 0) {
+      var names = failedChecks.map(function(h) { return h.name; }).join(", ");
+      alertHtml = '<div class="alert alert-error"><span class="alert-icon">\u26A0</span><div class="alert-message"><strong>' + esc(names) + '</strong> ' + (failedChecks.length === 1 ? 'has' : 'have') + ' a problem \u2014 hover for details</div></div>';
+    }
+
+    var healthDotsHtml = health.length === 0
       ? '<div class="empty-state"><div class="empty-state-icon">\u2713</div><div class="empty-state-heading">All clear</div><div class="empty-state-description">Health checks will appear here once the bot runs</div></div>'
       : health.map(h => {
           const cls = h.checkedAt === 0 ? "unknown" : h.ok ? "ok" : "fail";
@@ -795,6 +808,7 @@ async function loadStatus() {
             esc(h.name) + '</span><span style="color:var(--text2);font-size:12px;margin-left:auto">' +
             ago + '</span></div>';
         }).join("");
+    document.getElementById("health-checks").innerHTML = alertHtml + healthDotsHtml;
   } catch (e) {
     document.getElementById("status-stats").innerHTML = '<span class="loading">Error: ' + esc(e.message) + '</span>';
   }
