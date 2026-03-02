@@ -1,7 +1,15 @@
 import { Octokit } from "@octokit/rest";
 import { config, repoOwner, repoName } from "../config.js";
 
-const octokit = new Octokit({ auth: config.github.token });
+const octokit = new Octokit({
+  auth: config.github.token,
+  log: {
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+  },
+});
 
 /**
  * Read a file from the memory repo. Returns the content as a string,

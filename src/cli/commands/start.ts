@@ -31,6 +31,7 @@ export function registerStartCommand(program: Command) {
                 script: BOT_SCRIPT,
                 cwd: PROJECT_ROOT,
                 interpreter: TSX_BIN,
+                log_date_format: "YYYY-MM-DD HH:mm:ss",
               },
               (err) => {
                 if (err) {
