@@ -524,6 +524,10 @@ tr.clickable:hover { background: var(--bg3); }
 /* Utility */
 .loading { color: var(--text2); font-style: italic; }
 .empty { color: var(--text2); font-size: 14px; padding: 20px 0; }
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 20px; color: var(--text2); }
+.empty-state-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.6; }
+.empty-state-heading { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.empty-state-description { font-size: 13px; color: var(--text2); }
 .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
 .toast { background: var(--bg2); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 16px; font-size: 13px; color: var(--text); max-width: 320px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transform: translateX(120%); transition: transform 0.3s ease, opacity 0.3s ease; opacity: 0; }
 .toast.show { transform: translateX(0); opacity: 1; }
@@ -583,7 +587,7 @@ tr.clickable:hover { background: var(--bg3); }
       <h3>Memory Files</h3>
       <div id="memory-files" class="file-list"><span class="loading">Loading...</span></div>
     </div>
-    <div id="memory-editor"></div>
+    <div id="memory-editor"><div class="empty-state"><div class="empty-state-icon">\uD83D\uDDC2</div><div class="empty-state-heading">Select a file</div><div class="empty-state-description">Choose a memory file from the list to view or edit it</div></div></div>
   </div>
 
   <!-- Schedule Editor Modal (hidden by default) -->
@@ -739,7 +743,7 @@ async function loadStatus() {
     ].join("");
 
     document.getElementById("health-checks").innerHTML = health.length === 0
-      ? '<span class="empty">No health checks yet</span>'
+      ? '<div class="empty-state"><div class="empty-state-icon">\u2713</div><div class="empty-state-heading">All clear</div><div class="empty-state-description">Health checks will appear here once the bot runs</div></div>'
       : health.map(h => {
           const cls = h.checkedAt === 0 ? "unknown" : h.ok ? "ok" : "fail";
           const ago = h.checkedAt ? timeAgo(h.checkedAt) : "not yet";
@@ -762,7 +766,7 @@ async function loadSchedules() {
   try {
     schedulesData = await api("/api/schedules");
     if (schedulesData.length === 0) {
-      document.getElementById("schedules-table").innerHTML = '<span class="empty">No scheduled tasks</span>';
+      document.getElementById("schedules-table").innerHTML = '<div class="empty-state"><div class="empty-state-icon">\u23F1</div><div class="empty-state-heading">No scheduled tasks</div><div class="empty-state-description">Tasks you create will appear here</div></div>';
       return;
     }
     let html = '<table><thead><tr><th>Name</th><th>Schedule</th><th>Status</th><th>Last Run</th><th>Tools</th><th>Prompt</th></tr></thead><tbody>';
@@ -988,7 +992,7 @@ async function loadArchiveDates() {
     archiveDates = data.dates.reverse(); // newest first
     const el = document.getElementById("archive-dates");
     if (archiveDates.length === 0) {
-      el.innerHTML = '<span class="empty">No archives</span>';
+      el.innerHTML = '<div class="empty-state"><div class="empty-state-icon">\uD83D\uDCAC</div><div class="empty-state-heading">No conversation archives</div><div class="empty-state-description">Archives are created automatically each day</div></div>';
       return;
     }
     el.innerHTML = archiveDates.map(d =>
@@ -1020,7 +1024,7 @@ async function loadConversation(date) {
 
     html += '<div class="card"><h3>Messages (' + archive.entries.length + ')</h3>';
     if (archive.entries.length === 0) {
-      html += '<span class="empty">No messages</span>';
+      html += '<div class="empty-state"><div class="empty-state-icon">\uD83D\uDCAC</div><div class="empty-state-heading">No messages</div><div class="empty-state-description">Select a date to view conversations</div></div>';
     } else {
       for (const e of archive.entries) {
         const time = new Date(e.ts).toLocaleTimeString();
