@@ -30,71 +30,85 @@ const client = new Client({
 });
 
 /**
- * Project channels to create under the "Projects" category.
+ * Category and channel definitions auto-created on startup.
  */
-const PROJECT_CHANNELS: { name: string; topic: string }[] = [
+const CHANNEL_SETUP: { category: string; channels: { name: string; topic: string }[] }[] = [
   {
-    name: "chris-assistant",
-    topic: "Jarvis — personal AI assistant via Telegram & Discord. Active dev.",
+    category: "Projects",
+    channels: [
+      {
+        name: "chris-assistant",
+        topic: "Jarvis — personal AI assistant via Telegram & Discord. Active dev.",
+      },
+      {
+        name: "tasty-coach",
+        topic: "Tastytrade automation: IVR scanning, position review, roll analysis, GEX tracking.",
+      },
+      {
+        name: "tasty0dte-ironcondor",
+        topic: "Automated 0DTE SPX Iron Condor/Iron Fly trading bot. Paper trading mode.",
+      },
+      {
+        name: "stock-research",
+        topic: "Daily AI infrastructure stock research. Chips, energy, data centres — companies with strong moats benefiting from the AI buildout.",
+      },
+      {
+        name: "belfast-trip",
+        topic: "City break to Belfast — plans, itineraries, recommendations, and logistics.",
+      },
+      {
+        name: "valencia-holiday",
+        topic: "Holiday to Valencia — plans, itineraries, recommendations, and logistics.",
+      },
+    ],
   },
   {
-    name: "tasty-coach",
-    topic: "Tastytrade automation: IVR scanning, position review, roll analysis, GEX tracking.",
-  },
-  {
-    name: "tasty0dte-ironcondor",
-    topic: "Automated 0DTE SPX Iron Condor/Iron Fly trading bot. Paper trading mode.",
-  },
-  {
-    name: "stock-research",
-    topic: "Daily AI infrastructure stock research. Chips, energy, data centres — companies with strong moats benefiting from the AI buildout.",
-  },
-  {
-    name: "belfast-trip",
-    topic: "City break to Belfast — plans, itineraries, recommendations, and logistics.",
-  },
-  {
-    name: "valencia-holiday",
-    topic: "Holiday to Valencia — plans, itineraries, recommendations, and logistics.",
+    category: "Dev",
+    channels: [
+      {
+        name: "commits-log",
+        topic: "Auto-posted commit summaries for https://github.com/theglove44/chris-assistant — updated hourly.",
+      },
+    ],
   },
 ];
 
 /**
- * Ensure the "Projects" category and all project channels exist in the guild.
+ * Ensure all configured categories and their channels exist in the guild.
  */
-async function setupProjectChannels(guild: Guild): Promise<void> {
-  const CATEGORY_NAME = "Projects";
+async function setupChannels(guild: Guild): Promise<void> {
+  for (const group of CHANNEL_SETUP) {
+    // Find or create the category
+    let category = guild.channels.cache.find(
+      (c) => c.type === ChannelType.GuildCategory && c.name === group.category
+    ) as CategoryChannel | undefined;
 
-  // Find or create the Projects category
-  let category = guild.channels.cache.find(
-    (c) => c.type === ChannelType.GuildCategory && c.name === CATEGORY_NAME
-  ) as CategoryChannel | undefined;
-
-  if (!category) {
-    category = await guild.channels.create({
-      name: CATEGORY_NAME,
-      type: ChannelType.GuildCategory,
-    });
-    console.log("[discord] Created category: %s", CATEGORY_NAME);
-  }
-
-  // Create any missing project channels under the category
-  for (const proj of PROJECT_CHANNELS) {
-    const exists = guild.channels.cache.find(
-      (c) =>
-        c.type === ChannelType.GuildText &&
-        c.name === proj.name &&
-        (c as TextChannel).parentId === category!.id
-    );
-
-    if (!exists) {
-      await guild.channels.create({
-        name: proj.name,
-        type: ChannelType.GuildText,
-        topic: proj.topic,
-        parent: category.id,
+    if (!category) {
+      category = await guild.channels.create({
+        name: group.category,
+        type: ChannelType.GuildCategory,
       });
-      console.log("[discord] Created channel: #%s", proj.name);
+      console.log("[discord] Created category: %s", group.category);
+    }
+
+    // Create any missing channels under this category
+    for (const ch of group.channels) {
+      const exists = guild.channels.cache.find(
+        (c) =>
+          c.type === ChannelType.GuildText &&
+          c.name === ch.name &&
+          (c as TextChannel).parentId === category!.id
+      );
+
+      if (!exists) {
+        await guild.channels.create({
+          name: ch.name,
+          type: ChannelType.GuildText,
+          topic: ch.topic,
+          parent: category.id,
+        });
+        console.log("[discord] Created channel: #%s", ch.name);
+      }
     }
   }
 }
@@ -139,8 +153,8 @@ client.once("ready", async () => {
   if (config.discord.guildId) {
     try {
       const guild = await client.guilds.fetch(config.discord.guildId);
-      await setupProjectChannels(guild);
-      console.log("[discord] Project channels ready");
+      await setupChannels(guild);
+      console.log("[discord] Channels ready");
     } catch (err: any) {
       console.error("[discord] Failed to setup project channels:", err.message);
     }
