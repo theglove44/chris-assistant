@@ -1,3 +1,6 @@
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import {
   Client,
   GatewayIntentBits,
@@ -30,54 +33,45 @@ const client = new Client({
 });
 
 /**
- * Category and channel definitions auto-created on startup.
+ * Channel config lives in ~/.chris-assistant/discord-channels.json.
+ * This file is read fresh on every setupChannels() call, so changes take
+ * effect immediately via !setup — no restart required.
  */
-const CHANNEL_SETUP: { category: string; channels: { name: string; topic: string }[] }[] = [
-  {
-    category: "Projects",
-    channels: [
-      {
-        name: "chris-assistant",
-        topic: "Jarvis — personal AI assistant via Telegram & Discord. Active dev.",
-      },
-      {
-        name: "tasty-coach",
-        topic: "Tastytrade automation: IVR scanning, position review, roll analysis, GEX tracking.",
-      },
-      {
-        name: "tasty0dte-ironcondor",
-        topic: "Automated 0DTE SPX Iron Condor/Iron Fly trading bot. Paper trading mode.",
-      },
-      {
-        name: "stock-research",
-        topic: "Daily AI infrastructure stock research. Chips, energy, data centres — companies with strong moats benefiting from the AI buildout.",
-      },
-      {
-        name: "belfast-trip",
-        topic: "City break to Belfast — plans, itineraries, recommendations, and logistics.",
-      },
-      {
-        name: "valencia-holiday",
-        topic: "Holiday to Valencia — plans, itineraries, recommendations, and logistics.",
-      },
-    ],
-  },
-  {
-    category: "Dev",
-    channels: [
-      {
-        name: "commits-log",
-        topic: "Auto-posted commit summaries for https://github.com/theglove44/chris-assistant — updated hourly.",
-      },
-    ],
-  },
-];
+const CHANNELS_CONFIG_FILE = path.join(os.homedir(), ".chris-assistant", "discord-channels.json");
+
+interface ChannelDef {
+  name: string;
+  topic: string;
+}
+
+interface CategoryDef {
+  category: string;
+  channels: ChannelDef[];
+}
+
+function loadChannelConfig(): CategoryDef[] {
+  try {
+    const raw = fs.readFileSync(CHANNELS_CONFIG_FILE, "utf-8");
+    return JSON.parse(raw) as CategoryDef[];
+  } catch {
+    console.warn("[discord] Could not load %s — using empty channel config", CHANNELS_CONFIG_FILE);
+    return [];
+  }
+}
 
 /**
  * Ensure all configured categories and their channels exist in the guild.
+ * Reads fresh from discord-channels.json each time — safe to call without restart.
  */
-async function setupChannels(guild: Guild): Promise<void> {
-  for (const group of CHANNEL_SETUP) {
+async function setupChannels(guild: Guild): Promise<{ created: string[]; existing: number }> {
+  const config = loadChannelConfig();
+  const created: string[] = [];
+  let existing = 0;
+
+  // Refresh channel cache before checking
+  await guild.channels.fetch();
+
+  for (const group of config) {
     // Find or create the category
     let category = guild.channels.cache.find(
       (c) => c.type === ChannelType.GuildCategory && c.name === group.category
@@ -89,6 +83,7 @@ async function setupChannels(guild: Guild): Promise<void> {
         type: ChannelType.GuildCategory,
       });
       console.log("[discord] Created category: %s", group.category);
+      created.push(`📁 **${group.category}** (category)`);
     }
 
     // Create any missing channels under this category
@@ -108,9 +103,14 @@ async function setupChannels(guild: Guild): Promise<void> {
           parent: category.id,
         });
         console.log("[discord] Created channel: #%s", ch.name);
+        created.push(`#${ch.name} (under ${group.category})`);
+      } else {
+        existing++;
       }
     }
   }
+
+  return { created, existing };
 }
 
 /**
@@ -153,10 +153,10 @@ client.once("ready", async () => {
   if (config.discord.guildId) {
     try {
       const guild = await client.guilds.fetch(config.discord.guildId);
-      await setupChannels(guild);
-      console.log("[discord] Channels ready");
+      const result = await setupChannels(guild);
+      console.log("[discord] Channels ready — %d created, %d existing", result.created.length, result.existing);
     } catch (err: any) {
-      console.error("[discord] Failed to setup project channels:", err.message);
+      console.error("[discord] Failed to setup channels:", err.message);
     }
   }
 });
@@ -167,6 +167,27 @@ client.on("messageCreate", async (message: Message) => {
 
   // Only respond to the authorised user
   if (message.author.id !== process.env.DISCORD_ALLOWED_USER_ID) return;
+
+  // !setup — re-read discord-channels.json and create any missing channels/categories
+  if (message.content.trim() === "!setup") {
+    if (!config.discord.guildId) {
+      await message.reply("⚠️ No DISCORD_GUILD_ID configured.").catch(() => {});
+      return;
+    }
+    try {
+      const guild = await client.guilds.fetch(config.discord.guildId);
+      const result = await setupChannels(guild);
+      if (result.created.length === 0) {
+        await message.reply(`✅ All channels already exist (${result.existing} checked). Nothing to create.`).catch(() => {});
+      } else {
+        const list = result.created.map((c) => `• ${c}`).join("\n");
+        await message.reply(`✅ Setup complete — created ${result.created.length} new item(s):\n${list}`).catch(() => {});
+      }
+    } catch (err: any) {
+      await message.reply(`❌ Setup failed: ${err.message}`).catch(() => {});
+    }
+    return;
+  }
 
   let userMessage = message.content.trim();
   const imageAttachments: ImageAttachment[] = [];
