@@ -524,6 +524,12 @@ tr.clickable:hover { background: var(--bg3); }
 /* Utility */
 .loading { color: var(--text2); font-style: italic; }
 .empty { color: var(--text2); font-size: 14px; padding: 20px 0; }
+.toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
+.toast { background: var(--bg2); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 16px; font-size: 13px; color: var(--text); max-width: 320px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transform: translateX(120%); transition: transform 0.3s ease, opacity 0.3s ease; opacity: 0; }
+.toast.show { transform: translateX(0); opacity: 1; }
+.toast.success { border-left-color: var(--green); }
+.toast.error { border-left-color: var(--red); }
+.toast.info { border-left-color: var(--accent); }
 .flex-between { display: flex; justify-content: space-between; align-items: center; }
 </style>
 </head>
@@ -665,6 +671,21 @@ tr.clickable:hover { background: var(--bg3); }
 <script>
 const TOKEN = new URLSearchParams(location.search).get("token") || localStorage.getItem("dashboard_token") || "";
 if (TOKEN) localStorage.setItem("dashboard_token", TOKEN);
+
+function showToast(message, type) {
+  var container = document.getElementById("toast-container");
+  var toast = document.createElement("div");
+  toast.className = "toast " + (type || "info");
+  toast.textContent = message;
+  container.appendChild(toast);
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() { toast.classList.add("show"); });
+  });
+  setTimeout(function() {
+    toast.classList.remove("show");
+    setTimeout(function() { toast.remove(); }, 300);
+  }, 3000);
+}
 
 function apiUrl(path) {
   return path + (TOKEN ? (path.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(TOKEN) : "");
@@ -922,8 +943,7 @@ async function saveSchedule() {
   };
 
   btn.disabled = true;
-  statusEl.textContent = "Saving...";
-  statusEl.style.color = "var(--text2)";
+  showToast("Saving...", "info");
 
   try {
     const res = await fetch(apiUrl("/api/schedules/" + id), {
@@ -932,12 +952,10 @@ async function saveSchedule() {
       body: JSON.stringify(updates),
     });
     if (!res.ok) throw new Error((await res.json()).error || res.statusText);
-    statusEl.textContent = "Saved!";
-    statusEl.style.color = "var(--green)";
+    showToast("Schedule saved", "success");
     setTimeout(function() { closeScheduleModal(); loadSchedules(); }, 800);
   } catch (e) {
-    statusEl.textContent = "Error: " + e.message;
-    statusEl.style.color = "var(--red)";
+    showToast("Error: " + e.message, "error");
   } finally {
     btn.disabled = false;
   }
@@ -948,21 +966,17 @@ async function deleteSchedule() {
   const name = document.getElementById("sched-name").value;
   if (!confirm("Delete schedule: " + name + "? This cannot be undone.")) return;
 
-  const statusEl = document.getElementById("sched-status");
-  statusEl.textContent = "Deleting...";
-  statusEl.style.color = "var(--text2)";
+  showToast("Deleting...", "info");
 
   try {
     const res = await fetch(apiUrl("/api/schedules/" + id), {
       method: "DELETE",
     });
     if (!res.ok) throw new Error((await res.json()).error || res.statusText);
-    statusEl.textContent = "Deleted!";
-    statusEl.style.color = "var(--green)";
+    showToast("Schedule deleted", "success");
     setTimeout(function() { closeScheduleModal(); loadSchedules(); }, 500);
   } catch (e) {
-    statusEl.textContent = "Error: " + e.message;
-    statusEl.style.color = "var(--red)";
+    showToast("Error: " + e.message, "error");
   }
 }
 
@@ -1058,8 +1072,7 @@ async function saveMemory() {
   if (!activeMemoryFile || !textarea) return;
 
   btn.disabled = true;
-  status.textContent = "Saving...";
-  status.style.color = "var(--text2)";
+  showToast("Saving...", "info");
 
   try {
     const res = await fetch(apiUrl("/api/memory/" + encodeURIComponent(activeMemoryFile)), {
@@ -1068,14 +1081,11 @@ async function saveMemory() {
       body: JSON.stringify({ content: textarea.value }),
     });
     if (!res.ok) throw new Error((await res.json()).error || res.statusText);
-    status.textContent = "Saved!";
-    status.style.color = "var(--green)";
+    showToast("Memory file saved", "success");
   } catch (e) {
-    status.textContent = "Error: " + e.message;
-    status.style.color = "var(--red)";
+    showToast("Error: " + e.message, "error");
   } finally {
     btn.disabled = false;
-    setTimeout(() => { status.textContent = ""; }, 3000);
   }
 }
 
@@ -1173,6 +1183,7 @@ window.addEventListener("beforeunload", () => {
   if (refreshInterval) clearInterval(refreshInterval);
 });
 <\/script>
+<div class="toast-container" id="toast-container"></div>
 </body>
 </html>`;
 }
