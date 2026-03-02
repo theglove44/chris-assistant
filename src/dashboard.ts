@@ -543,10 +543,14 @@ tr.clickable:hover { background: var(--bg3); }
 .toast.success { border-left-color: var(--green); }
 .toast.error { border-left-color: var(--red); }
 .toast.info { border-left-color: var(--accent); }
+.progress-bar { position: fixed; top: 0; left: 0; height: 3px; width: 0%; background: var(--accent); z-index: 300; transition: width 0.3s ease; pointer-events: none; }
+.progress-bar.active { transition: width 8s cubic-bezier(0.1, 0.5, 0.3, 1); width: 70%; }
+.progress-bar.done { width: 100%; opacity: 0; transition: width 0.2s ease, opacity 0.3s ease 0.2s; }
 .flex-between { display: flex; justify-content: space-between; align-items: center; }
 </style>
 </head>
 <body>
+<div class="progress-bar" id="progress-bar"></div>
 <div class="container">
   <header>
     <h1>Chris Assistant</h1>
@@ -700,14 +704,40 @@ function showToast(message, type) {
   }, 3000);
 }
 
+var progressCount = 0;
+function startProgress() {
+  progressCount++;
+  var bar = document.getElementById("progress-bar");
+  if (progressCount === 1) {
+    bar.className = "progress-bar";
+    bar.offsetWidth;
+    bar.classList.add("active");
+  }
+}
+
+function finishProgress() {
+  progressCount--;
+  if (progressCount <= 0) {
+    progressCount = 0;
+    var bar = document.getElementById("progress-bar");
+    bar.className = "progress-bar done";
+    setTimeout(function() { bar.className = "progress-bar"; }, 500);
+  }
+}
+
 function apiUrl(path) {
   return path + (TOKEN ? (path.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(TOKEN) : "");
 }
 
 async function api(path) {
-  const res = await fetch(apiUrl(path));
-  if (!res.ok) throw new Error(res.statusText);
-  return res.json();
+  startProgress();
+  try {
+    var res = await fetch(apiUrl(path));
+    if (!res.ok) throw new Error(res.statusText);
+    return res.json();
+  } finally {
+    finishProgress();
+  }
 }
 
 // --- Tabs ---
@@ -957,6 +987,7 @@ async function saveSchedule() {
 
   btn.disabled = true;
   showToast("Saving...", "info");
+  startProgress();
 
   try {
     const res = await fetch(apiUrl("/api/schedules/" + id), {
@@ -971,6 +1002,7 @@ async function saveSchedule() {
     showToast("Error: " + e.message, "error");
   } finally {
     btn.disabled = false;
+    finishProgress();
   }
 }
 
@@ -980,6 +1012,7 @@ async function deleteSchedule() {
   if (!confirm("Delete schedule: " + name + "? This cannot be undone.")) return;
 
   showToast("Deleting...", "info");
+  startProgress();
 
   try {
     const res = await fetch(apiUrl("/api/schedules/" + id), {
@@ -990,6 +1023,8 @@ async function deleteSchedule() {
     setTimeout(function() { closeScheduleModal(); loadSchedules(); }, 500);
   } catch (e) {
     showToast("Error: " + e.message, "error");
+  } finally {
+    finishProgress();
   }
 }
 
@@ -1086,6 +1121,7 @@ async function saveMemory() {
 
   btn.disabled = true;
   showToast("Saving...", "info");
+  startProgress();
 
   try {
     const res = await fetch(apiUrl("/api/memory/" + encodeURIComponent(activeMemoryFile)), {
@@ -1099,6 +1135,7 @@ async function saveMemory() {
     showToast("Error: " + e.message, "error");
   } finally {
     btn.disabled = false;
+    finishProgress();
   }
 }
 
