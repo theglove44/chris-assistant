@@ -33,6 +33,7 @@ interface LoadedMemory {
   recentSummaries: string;
   recentJournal: string;
   curatedSummary: string;
+  skillIndex: string;
 }
 
 /** Generate the last 7 days of summary file paths. */
@@ -54,12 +55,13 @@ export async function loadMemory(): Promise<LoadedMemory> {
   const summaryPaths = recentSummaryPaths();
 
   // Load all files in parallel
-  const [identityResults, knowledgeResults, memoryResults, summaryResults, curatedSummaryContent] = await Promise.all([
+  const [identityResults, knowledgeResults, memoryResults, summaryResults, curatedSummaryContent, skillIndexRaw] = await Promise.all([
     Promise.all(IDENTITY_FILES.map((f) => readMemoryFile(f).then((c) => ({ path: f, content: c })))),
     Promise.all(KNOWLEDGE_FILES.map((f) => readMemoryFile(f).then((c) => ({ path: f, content: c })))),
     Promise.all(MEMORY_FILES.map((f) => readMemoryFile(f).then((c) => ({ path: f, content: c })))),
     Promise.all(summaryPaths.map((s) => readMemoryFile(s.path).then((c) => ({ date: s.date, content: c })))),
     readMemoryFile(CURATED_SUMMARY_PATH),
+    readMemoryFile("skills/_index.json"),
   ]);
 
   const formatSection = (files: { path: string; content: string | null }[]) =>
@@ -90,6 +92,31 @@ export async function loadMemory(): Promise<LoadedMemory> {
     journalParts.push(`### ${today} (today)\n${todayJournal}`);
   }
 
+  // Parse skill index — graceful degradation if file missing or malformed
+  let skillIndex = "";
+  if (skillIndexRaw) {
+    try {
+      const entries = JSON.parse(skillIndexRaw) as Array<{
+        id: string;
+        name: string;
+        description: string;
+        enabled: boolean;
+        triggers: string[];
+      }>;
+      const enabled = entries.filter((e) => e.enabled);
+      if (enabled.length > 0) {
+        skillIndex = enabled
+          .map((e) => {
+            const triggers = e.triggers.map((t) => `"${t}"`).join(", ");
+            return `- **${e.id}** — ${e.description}\n  Triggers: ${triggers}`;
+          })
+          .join("\n");
+      }
+    } catch {
+      // Malformed JSON — skip skill index silently
+    }
+  }
+
   return {
     identity: formatSection(identityResults),
     knowledge: formatSection(knowledgeResults),
@@ -97,6 +124,7 @@ export async function loadMemory(): Promise<LoadedMemory> {
     recentSummaries: summaries,
     recentJournal: journalParts.join("\n\n"),
     curatedSummary: curatedSummaryContent ?? "",
+    skillIndex,
   };
 }
 
@@ -128,6 +156,10 @@ export function buildSystemPrompt(memory: LoadedMemory): string {
 
   if (memory.recentJournal) {
     parts.push(`# Your Recent Journal\n\nThese are notes you wrote during recent conversations. They represent your own observations and interpretations.\n\n${memory.recentJournal}`);
+  }
+
+  if (memory.skillIndex) {
+    parts.push(`# Available Skills\n\nYou have reusable skills. Use the run_skill tool to execute them. Use manage_skills to create, edit, or delete skills.\n\n${memory.skillIndex}`);
   }
 
   return parts.join("\n\n---\n\n");

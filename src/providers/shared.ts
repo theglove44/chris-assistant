@@ -178,6 +178,11 @@ export async function getClaudeAppendPrompt(): Promise<string> {
     parts.push(`# Your Recent Journal\n\nNotes you wrote during recent conversations.\n\n${memory.recentJournal}`);
   }
 
+  // Skill discovery
+  if (memory.skillIndex) {
+    parts.push(`# Available Skills\n\nYou have reusable skills. Use the run_skill tool to execute them. Use manage_skills to create, edit, or delete skills.\n\n${memory.skillIndex}`);
+  }
+
   // Custom tools description — Claude needs to know about the MCP tools it has
   parts.push(`# Custom Tools (via MCP)
 
@@ -191,7 +196,11 @@ You have the following custom tools in addition to your standard Claude Code too
 
 **manage_schedule** — Create, list, delete, toggle scheduled tasks. These run on cron schedules.
 
-**recall_conversations** — Search and read past conversation archives and summaries.`);
+**recall_conversations** — Search and read past conversation archives and summaries.
+
+**manage_skills** — Create, list, update, delete, and toggle reusable skills. Skills are structured workflows that compose existing tools.
+
+**run_skill** — Execute a skill by ID with optional inputs. The skill's instructions guide you through using its declared tools.`);
 
   // Telegram formatting rules
   parts.push(`# CRITICAL: Message Formatting Rules
