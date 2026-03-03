@@ -12,6 +12,7 @@ export const MAX_STATE_SIZE = 10240;
 const ID_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_ID_LENGTH = 64;
 const VALID_INPUT_TYPES = new Set(["string", "number", "boolean"]);
+const INPUT_KEY_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
 // ---------------------------------------------------------------------------
 // Validation
@@ -66,6 +67,9 @@ export function validateSkillDefinition(skill: Partial<Skill>): string | null {
   // Inputs validation
   if (skill.inputs && typeof skill.inputs === "object") {
     for (const [key, input] of Object.entries(skill.inputs)) {
+      if (!INPUT_KEY_PATTERN.test(key)) {
+        return `Input key '${key}' must contain only letters, digits, hyphens, and underscores`;
+      }
       if (!input || typeof input !== "object") {
         return `Invalid input definition for '${key}'`;
       }
@@ -103,6 +107,20 @@ export function validateInputs(
     // Check required inputs (required defaults to true if not explicitly false)
     if (def.required !== false && value === undefined && def.default === undefined) {
       return `Missing required input '${key}': ${def.description}`;
+    }
+
+    // Type-check provided values
+    if (value !== undefined) {
+      const actual = typeof value;
+      if (def.type === "number" && actual !== "number") {
+        return `Input '${key}' must be a number, got ${actual}`;
+      }
+      if (def.type === "string" && actual !== "string") {
+        return `Input '${key}' must be a string, got ${actual}`;
+      }
+      if (def.type === "boolean" && actual !== "boolean") {
+        return `Input '${key}' must be a boolean, got ${actual}`;
+      }
     }
   }
 

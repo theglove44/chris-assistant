@@ -34,10 +34,7 @@ export async function executeSkill(
     for (const [key, def] of Object.entries(skill.inputs)) {
       const value = provided[key] !== undefined ? provided[key] : def.default;
       if (value !== undefined) {
-        instructions = instructions.replace(
-          new RegExp(`\\{${key}\\}`, "g"),
-          String(value),
-        );
+        instructions = instructions.replaceAll(`{${key}}`, String(value));
       }
     }
   }
@@ -57,12 +54,13 @@ export async function executeSkill(
 
   // Execute via nested chat() with filtered tools
   // chatId 0 = system/internal call (same as scheduler pattern)
+  // Empty tools array = no tools allowed (least privilege); undefined = all tools
   const response = await chat(
     0,
     prompt,
     undefined,
     undefined,
-    skill.tools.length > 0 ? skill.tools : undefined,
+    skill.tools,
   );
 
   return response;
