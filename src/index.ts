@@ -10,6 +10,7 @@ import { startJournalUploader, stopJournalUploader } from "./memory/journal.js";
 import { startMemoryConsolidation, stopMemoryConsolidation } from "./memory-consolidation.js";
 import { startHeartbeat, stopHeartbeat } from "./heartbeat.js";
 import { startDashboard, stopDashboard } from "./dashboard.js";
+import { startWebhook, stopWebhook } from "./webhook.js";
 
 console.log("[chris-assistant] Starting up...");
 
@@ -47,6 +48,8 @@ bot.start({
     startHeartbeat();
     startDashboard();
     startDiscord();
+    // Webhook starts after Discord so notifications aren't dropped during login
+    startWebhook();
   },
 });
 
@@ -64,6 +67,7 @@ const shutdown = async () => {
   stopMemoryConsolidation();
   stopHeartbeat();
   stopDashboard();
+  stopWebhook();
   bot.stop();
   stopDiscord();
   process.exit(0);

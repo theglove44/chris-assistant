@@ -18,6 +18,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   ├── middleware.ts          # grammY middleware — auth guard + rate limiting
 │   ├── rate-limit.ts         # Sliding window rate limiter (10 msgs/min per user)
 │   ├── health.ts             # Periodic health checks + Telegram alerts (startup, token expiry, GitHub)
+│   ├── webhook.ts            # GitHub webhook server — PR merge → Discord notifications
 │   ├── scheduler.ts          # Cron-like scheduled tasks — tick loop, AI execution, Telegram delivery
 │   ├── conversation.ts       # Persistent short-term history (async I/O, write queue, last 20 messages)
 │   ├── conversation-archive.ts # Daily JSONL archiver — every message saved to ~/.chris-assistant/archive/ (uploads every 30min)
@@ -172,6 +173,8 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 | `DISCORD_ALLOWED_USER_ID` | Optional — your Discord numeric user ID; bot ignores all other users |
 | `DASHBOARD_PORT` | Optional — port for the web dashboard. Defaults to `3000`. |
 | `DASHBOARD_TOKEN` | Optional — API key for dashboard auth. If unset, dashboard is localhost-only. |
+| `GITHUB_WEBHOOK_SECRET` | Optional — HMAC secret for GitHub webhook signature verification |
+| `WEBHOOK_PORT` | Optional — webhook server port. Defaults to `3001` |
 
 Note: OpenAI uses authorization code OAuth (browser-based, `chris openai login`). MiniMax uses OAuth device flow (`chris minimax login`). Tokens stored in `~/.chris-assistant/`. Claude is optional and requires `CLAUDE_CODE_OAUTH_TOKEN` in `.env`.
 

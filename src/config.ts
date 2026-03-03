@@ -29,6 +29,10 @@ export const config = {
     port: Number(process.env.DASHBOARD_PORT || "3000"),
     token: process.env.DASHBOARD_TOKEN || null,
   },
+  webhook: {
+    secret: process.env.GITHUB_WEBHOOK_SECRET || null,
+    port: Number(process.env.WEBHOOK_PORT || "3001"),
+  },
 } as const;
 
 export const [repoOwner, repoName] = config.github.memoryRepo.split("/");
