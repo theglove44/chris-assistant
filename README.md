@@ -26,6 +26,7 @@ Web dashboard (http://localhost:3000):
   → Built-in HTTP server, starts with the bot (zero extra deps)
   → JSON API serves status, health, schedules, archives, memory, logs
   → Single-page dark-mode UI with 5 tabs (all HTML/CSS/JS inlined)
+  → Polished UI: skeleton loaders, toasts, tooltips, progress bar, alert banners
   → Real-time log streaming via Server-Sent Events
   → Auth: token-based (for Tailnet) or localhost-only
 
@@ -59,7 +60,7 @@ The assistant has its own identity, personality, and evolving memory. Everything
 - **Project context** — When a workspace has a `CLAUDE.md`, `AGENTS.md`, or `README.md`, it's loaded into the system prompt so the AI understands the project.
 - **Persistent memory** — Long-term facts stored as markdown in a GitHub repo. Every update is a git commit.
 - **Persistent conversation history** — Last 20 messages per chat saved to disk. Survives restarts. `/clear` wipes it.
-- **Web dashboard** — Built-in HTTP server at `localhost:3000` with a dark-mode SPA. Five tabs: Status & Health, Schedules, Conversations, Memory viewer/editor, and real-time log streaming. Token auth for Tailnet access or localhost-only mode.
+- **Web dashboard** — Built-in HTTP server at `localhost:3000` with a dark-mode SPA. Five tabs: Status & Health, Schedules, Conversations, Memory viewer/editor, and real-time log streaming. Polished UI with skeleton loaders, toast notifications, tooltips, progress bar, alert banners, and a slide-in drawer for schedule editing. Token auth for Tailnet access or localhost-only mode.
 - **HTML rendering** — AI responses are formatted as HTML for Telegram with bold, italic, code blocks, and links.
 - **Rate limiting** — Sliding window limiter (10 messages/minute per user).
 - **Health monitoring** — Startup notification, periodic checks (GitHub access, token expiry), alerts with dedup.
@@ -266,11 +267,18 @@ chris restart
 ```
 
 **Dashboard tabs:**
-- **Status & Health** — Uptime, model/provider, pm2 stats (PID, memory, restarts), health check indicators
-- **Schedules** — All cron jobs with expression, enabled/disabled, last run, allowed tools, prompt preview
+- **Status & Health** — Uptime, model/provider, pm2 stats (PID, memory, restarts), health check indicators with inline alert banners for failures
+- **Schedules** — All cron jobs with expression, enabled/disabled, last run, allowed tools, prompt preview. Tooltips on truncated prompts and cron descriptions. Right-side drawer editor.
 - **Conversations** — Browse message archives by date, view daily AI summaries
-- **Memory** — View and edit all memory files (saves directly to GitHub)
-- **Logs** — Real-time log streaming via SSE, or snapshot of recent log lines
+- **Memory** — View and edit all memory files (saves directly to GitHub). "Select a file" empty state before selection.
+- **Logs** — Real-time log streaming via SSE with Live/Snapshot segmented control and auto-scroll
+
+**Dashboard UI:**
+- Skeleton loaders with shimmer animation replace all "Loading..." text
+- Toast notifications (success/error/info) for save, delete, and error feedback
+- Top-of-page progress bar animates during all API calls
+- CSS-only tooltips on schedule prompts, cron expressions, and health check details
+- Unified `.badge-pill` system for status and tool count badges
 
 ### 9. (Optional) Set up additional providers
 
