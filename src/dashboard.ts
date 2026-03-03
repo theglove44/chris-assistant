@@ -1342,7 +1342,7 @@ function cronFieldMatches(field, value, isDow) {
 }
 
 function getOccurrences(cronStr, start, end) {
-  var fields = cronStr.trim().split(/\s+/);
+  var fields = cronStr.trim().split(" ");
   if (fields.length !== 5) return [];
   var results = [];
   var cur = new Date(start);
