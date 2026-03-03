@@ -15,6 +15,7 @@ import { sendToDiscordChannel } from "./discord.js";
 // ---------------------------------------------------------------------------
 
 const DISCORD_CHANNEL = "pr-reviews";
+const MAX_BODY_SIZE = 1024 * 1024; // 1 MB — GitHub payloads are typically ~30 KB
 
 // ---------------------------------------------------------------------------
 // Signature verification
@@ -33,7 +34,16 @@ function verifySignature(secret: string, body: string, signature: string): boole
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    let size = 0;
+    req.on("data", (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > MAX_BODY_SIZE) {
+        req.destroy();
+        reject(new Error("Request body too large"));
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
     req.on("error", reject);
   });
@@ -43,9 +53,16 @@ function readBody(req: IncomingMessage): Promise<string> {
 // PR merge formatter
 // ---------------------------------------------------------------------------
 
+/** Strip Discord mention triggers (@everyone, @here, <@id>, <@&role>) from untrusted text. */
+function stripMentions(text: string): string {
+  return text
+    .replace(/@(everyone|here)/g, "@\u200B$1")   // zero-width space breaks the mention
+    .replace(/<@[!&]?\d+>/g, "[mention]");        // strip user/role ID mentions
+}
+
 function formatPrMergeMessage(pr: any): string {
   const number = pr.number;
-  const title = pr.title;
+  const title = stripMentions(pr.title || "");
   const url = pr.html_url;
   const author = pr.user?.login || "unknown";
   const mergedAt = pr.merged_at ? new Date(pr.merged_at) : new Date();
@@ -55,18 +72,20 @@ function formatPrMergeMessage(pr: any): string {
 
   // Extract labels
   const labels = (pr.labels || [])
-    .map((l: any) => l.name)
+    .map((l: any) => stripMentions(String(l.name || "")))
     .filter(Boolean);
   const labelLine = labels.length > 0 ? `\n🏷️ ${labels.join("  ")}` : "";
 
   // Build summary from PR body (first ~300 chars, cleaned up)
   let summary = "";
   if (pr.body) {
-    summary = pr.body
-      .replace(/<!--[\s\S]*?-->/g, "")  // strip HTML comments
-      .replace(/\r\n/g, "\n")
-      .trim()
-      .slice(0, 300);
+    summary = stripMentions(
+      pr.body
+        .replace(/<!--[\s\S]*?-->/g, "")  // strip HTML comments
+        .replace(/\r\n/g, "\n")
+        .trim()
+        .slice(0, 300),
+    );
     if (pr.body.length > 300) summary += "...";
   }
   const summaryBlock = summary ? `\n\n📋 **Summary**\n${summary}` : "";

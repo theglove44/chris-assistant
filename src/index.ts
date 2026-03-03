@@ -47,8 +47,9 @@ bot.start({
     startMemoryConsolidation();
     startHeartbeat();
     startDashboard();
-    startWebhook();
     startDiscord();
+    // Webhook starts after Discord so notifications aren't dropped during login
+    startWebhook();
   },
 });
 
