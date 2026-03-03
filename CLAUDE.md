@@ -53,12 +53,17 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── ssh.ts            # SSH tool — exec, tmux, SCP, Tailnet device discovery (8 actions)
 │   │   ├── recall.ts         # Conversation recall tool — list, read, search, summarize past conversations
 │   │   ├── journal.ts        # journal_entry tool — bot writes daily notes via tool call
+│   │   ├── skills.ts         # manage_skills + run_skill tools
 │   │   └── market-snapshot.ts # market_snapshot tool — SSHes to Mac Mini to run tasty-coach market data
 │   ├── memory/
 │   │   ├── github.ts         # Octokit wrapper — read/write/append files in memory repo
 │   │   ├── journal.ts        # Daily memory journal — local storage + periodic GitHub upload
 │   │   ├── loader.ts         # Loads identity + knowledge + memory + summaries + journal, builds system prompt
 │   │   └── tools.ts          # Memory tool executor + prompt injection validation
+│   ├── skills/
+│   │   ├── loader.ts             # GitHub-backed skill CRUD with index caching
+│   │   ├── validator.ts          # Skill definition + input validation, limits enforcement
+│   │   └── executor.ts           # Build execution prompt, nested chat() with filtered tools
 │   └── cli/
 │       ├── index.ts           # Commander.js program — registers all subcommands
 │       ├── pm2-helper.ts      # pm2 connection helper, process info, constants
@@ -92,7 +97,10 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 ├── archive/2026-02-25.jsonl  # Daily JSONL message logs (uploaded every 30 minutes)
 ├── journal/2026-02-25.md     # Bot's daily journal notes (uploaded every 6 hours)
 ├── conversations/summaries/2026-02-25.md  # AI-generated daily conversation summaries
-└── conversations/channels/belfast-trip/2026-W09.md  # Weekly per-channel summaries
+├── conversations/channels/belfast-trip/2026-W09.md  # Weekly per-channel summaries
+├── skills/                       # Reusable skill definitions (JSON)
+│   ├── _index.json               # Lightweight skill index for system prompt discovery
+│   └── *.json                    # Individual skill definitions
 ```
 
 ## Key Design Decisions
@@ -141,6 +149,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 - **SSH tool**: `src/tools/ssh.ts` — single tool with 8 actions for remote device management via Tailscale. `exec` creates persistent tmux sessions (`chris-bot-<host>-<id>`) and SSHs in to run commands, polling until the shell prompt returns or timeout. `send_keys` / `read_pane` interact with existing sessions. `devices` queries `tailscale status --json`. `scp_push` / `scp_pull` transfer files with local path validation via `resolveSafePath()`. All commands use `execFile` (no shell injection), absolute binary paths (works under pm2), `BatchMode=yes` (no password prompts), and `ConnectTimeout=10`. Tmux sessions are attachable from any device (e.g. iPhone via SSH).
 - **pm2 process management**: The bot runs as a pm2 process. The CLI uses pm2's programmatic API. pm2 can't find `tsx` via PATH so we use the absolute path from `node_modules/.bin/tsx` as the interpreter. `chris start` configures `log_date_format: "YYYY-MM-DD HH:mm:ss"` so pm2 prepends timestamps to every log line.
 - **CLI global install**: `npm link` creates a global `chris` command. The `bin/chris` shell wrapper follows symlinks to resolve the real project root and finds tsx from node_modules.
+- **Dynamic skills system**: `src/skills/` + `src/tools/skills.ts` — reusable workflows defined as JSON in the memory repo (`skills/<id>.json`). Skills are NOT registered as dynamic tools — instead, two static tools handle everything: `manage_skills` (CRUD: create, list, get, update, delete, toggle, update_state) and `run_skill` (execution). Skills are *discovered* via the system prompt (skill index injected alongside memory) and *executed* via `run_skill` which loads the full definition, validates inputs, substitutes `{placeholder}` values in instructions, and calls `chat(0, prompt, undefined, undefined, skill.tools)` with filtered tool access. This is the same nested-`chat()` pattern the scheduler uses. Skills can have persistent `state` (merged on update, 10KB cap). Guardrails: 50 skill cap, 5000 char instruction limit, tool names validated against registry, no code execution — instructions are prompts. The AI can create new skills via `manage_skills` create action. Skill index cached 5 minutes (same as system prompt). `invalidatePromptCache()` called after skill CRUD so discovery section updates immediately.
 
 ## Tech Stack
 
@@ -250,6 +259,7 @@ npx tsx src/cli/index.ts # Run CLI directly without global install
 - **Memory cache**: System prompt is cached 5 minutes. After any conversation the cache is invalidated. Manually edited memory files via `chris memory edit` won't be picked up until the cache expires or the bot restarts.
 - **GitHub fine-grained PAT expiry**: Max 1 year. Set a reminder to rotate.
 - **Adding new tools**: Create `src/tools/<name>.ts` with a `registerTool()` call, then add `import "./<name>.js"` to `src/tools/index.ts`. All three providers pick it up automatically — no provider code changes needed.
+- **Skills vs tools**: Skills are higher-level — they're JSON definitions that compose existing tools. Use `manage_skills` to create them at runtime. New tools require TypeScript in `src/tools/` and a restart.
 - **Adding new providers**: Create `src/providers/<name>.ts` implementing the `Provider` interface, add a prefix check in `src/providers/index.ts`, and add model shortcuts to `src/cli/commands/model.ts`. For OpenAI-compatible providers, use `getOpenAiToolDefinitions()` and `dispatchToolCall()` from `src/tools/index.ts`.
 - **MiniMax OAuth API**: The `/oauth/code` endpoint requires `response_type: "code"` in the body. The `expired_in` field is a unix timestamp in **milliseconds** (not a duration). Token poll responses use a `status` field (`"success"` / `"pending"` / `"error"`) — don't rely on HTTP status codes. Tokens are stored in `~/.chris-assistant/minimax-auth.json`.
 - **OpenAI Codex OAuth**: Authorization code + PKCE flow — opens browser to `auth.openai.com/oauth/authorize`, local callback server on port 1455 catches the redirect, exchanges code for tokens. Account ID extracted from JWT (`payload["https://api.openai.com/auth"].chatgpt_account_id`). Tokens auto-refresh via refresh_token grant. Tokens + account ID in `~/.chris-assistant/openai-auth.json`.
