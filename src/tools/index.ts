@@ -12,6 +12,7 @@ import "./ssh.js";
 import "./recall.js";
 import "./journal.js";
 import "./market-snapshot.js";
+import "./skills.js";
 
 // Re-export registry functions so providers only need to import from one place.
 export {
@@ -22,6 +23,7 @@ export {
   getCustomMcpTools,
   getCustomMcpAllowedToolNames,
   resetLoopDetection,
+  getRegisteredToolNames,
 } from "./registry.js";
 
 export { isProjectActive } from "./files.js";
