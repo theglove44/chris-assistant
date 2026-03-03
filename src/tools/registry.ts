@@ -102,6 +102,11 @@ export function registerTool(reg: ToolRegistration): void {
   tools.set(reg.name, reg);
 }
 
+/** Returns all registered tool names. */
+export function getRegisteredToolNames(): string[] {
+  return Array.from(tools.keys());
+}
+
 // ---------------------------------------------------------------------------
 // OpenAI / MiniMax providers
 // ---------------------------------------------------------------------------
