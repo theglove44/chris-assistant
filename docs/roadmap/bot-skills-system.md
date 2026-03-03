@@ -1,5 +1,7 @@
 # Bot Skills System — Implementation Plan
 
+> **Status: Implemented** — PRs #24 (core infrastructure), #25 (system prompt integration), #26 (documentation) merged 2026-03-03.
+
 ## Context
 
 Chris wants the bot to have a dynamic skills system — reusable workflows the AI can discover, execute, and create at runtime. Today the bot has static TypeScript tools that require code changes and a restart. Skills bridge the gap: structured definitions (not code) that compose existing tools into higher-level capabilities. Inspired by OpenClaw's skill system but adapted for a personal bot.

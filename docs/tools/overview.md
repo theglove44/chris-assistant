@@ -30,9 +30,15 @@ The assistant has access to a set of tools that all providers pick up automatica
 | `git_status` | Coding | Show git status of the active workspace |
 | `git_diff` | Coding | Show git diff (staged or unstaged) |
 | `git_commit` | Coding | Stage files and commit (no push — safety choice) |
+| `manage_skills` | Always | Create, list, get, update, delete, toggle, and manage reusable skills |
+| `run_skill` | Always | Execute a skill by ID with optional inputs |
 | `ssh` | Always | SSH into Tailnet devices — 9 actions ([full guide](/tools/ssh)) |
 
 **"Always"** tools are available in every conversation. **"Coding"** tools are only sent when a project workspace is active (set via `/project` command or `WORKSPACE_ROOT` env var).
+
+## Skills vs Tools
+
+Skills are higher-level — they're JSON definitions that compose existing tools into reusable workflows. Use `manage_skills` to create them at runtime (no code changes, no restart). New tools require TypeScript in `src/tools/` and a restart.
 
 ## Adding New Tools
 

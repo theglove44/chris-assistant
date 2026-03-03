@@ -22,6 +22,7 @@ Tools and features that expand what the bot can do.
 | 4 | 🟡 | ✅ | **Code execution sandbox** | JS, TS, Python, shell via `execFile`. 10s timeout, 50KB output limit. |
 | 5 | 🟢 | ✅ | **Scheduled tasks** | Cron-like tasks with AI execution and full tool access. |
 | 6 | 🟠 | ✅ | **Conversation recall** | Full archive + daily AI summaries + recall tool with list/read/search/summarize actions. |
+| 7 | 🟠 | ✅ | **Dynamic skills system** | Reusable workflows as JSON in memory repo. `manage_skills` for CRUD, `run_skill` for execution. Discovered via system prompt, executed with filtered tool access. |
 
 ## User Experience
 
@@ -80,7 +81,7 @@ Tools and features that expand what the bot can do.
 | # | Impact | Status | Item | Description |
 |---|--------|--------|------|-------------|
 | 1 | 🔴 | ✅ | **Daily memory journal** | Bot writes notes via `journal_entry` tool, uploaded every 6 hours. |
-| 2 | 🟠 | ⬜ | **Curated MEMORY.md** | Consolidated summary from split files + journals + observations. Weekly consolidation task. |
-| 3 | 🟡 | ⬜ | **Heartbeat file** | Periodic `HEARTBEAT.md` with bot status, activity summary, concerns. |
-| 4 | 🟡 | ⬜ | **Memory consolidation loop** | Weekly automated process to update knowledge files from journal insights. |
+| 2 | 🟠 | ✅ | **Curated MEMORY.md** | `memory-consolidation.ts` — weekly consolidation into SUMMARY.md from all sources. |
+| 3 | 🟡 | ✅ | **Heartbeat file** | `heartbeat.ts` — writes HEARTBEAT.md every 3h with uptime, model, health, schedules, message count. |
+| 4 | 🟡 | ✅ | **Memory consolidation loop** | Sunday 23:00, reads all knowledge/memory/summaries/journal, produces curated SUMMARY.md (32K cap). |
 | 5 | 🟢 | ⬜ | **Conversation analytics** | Track patterns: messages/day, peak hours, tool usage, topic distribution. |

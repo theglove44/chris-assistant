@@ -91,6 +91,18 @@ File tools scope to `WORKSPACE_ROOT` (default `~/Projects`). Mutable at runtime 
 
 `scheduler.ts` loads tasks from `~/.chris-assistant/schedules.json`, ticks every 60s, and fires matching tasks by sending the prompt to `chat()` with full tool access. Results sent to Telegram via raw fetch. Custom cron matcher supports `*`, specific values, commas, and `*/N` step values — no npm dependency. The `manage_schedule` tool lets the AI create, list, delete, and toggle schedules. Double-fire prevention checks that `lastRun` wasn't in the same minute.
 
+## Dynamic Skills System
+
+`src/skills/` + `src/tools/skills.ts` — reusable workflows defined as JSON in the memory repo (`skills/<id>.json`). Skills are NOT registered as dynamic tools in the registry. Instead, two static tools handle everything: `manage_skills` (CRUD: create, list, get, update, delete, toggle, update_state) and `run_skill` (execution).
+
+**Discovery**: Skill index loaded into system prompt alongside memory. Only enabled skills with non-empty triggers are shown (capped at 20 to prevent prompt bloat). AI sees available skills and can proactively suggest them.
+
+**Execution**: `run_skill` loads the full skill definition, validates inputs, substitutes `{placeholder}` values in instructions, and calls `chat(0, prompt, undefined, undefined, skill.tools)` with filtered tool access. Same nested-`chat()` pattern the scheduler uses.
+
+**Why not register skills as real tools**: Adding/removing tools at runtime requires re-initializing the MCP server for Claude and regenerating OpenAI tool definitions mid-conversation. The registry is designed for static startup registration. `run_skill` as a stable entry point avoids this entirely.
+
+**Guardrails**: 50 skill cap, 5000 char instruction limit, 10KB state cap, tool names validated against registry, input keys constrained to `[a-zA-Z0-9_-]+`, per-entry resilience in system prompt parsing.
+
 ## Memory Storage
 
 Markdown files in a private GitHub repo. Every update is a git commit — fully auditable and rollback-able.

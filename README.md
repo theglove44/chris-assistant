@@ -65,6 +65,7 @@ The assistant has its own identity, personality, and evolving memory. Everything
 - **Rate limiting** — Sliding window limiter (10 messages/minute per user).
 - **Health monitoring** — Startup notification, periodic checks (GitHub access, token expiry), alerts with dedup.
 - **Context compaction** — When the conversation approaches the model's context window limit, older tool turns are summarized into a structured checkpoint and the loop continues. No hard turn ceiling — the bot can handle arbitrarily long SSH investigations and multi-file coding tasks.
+- **Dynamic skills** — Reusable workflows (e.g. check Hacker News, generate reports) that the AI can discover, execute, and create at runtime. Skills are JSON definitions in the memory repo that compose existing tools. Managed via `manage_skills`, executed via `run_skill`. Capped at 50 skills, 5000 char instructions, tool names validated against registry.
 - **Prompt injection defense** — Memory writes are validated for size, rate, and suspicious content.
 
 ## Architecture
@@ -80,6 +81,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   ├── markdown.ts           # Standard markdown → HTML converter (Telegram + plain text fallback)
 │   ├── rate-limit.ts         # Sliding window rate limiter
 │   ├── health.ts             # Periodic health checks + Telegram alerts
+│   ├── webhook.ts            # GitHub webhook server — PR merge → Discord notifications
 │   ├── scheduler.ts          # Cron-like scheduled tasks — tick loop, AI execution, Telegram delivery
 │   ├── conversation.ts       # Persistent conversation history (~/.chris-assistant/)
 │   ├── conversation-archive.ts # Daily JSONL archiver — every message to ~/.chris-assistant/archive/
@@ -113,7 +115,12 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── ssh.ts            # SSH tool — exec, tmux, SCP, Tailnet device discovery
 │   │   ├── recall.ts         # Conversation recall — list, read, search, summarize
 │   │   ├── journal.ts        # journal_entry tool — bot writes daily notes
+│   │   ├── skills.ts         # manage_skills + run_skill tools
 │   │   └── market-snapshot.ts # market_snapshot tool — market data via SSH
+│   ├── skills/
+│   │   ├── loader.ts         # GitHub-backed skill CRUD with index caching
+│   │   ├── validator.ts      # Skill definition + input validation, limits
+│   │   └── executor.ts       # Build execution prompt, nested chat() with filtered tools
 │   ├── memory/
 │   │   ├── github.ts         # Read/write memory files via GitHub API
 │   │   ├── journal.ts        # Daily memory journal — local storage + GitHub upload
@@ -154,6 +161,9 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 │   └── SUMMARY.md            # Weekly-consolidated curated summary
 ├── archive/YYYY-MM-DD.jsonl  # Daily JSONL message logs
 ├── journal/YYYY-MM-DD.md     # Bot's daily journal notes
+├── skills/                   # Reusable skill definitions (JSON)
+│   ├── _index.json           # Lightweight skill index for system prompt discovery
+│   └── *.json                # Individual skill definitions
 └── conversations/summaries/YYYY-MM-DD.md  # AI-generated daily summaries
 ```
 
@@ -354,6 +364,8 @@ The assistant has access to these tools (all providers pick them up automaticall
 | `ssh` | Always | SSH into Tailnet devices — 8 actions ([full guide](docs/ssh-tool.md)) |
 | `recall_conversations` | Always | List, read, search, and summarize past conversations |
 | `journal_entry` | Always | Bot writes structured daily notes (timestamped markdown) |
+| `manage_skills` | Always | Create, list, get, update, delete, toggle, and manage reusable skills |
+| `run_skill` | Always | Execute a skill by ID with optional inputs |
 | `market_snapshot` | Always | Fetch market data via SSH to Mac Mini |
 
 "Always" tools are available in every conversation. "Coding" tools are only sent when a project workspace is active (set via `/project` command or `WORKSPACE_ROOT` env var).
@@ -503,6 +515,8 @@ chris setup              # Interactive first-time setup wizard (creates .env)
 | `DISCORD_ALLOWED_USER_ID` | No | Your Discord numeric user ID — bot ignores all other users |
 | `DASHBOARD_PORT` | No | Port for the web dashboard. Default: `3000`. |
 | `DASHBOARD_TOKEN` | No | API key for dashboard auth. If unset, dashboard is localhost-only. |
+| `GITHUB_WEBHOOK_SECRET` | No | HMAC secret for GitHub webhook signature verification |
+| `WEBHOOK_PORT` | No | Webhook server port. Default: `3001` |
 
 OpenAI and MiniMax authenticate via OAuth device flows (`chris openai login` / `chris minimax login`) with tokens stored in `~/.chris-assistant/`.
 

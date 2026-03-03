@@ -18,6 +18,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   ├── middleware.ts         # grammY middleware — auth guard + rate limiting
 │   ├── rate-limit.ts         # Sliding window rate limiter (10 msgs/min per user)
 │   ├── health.ts             # Periodic health checks + Telegram alerts
+│   ├── webhook.ts            # GitHub webhook server — PR merge → Discord notifications
 │   ├── scheduler.ts          # Cron-like scheduled tasks — tick loop, AI execution, Telegram delivery
 │   ├── conversation.ts       # Persistent short-term history (async I/O, write queue, last 20 messages)
 │   ├── conversation-archive.ts # Daily JSONL archiver
@@ -46,7 +47,12 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── scheduler.ts      # manage_schedule tool — create, list, delete, toggle
 │   │   ├── ssh.ts            # SSH tool — exec, tmux, SCP, Tailnet device discovery
 │   │   ├── recall.ts         # Conversation recall tool
-│   │   └── journal.ts        # journal_entry tool — bot writes daily notes
+│   │   ├── journal.ts        # journal_entry tool — bot writes daily notes
+│   │   └── skills.ts         # manage_skills + run_skill tools
+│   ├── skills/
+│   │   ├── loader.ts         # GitHub-backed skill CRUD with index caching
+│   │   ├── validator.ts      # Skill definition + input validation, limits
+│   │   └── executor.ts       # Build execution prompt, nested chat() with filtered tools
 │   ├── memory/
 │   │   ├── github.ts         # Read/write memory files via GitHub API
 │   │   ├── journal.ts        # Daily memory journal — local storage + periodic GitHub upload
@@ -76,6 +82,9 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 │   └── learnings.md          # Self-improvement notes
 ├── archive/                  # Daily JSONL message logs (uploaded every 6 hours)
 ├── journal/                  # Bot's daily journal notes (uploaded every 6 hours)
+├── skills/                   # Reusable skill definitions (JSON)
+│   ├── _index.json           # Lightweight skill index for system prompt discovery
+│   └── *.json                # Individual skill definitions
 └── conversations/summaries/  # AI-generated daily conversation summaries
 ```
 
@@ -93,6 +102,7 @@ User sends Telegram message
   │   ├── Memory files (decisions, learnings)
   │   ├── Recent summaries (last 7 days)
   │   ├── Recent journal (today + yesterday)
+  │   ├── Skill discovery index (enabled skills with triggers)
   │   └── Project context (CLAUDE.md / README.md from workspace)
   │
   ├── Load conversation history (last 20 messages)
