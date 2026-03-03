@@ -93,6 +93,8 @@ export async function loadMemory(): Promise<LoadedMemory> {
   }
 
   // Parse skill index — graceful degradation if file missing or malformed
+  // Cap at 20 skills to prevent unbounded prompt growth
+  const MAX_DISCOVERY_SKILLS = 20;
   let skillIndex = "";
   if (skillIndexRaw) {
     try {
@@ -103,14 +105,23 @@ export async function loadMemory(): Promise<LoadedMemory> {
         enabled: boolean;
         triggers: string[];
       }>;
-      const enabled = entries.filter((e) => e.enabled);
-      if (enabled.length > 0) {
-        skillIndex = enabled
-          .map((e) => {
-            const triggers = e.triggers.map((t) => `"${t}"`).join(", ");
-            return `- **${e.id}** — ${e.description}\n  Triggers: ${triggers}`;
-          })
-          .join("\n");
+      // Only show enabled skills that have triggers (per spec, triggers drive discovery)
+      const discoverable = entries.filter((e) => e.enabled && Array.isArray(e.triggers) && e.triggers.length > 0);
+      const capped = discoverable.slice(0, MAX_DISCOVERY_SKILLS);
+      const lines: string[] = [];
+      for (const e of capped) {
+        try {
+          const triggers = e.triggers.map((t) => `"${t}"`).join(", ");
+          lines.push(`- **${e.id}** — ${e.description}\n  Triggers: ${triggers}`);
+        } catch {
+          // Skip malformed entry — don't let one bad entry break the whole block
+        }
+      }
+      if (lines.length > 0) {
+        skillIndex = lines.join("\n");
+        if (discoverable.length > MAX_DISCOVERY_SKILLS) {
+          skillIndex += `\n\n_(${discoverable.length - MAX_DISCOVERY_SKILLS} more skills available — use manage_skills list to see all)_`;
+        }
       }
     } catch {
       // Malformed JSON — skip skill index silently
