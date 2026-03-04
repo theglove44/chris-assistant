@@ -52,27 +52,20 @@ async function runCalendar(args: string[]): Promise<string> {
     );
   }
 
-  // Launch via 'open' so macOS treats it as its own app for TCC permissions.
+  // Launch via 'open -n -W' so macOS treats it as its own app for TCC permissions.
+  // -n: new instance (avoids "already running" rejection on sequential calls)
+  // -W: wait for exit (no polling needed, output file is ready when open returns)
   // Capture stdout via temp file since 'open' doesn't pipe output.
   const outFile = join(tmpdir(), `chris-cal-${randomBytes(4).toString("hex")}.json`);
   try {
     await execFileAsync(
       OPEN_BIN,
-      ["--stdout", outFile, "--stderr", outFile, CALENDAR_APP, "--args", ...args],
+      ["-n", "-W", "--stdout", outFile, "--stderr", outFile, CALENDAR_APP, "--args", ...args],
       { timeout: CALENDAR_TIMEOUT },
     );
 
-    // 'open' returns immediately — poll for output (app is fast, <1s)
-    let raw = "";
-    for (let i = 0; i < 20; i++) {
-      await new Promise((r) => setTimeout(r, 250));
-      try {
-        raw = readFileSync(outFile, "utf-8").trim();
-        if (raw.includes('"ok"')) break;
-      } catch { /* file not ready */ }
-    }
-
-    if (!raw) return "Error: Calendar helper timed out";
+    const raw = readFileSync(outFile, "utf-8").trim();
+    if (!raw) return "Error: Calendar helper produced no output";
     const result: CalendarResult = JSON.parse(raw);
     if (!result.ok) return `Error: ${result.error}`;
     return typeof result.data === "string"
