@@ -28,6 +28,7 @@ export const config = {
   dashboard: {
     port: Number(process.env.DASHBOARD_PORT || "3000"),
     token: process.env.DASHBOARD_TOKEN || null,
+    docsUrl: process.env.DOCS_URL || null,
   },
   webhook: {
     secret: process.env.GITHUB_WEBHOOK_SECRET || null,

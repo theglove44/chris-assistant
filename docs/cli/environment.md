@@ -24,6 +24,7 @@ description: Environment variables, file paths, and configuration
 | `DISCORD_GUILD_ID` | No | Discord guild ID for channel management |
 | `DASHBOARD_PORT` | No | Web dashboard port. Default: `3000` |
 | `DASHBOARD_TOKEN` | No | API key for dashboard auth. If unset, dashboard is localhost-only |
+| `DOCS_URL` | No | URL for "Knowledge Base" link in dashboard header. If unset, no link shown |
 | `GITHUB_WEBHOOK_SECRET` | No | HMAC secret for GitHub webhook signature verification |
 | `WEBHOOK_PORT` | No | Webhook server port. Default: `3001` |
 
