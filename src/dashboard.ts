@@ -18,6 +18,7 @@ import { listLocalJournalDates, readLocalJournal } from "./memory/journal.js";
 import { readMemoryFile, writeMemoryFile } from "./memory/github.js";
 import { getHistory } from "./conversation.js";
 import { getBotProcess } from "./cli/pm2-helper.js";
+import { loadSkillIndex, loadSkill } from "./skills/loader.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -334,6 +335,21 @@ async function handleConversationHistory(res: ServerResponse): Promise<void> {
   json(res, { messages: history });
 }
 
+async function handleSkills(res: ServerResponse): Promise<void> {
+  try {
+    const index = await loadSkillIndex();
+    const skills = await Promise.all(
+      index.map(async (entry) => {
+        const full = await loadSkill(entry.id);
+        return full || entry;
+      }),
+    );
+    json(res, skills);
+  } catch (err: any) {
+    json(res, { error: err.message }, 500);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
@@ -396,6 +412,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const filePath = pathname.slice("/api/memory/".length);
       return await handleMemoryWrite(req, res, decodeURIComponent(filePath));
     }
+
+    if (req.method === "GET" && pathname === "/api/skills") return await handleSkills(res);
 
     if (req.method === "GET" && pathname === "/api/logs") return handleLogs(res);
     if (req.method === "GET" && pathname === "/api/logs/stream") return handleLogStream(req, res);
@@ -631,6 +649,7 @@ tr.clickable:hover { background: var(--bg3); }
     <button class="tab" data-tab="memory">Memory</button>
     <button class="tab" data-tab="logs">Logs</button>
     <button class="tab" data-tab="calendar">Calendar</button>
+    <button class="tab" data-tab="skills">Skills</button>
   </div>
 
   <!-- Status -->
@@ -752,6 +771,14 @@ tr.clickable:hover { background: var(--bg3); }
     <div class="log-container" id="log-output"><span class="loading">Connecting...</span></div>
   </div>
 
+  <!-- Skills -->
+  <div class="section" id="sec-skills">
+    <div class="card">
+      <h3>Installed Skills</h3>
+      <div id="skills-list"><div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row medium"></div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row short"></div></div></div>
+    </div>
+  </div>
+
   <!-- Calendar -->
   <div class="section" id="sec-calendar">
     <div class="card">
@@ -850,6 +877,7 @@ function activateTab(tab) {
   if (tab === "memory") loadMemoryFiles();
   if (tab === "logs") startLogStream();
   if (tab === "calendar") loadCalendar();
+  if (tab === "skills") loadSkills();
 }
 
 // --- Status ---
@@ -1247,6 +1275,31 @@ async function saveMemory() {
   } finally {
     btn.disabled = false;
     finishProgress();
+  }
+}
+
+// --- Skills ---
+async function loadSkills() {
+  try {
+    var skills = await api("/api/skills");
+    var el = document.getElementById("skills-list");
+    if (skills.length === 0) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-state-icon">\u26A1</div><div class="empty-state-heading">No skills installed</div><div class="empty-state-description">Skills can be created via the manage_skills tool</div></div>';
+      return;
+    }
+    var html = '<table><thead><tr><th>Name</th><th>Description</th><th>Status</th><th>Version</th><th>Triggers</th><th>Tools</th><th>Updated</th></tr></thead><tbody>';
+    for (var i = 0; i < skills.length; i++) {
+      var s = skills[i];
+      var status = s.enabled ? '<span class="badge-pill badge-success">enabled</span>' : '<span class="badge-pill badge-neutral">disabled</span>';
+      var triggers = s.triggers && s.triggers.length > 0 ? esc(s.triggers.join(", ")) : '<span style="color:var(--text2)">none</span>';
+      var tools = s.tools && s.tools.length > 0 ? '<span class="badge-pill badge-neutral">' + s.tools.length + ' tools</span>' : '<span class="badge-pill badge-accent">all</span>';
+      var updated = s.updatedAt ? new Date(s.updatedAt).toLocaleDateString() : "\u2014";
+      html += '<tr><td><strong>' + esc(s.name) + '</strong></td><td style="font-size:13px;color:var(--text2)">' + esc(s.description || "") + '</td><td>' + status + '</td><td class="mono">' + esc(String(s.version || 1)) + '</td><td style="font-size:12px">' + triggers + '</td><td style="font-size:12px">' + tools + '</td><td style="font-size:12px;color:var(--text2)">' + esc(updated) + '</td></tr>';
+    }
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  } catch (e) {
+    document.getElementById("skills-list").innerHTML = '<span class="loading">Error: ' + esc(e.message) + '</span>';
   }
 }
 
