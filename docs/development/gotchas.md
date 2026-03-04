@@ -23,15 +23,9 @@ The `npm run typecheck` command includes an automated check (`scripts/check-esbu
 
 pm2 spawns processes in its own daemon. It doesn't inherit your shell PATH. That's why `pm2-helper.ts` exports `TSX_BIN` as an absolute path to `node_modules/.bin/tsx`.
 
-## Telegram MarkdownV2
+## Telegram Message Formatting
 
-`markdown.ts` converts standard AI markdown to Telegram MarkdownV2. Key differences from standard markdown:
-
-- `*bold*` not `**bold**`
-- `_italic_` not `*italic*`
-- 18 special chars must be escaped in plain text, fewer in code/URL contexts
-
-If conversion fails, `telegram.ts` falls back to plain text. Streaming preview uses no `parse_mode` (partial MarkdownV2 would fail).
+See "Telegram HTML Formatting" section below — the bot now uses HTML mode, not MarkdownV2.
 
 ## Telegram Message Limit
 
@@ -60,6 +54,18 @@ Fine-grained PATs have a max expiry of 1 year. Set a reminder to rotate.
 ## Web Search Tool
 
 Only registered when `BRAVE_SEARCH_API_KEY` is set. When absent, the tool definition is not sent to any provider — no dead tools in the API call.
+
+## Dashboard Inline JS
+
+The dashboard (`dashboard.ts`) serves all JS inline in a template literal. Backslash escapes like `\'` are consumed by the template literal — they don't appear in the browser. Use `data-*` attributes with `addEventListener` instead of inline `onclick` handlers with dynamic values. Use `var` (not `const`/`let`) for inline JS consistency. Animations use double `requestAnimationFrame` for enter transitions. The drawer's `closeScheduleModal()` stores its hide-timeout in `drawerCloseTimer` so `openScheduleModal()` can cancel it (prevents race conditions). The progress bar uses `progressCount` reference counter for overlapping API calls. Escape `"` as `&quot;` in `data-tooltip` attributes.
+
+## SSH Config and pm2
+
+The SSH tool uses raw IPs/hostnames from Tailscale. The `~/.ssh/config` `Host` line must include both the alias and the IP (e.g. `Host office 100.99.188.80`) for SSH to resolve the correct user and identity file when the bot connects by IP.
+
+## Telegram HTML Formatting
+
+`markdown.ts` now converts to Telegram HTML (`parse_mode: "HTML"`), not MarkdownV2. `**bold**` → `<b>`, `*italic*` → `<i>`, `` `code` `` → `<code>`, fenced code → `<pre>`. Only `&`, `<`, `>` need escaping.
 
 ## `chris doctor --fix`
 
