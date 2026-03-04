@@ -82,6 +82,16 @@ Runs typecheck, checks error logs for common patterns (TransformError, missing m
 
 Authorization code + PKCE flow — opens browser to `auth.openai.com/oauth/authorize`, local callback server on port 1455 catches the redirect, exchanges code for tokens. Account ID extracted from JWT. Tokens auto-refresh via refresh_token grant.
 
+## macOS Calendar: `open` Flags
+
+The calendar helper must be launched with `open -n -W`:
+- `-n` forces a new instance — without it, `open` rejects sequential calls while the app is still running, silently dropping the new `--args` and `--stdout` redirect. This causes stale results.
+- `-W` waits for exit — output file is ready when `open` returns, no polling needed.
+
+## macOS Calendar: Zero-Width Date Range
+
+EventKit's `predicateForEvents(withStart:end:)` with equal start/end dates (zero-width range) only returns multi-day spanning events — it misses events that start on that day. The Node.js wrapper bumps `end_date` to the next day when it equals `start_date`.
+
 ## macOS Calendar TCC Permissions
 
 The Swift calendar helper (`ChrisCalendar.app`) requires a macOS TCC grant for Calendar access. Each recompile + codesign changes the code signature hash, which invalidates the grant. After rebuilding:

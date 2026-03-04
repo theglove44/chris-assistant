@@ -22,6 +22,8 @@ Uses a compiled Swift EventKit binary (`~/.chris-assistant/ChrisCalendar.app`) f
 
 Date format: `YYYY-MM-DD` or `YYYY-MM-DD HH:MM`.
 
+**Note:** If `end_date` equals `start_date` (or is omitted), the wrapper auto-bumps end to the next day. A zero-width EventKit predicate only returns multi-day spanning events — it misses events that start on that day.
+
 ### Architecture
 
 ```
@@ -35,7 +37,11 @@ ChrisCalendar.app (Swift binary in .app bundle)
 macOS Calendar database
 ```
 
-The Swift binary is wrapped in a `.app` bundle for TCC (Transparency, Consent, Control) permissions. Launched via `open` so macOS treats it as its own app for permission grants. Output captured via temp file since `open` doesn't pipe stdout.
+The Swift binary is wrapped in a `.app` bundle for TCC (Transparency, Consent, Control) permissions. Launched via `open -n -W` so macOS treats it as its own app for permission grants. Output captured via temp file since `open` doesn't pipe stdout.
+
+**Important flags:**
+- `-n` — launch a new instance each time (without this, `open` rejects sequential calls while the app is still running, silently dropping args)
+- `-W` — wait for the app to exit before returning (eliminates polling, output file is ready immediately)
 
 ### Setup
 
