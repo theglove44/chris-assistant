@@ -7,7 +7,7 @@ import EventKit
 //   list-calendars
 //   get-events <calendar> <start-iso> <end-iso>
 //   add-event <calendar> <title> <start-iso> <end-iso> [--location X] [--notes X] [--allday]
-//   delete-event <calendar> <title>
+//   delete-event <calendar> [<title>] [--uid X] [--all-matches]
 // Output: JSON to stdout
 // ---------------------------------------------------------------------------
 
@@ -186,7 +186,7 @@ func addEvent(calName: String, title: String, startStr: String, endStr: String,
     }
 }
 
-func deleteEvent(calName: String, title: String) {
+func deleteEvent(calName: String, title: String?, uid: String?, allowAllMatches: Bool) {
     guard let cal = findCalendar(calName) else {
         fail("Calendar not found: \(calName)")
         return
@@ -196,15 +196,41 @@ func deleteEvent(calName: String, title: String) {
     let start = Calendar.current.date(byAdding: .year, value: -1, to: Date())!
     let end = Calendar.current.date(byAdding: .year, value: 2, to: Date())!
     let pred = store.predicateForEvents(withStart: start, end: end, calendars: [cal])
-    let events = store.events(matching: pred).filter { $0.title == title }
-
-    if events.isEmpty {
-        fail("No matching event found: \(title)")
+    let events = store.events(matching: pred)
+    let matches: [EKEvent]
+    if let uid = uid {
+        matches = events.filter { ($0.eventIdentifier ?? "") == uid }
+    } else if let title = title {
+        matches = events.filter { $0.title == title }
+    } else {
+        fail("delete-event requires either a title argument or --uid <event-id>")
         return
     }
 
+    if matches.isEmpty {
+        if let uid = uid {
+            fail("No matching event found for uid: \(uid)")
+        } else {
+            fail("No matching event found for title: \(title ?? "")")
+        }
+        return
+    }
+
+    if uid == nil && matches.count > 1 && !allowAllMatches {
+        let preview = matches.prefix(5).map { e in
+            "\(isoOut.string(from: e.startDate)) | uid=\(e.eventIdentifier ?? "unknown")"
+        }.joined(separator: "\n")
+        let remainder = matches.count > 5 ? "\n... and \(matches.count - 5) more" : ""
+        fail(
+            "Ambiguous title: \(title ?? "") matched \(matches.count) events. " +
+            "Pass --uid <event-id> to delete one, or --all-matches to delete all.\n\(preview)\(remainder)",
+        )
+        return
+    }
+
+    let targets = (uid == nil && allowAllMatches) ? matches : [matches[0]]
     var deleted = 0
-    for event in events {
+    for event in targets {
         do {
             try store.remove(event, span: .thisEvent)
             deleted += 1
@@ -213,7 +239,12 @@ func deleteEvent(calName: String, title: String) {
             return
         }
     }
-    output("Deleted \(deleted) event(s) matching: \(title)")
+
+    if let uid = uid {
+        output("Deleted \(deleted) event(s) for uid: \(uid)")
+    } else {
+        output("Deleted \(deleted) event(s) matching title: \(title ?? "")")
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -270,11 +301,36 @@ case "add-event":
              location: location, notes: notes, allDay: allDay)
 
 case "delete-event":
-    guard args.count >= 4 else {
-        fail("Usage: chris-calendar delete-event <calendar> <title>")
+    guard args.count >= 3 else {
+        fail("Usage: chris-calendar delete-event <calendar> [<title>] [--uid X] [--all-matches]")
         exit(1)
     }
-    deleteEvent(calName: args[2], title: args[3])
+    var title: String?
+    var uid: String?
+    var allowAllMatches = false
+    var i = 3
+
+    if args.count >= 4 && !args[3].hasPrefix("--") {
+        title = args[3]
+        i = 4
+    }
+
+    while i < args.count {
+        switch args[i] {
+        case "--uid":
+            i += 1
+            if i < args.count { uid = args[i] }
+        case "--title":
+            i += 1
+            if i < args.count { title = args[i] }
+        case "--all-matches":
+            allowAllMatches = true
+        default:
+            break
+        }
+        i += 1
+    }
+    deleteEvent(calName: args[2], title: title, uid: uid, allowAllMatches: allowAllMatches)
 
 default:
     fail("Unknown command: \(command). Use list-calendars, get-events, add-event, or delete-event.")

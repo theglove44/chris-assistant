@@ -12,6 +12,7 @@ npm run dev              # Run bot with tsx watch (auto-reload on changes)
 npm run typecheck        # TypeScript type checking (includes esbuild compat check)
 npm test                 # Run vitest test suite (48 tests)
 npx tsx src/cli/index.ts # Run CLI directly without global install
+npm run setup:calendar-helper # Build/install macOS Calendar helper app (~/.chris-assistant/ChrisCalendar.app)
 ```
 
 ## Test Suite

@@ -12,6 +12,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit && node scripts/check-esbuild-compat.js",
     "chris": "tsx src/cli/index.ts",
+    "setup:calendar-helper": "bash scripts/setup-calendar-helper.sh",
     "test": "vitest run",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",

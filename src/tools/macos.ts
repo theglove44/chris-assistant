@@ -1,6 +1,6 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
-import { writeFileSync, unlinkSync, readFileSync } from "fs";
+import { writeFileSync, unlinkSync, readFileSync, existsSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { randomBytes } from "crypto";
@@ -17,6 +17,7 @@ const HOME = process.env.HOME ?? "/Users/christaylor";
 const CALENDAR_APP = join(HOME, ".chris-assistant/ChrisCalendar.app");
 const OPEN_BIN = "/usr/bin/open";
 const OSASCRIPT_BIN = "/usr/bin/osascript";
+const IS_DARWIN = process.platform === "darwin";
 
 const MAX_OUTPUT = 50_000;
 const CALENDAR_TIMEOUT = 10_000;  // Swift EventKit via 'open' is fast
@@ -24,6 +25,7 @@ const MAIL_TIMEOUT = 120_000;     // AppleScript Mail can be slow
 
 const DEFAULT_CALENDAR = "Family";
 const DEFAULT_MAIL_ACCOUNT = "iCloud";
+const CALENDAR_SETUP_CMD = "npm run setup:calendar-helper";
 
 function truncate(s: string): string {
   if (s.length > MAX_OUTPUT) {
@@ -43,6 +45,13 @@ interface CalendarResult {
 }
 
 async function runCalendar(args: string[]): Promise<string> {
+  if (!existsSync(CALENDAR_APP)) {
+    return (
+      `Error: Calendar helper not found at ${CALENDAR_APP}. ` +
+      `Install it with: ${CALENDAR_SETUP_CMD}`
+    );
+  }
+
   // Launch via 'open' so macOS treats it as its own app for TCC permissions.
   // Capture stdout via temp file since 'open' doesn't pipe output.
   const outFile = join(tmpdir(), `chris-cal-${randomBytes(4).toString("hex")}.json`);
@@ -220,22 +229,28 @@ end tell`;
 // Tool registration: Calendar (Swift binary)
 // ---------------------------------------------------------------------------
 
+if (!IS_DARWIN) {
+  console.log("[tools] skipping macos_calendar and macos_mail registration (platform != darwin)");
+} else {
 registerTool({
   name: "macos_calendar",
   category: "always",
   description:
     "Interact with macOS Calendar via fast native EventKit. " +
     "Actions: list_calendars, get_events, add_event, delete_event. " +
-    "Default calendar is 'Family'. Dates use YYYY-MM-DD or YYYY-MM-DD HH:MM format.",
+    "Default calendar is 'Family'. Dates use YYYY-MM-DD or YYYY-MM-DD HH:MM format. " +
+    "Delete safely by event UID when possible.",
   zodSchema: {
     action: z.enum(["list_calendars", "get_events", "add_event", "delete_event"]),
     calendar: z.string().optional(),
     title: z.string().optional(),
+    uid: z.string().optional(),
     start_date: z.string().optional(),
     end_date: z.string().optional(),
     location: z.string().optional(),
     notes: z.string().optional(),
     all_day: z.boolean().optional(),
+    delete_all_matches: z.boolean().optional(),
   },
   jsonSchemaParameters: {
     type: "object",
@@ -248,7 +263,8 @@ registerTool({
           "list_calendars: show all calendar names. " +
           "get_events: view events (requires start_date; end_date defaults to next day). " +
           "add_event: create event (requires title, start_date; end_date defaults to +1hr). " +
-          "delete_event: remove event by title (requires title).",
+          "delete_event: remove event by uid (preferred) or title. " +
+          "When deleting by title, multiple matches are blocked unless delete_all_matches=true.",
       },
       calendar: {
         type: "string",
@@ -256,7 +272,11 @@ registerTool({
       },
       title: {
         type: "string",
-        description: "Event title. Required for add_event and delete_event.",
+        description: "Event title. Required for add_event. Optional for delete_event when uid is provided.",
+      },
+      uid: {
+        type: "string",
+        description: "Stable event UID from get_events output. Preferred for delete_event.",
       },
       start_date: {
         type: "string",
@@ -269,10 +289,24 @@ registerTool({
       location: { type: "string", description: "Event location (for add_event)" },
       notes: { type: "string", description: "Event notes (for add_event)" },
       all_day: { type: "boolean", description: "All-day event (for add_event)" },
+      delete_all_matches: {
+        type: "boolean",
+        description: "For delete_event only: when true and deleting by title, delete every matching event.",
+      },
     },
   },
   execute: async (args: any): Promise<string> => {
-    const { action, title, start_date, end_date, location, notes, all_day } = args;
+    const {
+      action,
+      title,
+      uid,
+      start_date,
+      end_date,
+      location,
+      notes,
+      all_day,
+      delete_all_matches,
+    } = args;
     const cal = args.calendar || DEFAULT_CALENDAR;
 
     try {
@@ -314,8 +348,14 @@ registerTool({
         }
 
         case "delete_event": {
-          if (!title) return "Error: title is required for delete_event";
-          return await runCalendar(["delete-event", cal, title]);
+          if (!title && !uid) {
+            return "Error: delete_event requires either 'uid' (preferred) or 'title'";
+          }
+          const cmdArgs = ["delete-event", cal];
+          if (title) cmdArgs.push(title);
+          if (uid) cmdArgs.push("--uid", uid);
+          if (delete_all_matches) cmdArgs.push("--all-matches");
+          return await runCalendar(cmdArgs);
         }
 
         default:
@@ -398,3 +438,4 @@ registerTool({
 
 console.log("[tools] macos_calendar registered");
 console.log("[tools] macos_mail registered");
+}
