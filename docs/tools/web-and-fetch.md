@@ -29,7 +29,7 @@ When `BRAVE_SEARCH_API_KEY` is absent, the tool definition is not sent to any pr
 
 Features:
 - Native `fetch` with 15s timeout (AbortController)
-- HTML stripping (script/style removal, tag stripping, entity decoding)
+- HTML extraction via Mozilla Readability + linkedom for clean article content (strips nav, ads, footers), with regex fallback
 - 50KB content truncation
 - No API key needed
 

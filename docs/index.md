@@ -24,7 +24,7 @@ features:
     details: Web search, code execution, file editing, git operations, SSH remote access, and scheduled tasks.
     icon: 🛠️
   - title: Streaming Responses
-    details: Real-time token streaming with live Telegram message updates and MarkdownV2 rendering.
+    details: Real-time token streaming with live Telegram and Discord message updates.
     icon: ⚡
   - title: SSH & Remote Access
     details: Manage Tailscale devices, run commands in persistent tmux sessions, transfer files via SCP.

@@ -5,7 +5,7 @@ description: What Chris Assistant is and how it works
 
 # Overview
 
-A personal AI assistant accessible through Telegram. Supports multiple AI providers (Claude, OpenAI, MiniMax) with persistent memory stored in GitHub.
+A personal AI assistant accessible through Telegram and Discord. Supports multiple AI providers (Claude, OpenAI, MiniMax) with persistent memory stored in GitHub.
 
 ## How It Works
 
@@ -20,7 +20,7 @@ Telegram message (text, photo, or document)
   → Streams response back to Telegram with live updates
   → AI can call tools: memory, web search, fetch URLs, run code,
     read/write/edit files, git operations, manage scheduled tasks
-  → Response rendered as Telegram MarkdownV2 (with plain text fallback)
+  → Response rendered as Telegram HTML (with plain text fallback)
 
 Scheduler (background):
   → Ticks every 60s, checks cron expressions
@@ -47,10 +47,18 @@ The assistant has its own identity, personality, and evolving memory. Everything
 - **Project context** — When a workspace has a `CLAUDE.md`, `AGENTS.md`, or `README.md`, it's loaded into the system prompt so the AI understands the project.
 - **Persistent memory** — Long-term facts stored as markdown in a GitHub repo. Every update is a git commit.
 - **Persistent conversation history** — Last 20 messages per chat saved to disk. Survives restarts. `/clear` wipes it.
-- **MarkdownV2 rendering** — AI responses are formatted for Telegram with bold, italic, code blocks, and links.
+- **HTML rendering** — AI responses are converted to Telegram HTML with bold, italic, code blocks, and links.
 - **Rate limiting** — Sliding window limiter (10 messages/minute per user).
 - **Health monitoring** — Startup notification, periodic checks (GitHub access, token expiry), alerts with dedup.
 - **Context compaction** — When the conversation approaches the model's context window limit, older tool turns are summarized into a structured checkpoint and the loop continues.
+- **Discord support** — Optional Discord bot with the same AI capabilities. Splits at 2000 char limit, converts headers to bold.
+- **Web dashboard** — Built-in web UI for monitoring status, schedules, conversations, memory, and logs. Auth via `DASHBOARD_TOKEN` or localhost-only.
+- **GitHub webhooks** — PR merge notifications posted to Discord channels via webhook server.
+- **Dynamic skills** — Reusable AI workflows defined as JSON, composing existing tools. Create at runtime via `manage_skills`.
+- **Market snapshots** — SSH to Mac Mini for market data from tasty-coach.
+- **Weekly memory consolidation** — Auto-curates a `SUMMARY.md` from all knowledge, memory, and recent conversations every Sunday.
+- **Weekly channel summaries** — Per-Discord-channel conversation summaries generated every Sunday.
+- **Heartbeat** — Writes `HEARTBEAT.md` to memory repo every 3 hours with bot status snapshot.
 - **Prompt injection defense** — Memory writes are validated for size, rate, and suspicious content.
 
 ## Tech Stack
@@ -60,6 +68,7 @@ The assistant has its own identity, personality, and evolving memory. Everything
 - **AI (OpenAI)**: OpenAI SDK with Codex OAuth (ChatGPT Plus/Pro subscription)
 - **AI (MiniMax)**: OpenAI SDK with custom baseURL (`api.minimax.io`)
 - **Telegram**: grammY
+- **Discord**: discord.js
 - **Memory**: GitHub API via Octokit
 - **Tools**: zod (schema validation), native fetch, child_process
 - **CLI**: Commander.js

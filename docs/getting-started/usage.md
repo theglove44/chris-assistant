@@ -5,7 +5,7 @@ description: How to interact with your assistant via Telegram
 
 # Usage
 
-Message your bot on Telegram. That's it. On first contact, the assistant will introduce itself and begin learning about you through natural conversation.
+Message your bot on Telegram or Discord. That's it. On first contact, the assistant will introduce itself and begin learning about you through natural conversation.
 
 ## What You Can Send
 
@@ -26,6 +26,7 @@ Message your bot on Telegram. That's it. On first contact, the assistant will in
 | `/project` | Show or set the active project/workspace directory |
 | `/reload` | Reload memory from GitHub (invalidates system prompt cache) |
 | `/restart` | Graceful bot restart (pm2 auto-restarts the process) |
+| `/purge` | Clear conversation, session, and redact today's archive |
 | `/help` | List all available commands |
 
 ## How Memory Works
@@ -37,7 +38,7 @@ Message your bot on Telegram. That's it. On first contact, the assistant will in
 
 ## Conversation Archive & Recall
 
-Every message (user and assistant) is archived as JSONL to `~/.chris-assistant/archive/YYYY-MM-DD.jsonl`. These archives are uploaded to the GitHub memory repo every 6 hours.
+Every message (user and assistant) is archived as JSONL to `~/.chris-assistant/archive/YYYY-MM-DD.jsonl`. These archives are uploaded to the GitHub memory repo every 30 minutes.
 
 At 23:55 each day, an AI-generated summary of the day's conversations is created and stored in the memory repo. The last 7 days of summaries are automatically loaded into the system prompt, giving the bot natural recall of recent conversations.
 

@@ -14,16 +14,22 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   ├── index.ts              # Bot entry point (starts Telegram long-polling)
 │   ├── config.ts             # Loads .env, exports typed config object
 │   ├── telegram.ts           # grammY bot — message handler (text/photo/document), streaming edits
-│   ├── markdown.ts           # Standard markdown → Telegram MarkdownV2 converter
+│   ├── discord.ts            # discord.js bot — message handler, typing indicator, reply chunking
+│   ├── markdown.ts           # Standard markdown → Telegram HTML converter (with stripMarkdown() fallback)
 │   ├── middleware.ts         # grammY middleware — auth guard + rate limiting
 │   ├── rate-limit.ts         # Sliding window rate limiter (10 msgs/min per user)
 │   ├── health.ts             # Periodic health checks + Telegram alerts
 │   ├── webhook.ts            # GitHub webhook server — PR merge → Discord notifications
 │   ├── scheduler.ts          # Cron-like scheduled tasks — tick loop, AI execution, Telegram delivery
 │   ├── conversation.ts       # Persistent short-term history (async I/O, write queue, last 20 messages)
-│   ├── conversation-archive.ts # Daily JSONL archiver
+│   ├── conversation-archive.ts # Daily JSONL archiver (uploads every 30 min)
 │   ├── conversation-backup.ts  # Periodic backup to GitHub memory repo (every 6 hours)
 │   ├── conversation-summary.ts # Daily AI summarizer — generates summaries at 23:55
+│   ├── conversation-channel-summary.ts # Weekly per-channel summarizer — Sunday 23:50
+│   ├── memory-consolidation.ts # Weekly memory consolidation — Sunday 23:00
+│   ├── dashboard.ts          # Built-in web dashboard — HTTP server, JSON API, inline SPA
+│   ├── heartbeat.ts          # Periodic HEARTBEAT.md writer — bot status snapshot (every 3h)
+│   ├── claude-sessions.ts    # Claude Agent SDK session persistence (per-chat session IDs)
 │   ├── providers/
 │   │   ├── types.ts          # Provider interface ({ name, chat() }) + ImageAttachment type
 │   │   ├── shared.ts         # System prompt caching + model info injection
@@ -48,7 +54,8 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── ssh.ts            # SSH tool — exec, tmux, SCP, Tailnet device discovery
 │   │   ├── recall.ts         # Conversation recall tool
 │   │   ├── journal.ts        # journal_entry tool — bot writes daily notes
-│   │   └── skills.ts         # manage_skills + run_skill tools
+│   │   ├── skills.ts         # manage_skills + run_skill tools
+│   │   └── market-snapshot.ts # market_snapshot tool — SSH to Mac Mini for market data
 │   ├── skills/
 │   │   ├── loader.ts         # GitHub-backed skill CRUD with index caching
 │   │   ├── validator.ts      # Skill definition + input validation, limits
@@ -79,13 +86,17 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 │   └── people.md             # People you mention
 ├── memory/
 │   ├── decisions.md          # Important decisions
-│   └── learnings.md          # Self-improvement notes
-├── archive/                  # Daily JSONL message logs (uploaded every 6 hours)
+│   ├── learnings.md          # Self-improvement notes
+│   └── SUMMARY.md            # Weekly-consolidated curated summary (read-only)
+├── HEARTBEAT.md              # Bot self-reported status snapshot (updated every 3h)
+├── archive/                  # Daily JSONL message logs (uploaded every 30 min)
 ├── journal/                  # Bot's daily journal notes (uploaded every 6 hours)
 ├── skills/                   # Reusable skill definitions (JSON)
 │   ├── _index.json           # Lightweight skill index for system prompt discovery
 │   └── *.json                # Individual skill definitions
-└── conversations/summaries/  # AI-generated daily conversation summaries
+└── conversations/
+    ├── summaries/            # AI-generated daily conversation summaries
+    └── channels/             # Weekly per-channel Discord summaries
 ```
 
 ## Data Flow
@@ -115,7 +126,7 @@ User sends Telegram message
   ├── AI generates response (may call tools in a loop)
   │   ├── Tool calls dispatched via registry
   │   ├── Loop detection (3 identical calls = break)
-  │   ├── Turn limit (configurable, default 25)
+  │   ├── Turn limit (configurable, default 200)
   │   └── Context compaction if approaching window limit
   │
   ├── Stream response to Telegram (1.5s edit interval)

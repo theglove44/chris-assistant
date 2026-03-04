@@ -22,9 +22,17 @@ chris-assistant-memory/
 │   ├── preferences.md        # Likes, dislikes, style
 │   ├── projects.md           # Current work
 │   └── people.md             # People you mention
-└── memory/
-    ├── decisions.md          # Important decisions
-    └── learnings.md          # Self-improvement notes
+├── memory/
+│   ├── decisions.md          # Important decisions
+│   ├── learnings.md          # Self-improvement notes
+│   └── SUMMARY.md            # Weekly-consolidated curated summary (read-only)
+├── HEARTBEAT.md              # Bot status snapshot (updated every 3h)
+├── archive/                  # Daily JSONL message logs
+├── journal/                  # Bot's daily journal notes
+├── skills/                   # Reusable skill definitions (JSON)
+└── conversations/
+    ├── summaries/            # AI-generated daily conversation summaries
+    └── channels/             # Weekly per-channel Discord summaries
 ```
 
 ## `update_memory` Tool
@@ -61,7 +69,9 @@ The tool targets specific memory file categories: `about-chris`, `preferences`, 
 3. Memory files (decisions, learnings)
 4. Recent conversation summaries (last 7 days)
 5. Recent journal entries (today + yesterday)
-6. Project context (CLAUDE.md / README.md from active workspace)
+6. Curated memory summary (SUMMARY.md)
+7. Skill discovery index (enabled skills with triggers)
+8. Project context (CLAUDE.md / README.md from active workspace)
 
 Results are cached for 5 minutes. Cache invalidates after any conversation (in case memory was updated).
 

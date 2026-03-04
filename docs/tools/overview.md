@@ -33,6 +33,7 @@ The assistant has access to a set of tools that all providers pick up automatica
 | `manage_skills` | Always | Create, list, get, update, delete, toggle, and manage reusable skills |
 | `run_skill` | Always | Execute a skill by ID with optional inputs |
 | `ssh` | Always | SSH into Tailnet devices — 9 actions ([full guide](/tools/ssh)) |
+| `market_snapshot` | Always | SSH to Mac Mini to run tasty-coach for market data |
 
 **"Always"** tools are available in every conversation. **"Coding"** tools are only sent when a project workspace is active (set via `/project` command or `WORKSPACE_ROOT` env var).
 

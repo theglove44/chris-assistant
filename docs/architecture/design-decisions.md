@@ -53,7 +53,7 @@ Last 20 messages per chat stored in `~/.chris-assistant/conversations.json`. Loa
 
 ## Conversation Archive
 
-`conversation-archive.ts` appends every message (user + assistant) as a JSONL line to `~/.chris-assistant/archive/YYYY-MM-DD.jsonl` via synchronous `appendFileSync` (microseconds, never throws). Called from `addMessage()` in `conversation.ts` before the rolling window trims old messages. A periodic uploader (every 6 hours) pushes changed archive files to the memory repo using SHA-256 dedup.
+`conversation-archive.ts` appends every message (user + assistant) as a JSONL line to `~/.chris-assistant/archive/YYYY-MM-DD.jsonl` via synchronous `appendFileSync` (microseconds, never throws). Called from `addMessage()` in `conversation.ts` before the rolling window trims old messages. A periodic uploader (every 30 minutes) pushes changed archive files to the memory repo using SHA-256 dedup.
 
 ## Daily Conversation Summaries
 
@@ -102,6 +102,30 @@ File tools scope to `WORKSPACE_ROOT` (default `~/Projects`). Mutable at runtime 
 **Why not register skills as real tools**: Adding/removing tools at runtime requires re-initializing the MCP server for Claude and regenerating OpenAI tool definitions mid-conversation. The registry is designed for static startup registration. `run_skill` as a stable entry point avoids this entirely.
 
 **Guardrails**: 50 skill cap, 5000 char instruction limit, 10KB state cap, tool names validated against registry, input keys constrained to `[a-zA-Z0-9_-]+`, per-entry resilience in system prompt parsing.
+
+## Discord Bot
+
+`src/discord.ts` — discord.js `Client` with `Guilds`, `GuildMessages`, `MessageContent`, `DirectMessages` intents + `Partials.Channel` for DMs. Restricted to `DISCORD_ALLOWED_USER_ID`. Calls `chat()` directly (no streaming — Discord doesn't support live message edits cleanly). Strips `<think>` tags, converts headers to bold via `toDiscordMarkdown()`, splits at 2000 char limit. Discord channelIds use `parseInt(channelId.slice(-9), 10)` as numeric chatId for conversation tracking. Silently skips startup if `DISCORD_BOT_TOKEN` unset.
+
+## Web Dashboard
+
+`src/dashboard.ts` — built-in HTTP server using Node's `http` module (zero new deps). Single HTML page with all CSS/JS inlined as template strings. 5 tabs: Status & Health, Schedules, Conversations, Memory, Logs (SSE tail via `fs.watch`). JSON API at `/api/*`. Auth via `DASHBOARD_TOKEN` env var (Bearer/query param for Tailnet access) or localhost-only. Port via `DASHBOARD_PORT` (default 3000). Gracefully handles port-in-use.
+
+## GitHub Webhook Server
+
+`src/webhook.ts` — HTTP server for GitHub webhook events. Verifies HMAC signatures via `GITHUB_WEBHOOK_SECRET`. On PR merge events, posts a notification to a configured Discord channel with PR title, author, and link. Port via `WEBHOOK_PORT` (default 3001). Silently skips startup if `GITHUB_WEBHOOK_SECRET` unset.
+
+## Weekly Memory Consolidation
+
+`src/memory-consolidation.ts` — built-in module, fires Sunday at 23:00. Reads all knowledge, memory, past 7 days of summaries and journal entries, plus existing `memory/SUMMARY.md`. Produces a curated, topic-organized markdown document (32K cap). SUMMARY.md is a read-only consolidated view — split knowledge files remain the source of truth for `update_memory`.
+
+## Weekly Channel Summaries
+
+`src/conversation-channel-summary.ts` — built-in module, fires Sunday at 23:50. Groups past 7 days of archives by `channelName`, generates per-channel Discord summaries. Written to `conversations/channels/<sanitized-name>/YYYY-WXX.md`. ISO week numbering with double-fire prevention.
+
+## Heartbeat
+
+`src/heartbeat.ts` — writes `HEARTBEAT.md` to memory repo root every 3 hours (+ startup). Collects uptime, model, health status, schedules, message stats. SHA-256 dedup skips unchanged writes. Reads `conversations.json` directly via `fs` to avoid circular deps.
 
 ## Memory Storage
 

@@ -41,12 +41,22 @@ Tell the bot something like:
 
 The AI will create a cron-scheduled task with appropriate timing and a prompt that gets full tool access when it fires.
 
+### Schedule Options
+
+Each schedule can optionally include:
+
+- **`allowedTools`** — When set, only those tools are available during execution (e.g. `["ssh", "web_search"]`). When omitted, all tools are available.
+- **`discordChannel`** — When set, results are posted to that Discord channel instead of Telegram.
+
 ## Built-in Scheduled Modules
 
 Some scheduled behavior is built into the bot and cannot be accidentally deleted:
 
 - **Daily conversation summary** — `conversation-summary.ts` fires at 23:55 daily, generating an AI summary of the day's conversations
+- **Weekly channel summaries** — `conversation-channel-summary.ts` fires Sunday at 23:50, generates per-Discord-channel summaries from the past 7 days
+- **Weekly memory consolidation** — `memory-consolidation.ts` fires Sunday at 23:00, curates `memory/SUMMARY.md` from all sources
+- **Heartbeat** — `heartbeat.ts` writes `HEARTBEAT.md` to the memory repo every 3 hours (+ startup)
 - **Conversation backup** — `conversation-backup.ts` backs up conversation history every 6 hours
-- **Archive upload** — `conversation-archive.ts` uploads daily JSONL archives every 6 hours
+- **Archive upload** — `conversation-archive.ts` uploads daily JSONL archives every 30 minutes
 - **Journal upload** — `memory/journal.ts` uploads daily journal entries every 6 hours
 - **Health checks** — `health.ts` runs every 5 minutes (GitHub access, token expiry)

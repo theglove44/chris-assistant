@@ -74,7 +74,7 @@ chris config set <k> <v> # Set a value in .env (run chris restart to apply)
 ## Provider Authentication
 
 ```bash
-chris openai login       # Authenticate via Codex OAuth device flow
+chris openai login       # Authenticate via browser OAuth + PKCE (opens browser, callback on port 1455)
 chris openai status      # Check OAuth token status (auto-refreshes)
 
 chris minimax login      # Authenticate via OAuth device flow

@@ -29,7 +29,7 @@ See "Telegram HTML Formatting" section below — the bot now uses HTML mode, not
 
 ## Telegram Message Limit
 
-4096 characters max. `telegram.ts` has a `splitMessage()` function that breaks at paragraph then sentence boundaries. Splitting happens on original text before MarkdownV2 conversion (escaping inflates length).
+4096 characters max. `telegram.ts` has a `splitMessage()` function that breaks at paragraph then sentence boundaries.
 
 ## Telegram Streaming Rate Limit
 
