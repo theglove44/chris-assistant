@@ -13,6 +13,10 @@ import "./recall.js";
 import "./journal.js";
 import "./market-snapshot.js";
 import "./skills.js";
+// macOS-only tools — Calendar (EventKit) and Mail (AppleScript)
+if (process.platform === "darwin") {
+  await import("./macos.js");
+}
 
 // Re-export registry functions so providers only need to import from one place.
 export {
