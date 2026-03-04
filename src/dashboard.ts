@@ -43,6 +43,23 @@ const MEMORY_FILES = [
 ];
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function sanitizeDocsUrl(raw: string | null): string | null {
+  if (!raw) return null;
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    return u.href.replace(/"/g, "&quot;");
+  } catch {
+    return null;
+  }
+}
+
+const SAFE_DOCS_URL = sanitizeDocsUrl(config.dashboard.docsUrl);
+
+// ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
 
@@ -604,7 +621,7 @@ tr.clickable:hover { background: var(--bg3); }
   <header>
     <h1>Chris Assistant</h1>
     <span class="badge" id="provider-badge">loading...</span>
-` + (config.dashboard.docsUrl ? `    <a class="docs-link" href="${config.dashboard.docsUrl}" target="_blank" rel="noopener noreferrer">\u{1F4DA} Knowledge Base</a>
+` + (SAFE_DOCS_URL ? `    <a class="docs-link" href="${SAFE_DOCS_URL}" target="_blank" rel="noopener noreferrer">\u{1F4DA} Knowledge Base</a>
 ` : '') + `  </header>
 
   <div class="tabs">
