@@ -7,7 +7,7 @@ import EventKit
 //   list-calendars
 //   get-events <calendar> <start-iso> <end-iso>
 //   add-event <calendar> <title> <start-iso> <end-iso> [--location X] [--notes X] [--allday]
-//   delete-event <calendar> [<title>] [--uid X] [--all-matches]
+//   delete-event <calendar> [<title>] [--uid X] [--date YYYY-MM-DD]
 // Output: JSON to stdout
 // ---------------------------------------------------------------------------
 
@@ -186,64 +186,56 @@ func addEvent(calName: String, title: String, startStr: String, endStr: String,
     }
 }
 
-func deleteEvent(calName: String, title: String?, uid: String?, allowAllMatches: Bool) {
+func deleteEvent(calName: String, title: String?, uid: String?, dateStr: String?) {
     guard let cal = findCalendar(calName) else {
         fail("Calendar not found: \(calName)")
         return
     }
 
-    // Search a wide range for events with this title
-    let start = Calendar.current.date(byAdding: .year, value: -1, to: Date())!
-    let end = Calendar.current.date(byAdding: .year, value: 2, to: Date())!
-    let pred = store.predicateForEvents(withStart: start, end: end, calendars: [cal])
-    let events = store.events(matching: pred)
-    let matches: [EKEvent]
+    // UID delete — precise, preferred
     if let uid = uid {
-        matches = events.filter { ($0.eventIdentifier ?? "") == uid }
-    } else if let title = title {
-        matches = events.filter { $0.title == title }
-    } else {
-        fail("delete-event requires either a title argument or --uid <event-id>")
-        return
-    }
-
-    if matches.isEmpty {
-        if let uid = uid {
-            fail("No matching event found for uid: \(uid)")
-        } else {
-            fail("No matching event found for title: \(title ?? "")")
-        }
-        return
-    }
-
-    if uid == nil && matches.count > 1 && !allowAllMatches {
-        let preview = matches.prefix(5).map { e in
-            "\(isoOut.string(from: e.startDate)) | uid=\(e.eventIdentifier ?? "unknown")"
-        }.joined(separator: "\n")
-        let remainder = matches.count > 5 ? "\n... and \(matches.count - 5) more" : ""
-        fail(
-            "Ambiguous title: \(title ?? "") matched \(matches.count) events. " +
-            "Pass --uid <event-id> to delete one, or --all-matches to delete all.\n\(preview)\(remainder)",
-        )
-        return
-    }
-
-    let targets = (uid == nil && allowAllMatches) ? matches : [matches[0]]
-    var deleted = 0
-    for event in targets {
-        do {
-            try store.remove(event, span: .thisEvent)
-            deleted += 1
-        } catch {
-            fail("Failed to delete event: \(error.localizedDescription)")
+        let start = Calendar.current.date(byAdding: .year, value: -1, to: Date())!
+        let end = Calendar.current.date(byAdding: .year, value: 2, to: Date())!
+        let pred = store.predicateForEvents(withStart: start, end: end, calendars: [cal])
+        let matches = store.events(matching: pred).filter { $0.eventIdentifier == uid }
+        if matches.isEmpty {
+            fail("No event found for uid: \(uid)")
             return
         }
+        do {
+            try store.remove(matches[0], span: .thisEvent)
+            output("Deleted event (uid: \(uid))")
+        } catch {
+            fail("Failed to delete event: \(error.localizedDescription)")
+        }
+        return
     }
 
-    if let uid = uid {
-        output("Deleted \(deleted) event(s) for uid: \(uid)")
-    } else {
-        output("Deleted \(deleted) event(s) matching title: \(title ?? "")")
+    // Title delete — requires date to scope safely
+    guard let title = title else {
+        fail("delete-event requires --uid or a title + date")
+        return
+    }
+    guard let dateArg = dateStr, let dayStart = dateFromArg(dateArg) else {
+        fail("delete-event by title requires a date to scope the search")
+        return
+    }
+
+    let dayEnd = Calendar.current.date(byAdding: .day, value: 1, to: dayStart)!
+    let pred = store.predicateForEvents(withStart: dayStart, end: dayEnd, calendars: [cal])
+    let matches = store.events(matching: pred).filter { $0.title == title }
+
+    if matches.isEmpty {
+        fail("No event named \"\(title)\" found on \(dateArg)")
+        return
+    }
+
+    // Safety: only delete the first match on that day
+    do {
+        try store.remove(matches[0], span: .thisEvent)
+        output("Deleted event: \(title) on \(dateArg)")
+    } catch {
+        fail("Failed to delete event: \(error.localizedDescription)")
     }
 }
 
@@ -302,12 +294,12 @@ case "add-event":
 
 case "delete-event":
     guard args.count >= 3 else {
-        fail("Usage: chris-calendar delete-event <calendar> [<title>] [--uid X] [--all-matches]")
+        fail("Usage: chris-calendar delete-event <calendar> [<title>] [--uid X] [--date YYYY-MM-DD]")
         exit(1)
     }
     var title: String?
     var uid: String?
-    var allowAllMatches = false
+    var dateStr: String?
     var i = 3
 
     if args.count >= 4 && !args[3].hasPrefix("--") {
@@ -318,19 +310,14 @@ case "delete-event":
     while i < args.count {
         switch args[i] {
         case "--uid":
-            i += 1
-            if i < args.count { uid = args[i] }
-        case "--title":
-            i += 1
-            if i < args.count { title = args[i] }
-        case "--all-matches":
-            allowAllMatches = true
-        default:
-            break
+            i += 1; if i < args.count { uid = args[i] }
+        case "--date":
+            i += 1; if i < args.count { dateStr = args[i] }
+        default: break
         }
         i += 1
     }
-    deleteEvent(calName: args[2], title: title, uid: uid, allowAllMatches: allowAllMatches)
+    deleteEvent(calName: args[2], title: title, uid: uid, dateStr: dateStr)
 
 default:
     fail("Unknown command: \(command). Use list-calendars, get-events, add-event, or delete-event.")

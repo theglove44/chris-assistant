@@ -239,7 +239,7 @@ registerTool({
     "Interact with macOS Calendar via fast native EventKit. " +
     "Actions: list_calendars, get_events, add_event, delete_event. " +
     "Default calendar is 'Family'. Dates use YYYY-MM-DD or YYYY-MM-DD HH:MM format. " +
-    "Delete safely by event UID when possible.",
+    "Delete by UID (preferred) or by title + date (scoped to single day, first match only).",
   zodSchema: {
     action: z.enum(["list_calendars", "get_events", "add_event", "delete_event"]),
     calendar: z.string().optional(),
@@ -250,7 +250,6 @@ registerTool({
     location: z.string().optional(),
     notes: z.string().optional(),
     all_day: z.boolean().optional(),
-    delete_all_matches: z.boolean().optional(),
   },
   jsonSchemaParameters: {
     type: "object",
@@ -263,8 +262,7 @@ registerTool({
           "list_calendars: show all calendar names. " +
           "get_events: view events (requires start_date; end_date defaults to next day). " +
           "add_event: create event (requires title, start_date; end_date defaults to +1hr). " +
-          "delete_event: remove event by uid (preferred) or title. " +
-          "When deleting by title, multiple matches are blocked unless delete_all_matches=true.",
+          "delete_event: remove event by uid (preferred) or by title + start_date (scoped to single day, first match only).",
       },
       calendar: {
         type: "string",
@@ -289,10 +287,6 @@ registerTool({
       location: { type: "string", description: "Event location (for add_event)" },
       notes: { type: "string", description: "Event notes (for add_event)" },
       all_day: { type: "boolean", description: "All-day event (for add_event)" },
-      delete_all_matches: {
-        type: "boolean",
-        description: "For delete_event only: when true and deleting by title, delete every matching event.",
-      },
     },
   },
   execute: async (args: any): Promise<string> => {
@@ -305,7 +299,6 @@ registerTool({
       location,
       notes,
       all_day,
-      delete_all_matches,
     } = args;
     const cal = args.calendar || DEFAULT_CALENDAR;
 
@@ -349,12 +342,15 @@ registerTool({
 
         case "delete_event": {
           if (!title && !uid) {
-            return "Error: delete_event requires either 'uid' (preferred) or 'title'";
+            return "Error: delete_event requires either 'uid' (preferred) or 'title' + 'start_date'";
           }
           const cmdArgs = ["delete-event", cal];
-          if (title) cmdArgs.push(title);
-          if (uid) cmdArgs.push("--uid", uid);
-          if (delete_all_matches) cmdArgs.push("--all-matches");
+          if (uid) {
+            cmdArgs.push("--uid", uid);
+          } else {
+            if (!start_date) return "Error: start_date is required when deleting by title (scopes to a single day)";
+            cmdArgs.push(title!, "--date", start_date);
+          }
           return await runCalendar(cmdArgs);
         }
 
