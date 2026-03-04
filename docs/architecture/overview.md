@@ -55,7 +55,8 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── recall.ts         # Conversation recall tool
 │   │   ├── journal.ts        # journal_entry tool — bot writes daily notes
 │   │   ├── skills.ts         # manage_skills + run_skill tools
-│   │   └── market-snapshot.ts # market_snapshot tool — SSH to Mac Mini for market data
+│   │   ├── market-snapshot.ts # market_snapshot tool — SSH to Mac Mini for market data
+│   │   └── macos.ts          # macOS-only: Calendar (EventKit) + Mail (AppleScript)
 │   ├── skills/
 │   │   ├── loader.ts         # GitHub-backed skill CRUD with index caching
 │   │   ├── validator.ts      # Skill definition + input validation, limits
@@ -65,6 +66,8 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── journal.ts        # Daily memory journal — local storage + periodic GitHub upload
 │   │   ├── loader.ts         # Assembles system prompt from memory
 │   │   └── tools.ts          # Memory tool executor + prompt injection validation
+│   ├── swift/
+│   │   └── chris-calendar.swift  # Swift EventKit CLI for fast calendar access
 │   └── cli/
 │       ├── index.ts           # Commander.js program entry point
 │       ├── pm2-helper.ts      # pm2 connection helper and constants

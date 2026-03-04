@@ -82,6 +82,24 @@ Runs typecheck, checks error logs for common patterns (TransformError, missing m
 
 Authorization code + PKCE flow — opens browser to `auth.openai.com/oauth/authorize`, local callback server on port 1455 catches the redirect, exchanges code for tokens. Account ID extracted from JWT. Tokens auto-refresh via refresh_token grant.
 
+## macOS Calendar TCC Permissions
+
+The Swift calendar helper (`ChrisCalendar.app`) requires a macOS TCC grant for Calendar access. Each recompile + codesign changes the code signature hash, which invalidates the grant. After rebuilding:
+
+```bash
+tccutil reset Calendar com.chris-assistant.calendar-helper
+open ~/.chris-assistant/ChrisCalendar.app --args list-calendars
+# Approve the permission dialog
+```
+
+This only applies when `src/swift/chris-calendar.swift` is modified and rebuilt. Normal usage never triggers it.
+
+The app uses `LSUIElement` (not `LSBackgroundOnly`) in its Info.plist — `LSBackgroundOnly` suppresses TCC dialogs entirely.
+
+## AppleScript and osascript
+
+Multi-line AppleScript must be written to temp files and passed as a file path to `/usr/bin/osascript`. The `-e` flag doesn't handle multi-line scripts reliably. The `macos.ts` Mail functions use this temp file pattern.
+
 ## Codex Responses API Constraints
 
 - Requires `stream: true` and `store: false` in every request — no non-streaming mode
