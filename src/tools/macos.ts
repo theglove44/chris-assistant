@@ -302,11 +302,14 @@ registerTool({
 
         case "get_events": {
           if (!start_date) return "Error: start_date is required for get_events";
-          const end = end_date || (() => {
+          // Default end to start+1day. If end_date equals start_date (date-only),
+          // also bump to next day — a zero-width range misses same-day events.
+          let end = end_date;
+          if (!end || end === start_date) {
             const d = new Date(start_date);
             d.setDate(d.getDate() + 1);
-            return d.toISOString().split("T")[0];
-          })();
+            end = d.toISOString().split("T")[0];
+          }
           const raw = await runCalendar(["get-events", cal, start_date, end]);
           // Try to format nicely, fall back to raw
           if (raw.startsWith("Error:")) return raw;
