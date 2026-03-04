@@ -425,6 +425,8 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 header { display: flex; align-items: center; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
 header h1 { font-size: 20px; font-weight: 600; }
 header .badge { font-size: 12px; background: var(--bg3); color: var(--text2); padding: 2px 8px; border-radius: 10px; }
+header .docs-link { margin-left: auto; font-size: 13px; color: var(--text2); text-decoration: none; display: flex; align-items: center; gap: 4px; transition: color 0.15s; }
+header .docs-link:hover { color: var(--accent); }
 
 /* Tabs */
 .tabs { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
@@ -602,7 +604,8 @@ tr.clickable:hover { background: var(--bg3); }
   <header>
     <h1>Chris Assistant</h1>
     <span class="badge" id="provider-badge">loading...</span>
-  </header>
+` + (config.dashboard.docsUrl ? `    <a class="docs-link" href="${config.dashboard.docsUrl}" target="_blank" rel="noopener noreferrer">\u{1F4DA} Knowledge Base</a>
+` : '') + `  </header>
 
   <div class="tabs">
     <button class="tab active" data-tab="status">Status</button>
