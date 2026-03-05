@@ -12,6 +12,7 @@ import * as path from "path";
 import { config } from "./config.js";
 import { chat } from "./providers/index.js";
 import { sendToDiscordChannel } from "./discord.js";
+import { toMarkdownV2 } from "./markdown.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -105,6 +106,13 @@ function fieldMatches(field: string, value: number, isDow: boolean): boolean {
   // Wildcard
   if (field === "*") return true;
 
+  // Handle range: N-M
+  if (field.includes("-")) {
+    const [lo, hi] = field.split("-").map((p) => parseInt(p.trim(), 10));
+    if (isNaN(lo) || isNaN(hi)) return false;
+    return value >= lo && value <= hi;
+  }
+
   // Specific number
   const num = parseInt(field, 10);
   if (isNaN(num)) return false;
@@ -168,7 +176,7 @@ async function executeTask(task: Schedule): Promise<void> {
     } else if (task.discordChannel) {
       await sendToDiscordChannel(task.discordChannel, trimmed);
     } else {
-      await sendTelegramMessage(trimmed, task.name);
+      await sendTelegramMessage(toMarkdownV2(trimmed), task.name);
     }
 
     // Update lastRun
