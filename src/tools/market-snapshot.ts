@@ -69,7 +69,7 @@ function parseSnapshot(raw: string): ParsedSnapshot {
 
     // Parse data lines: Symbol        Last      Chg   Chg%
     // Example: VIX          19.60    +1.67 +9.31% 🟢
-    const match = trimmed.match(/^(\S+)\s+([\d,.-]+)\s+([\d,.-]+)\s+([+-]?[\d.]+%)/);
+    const match = trimmed.match(/^(\S+)\s+([\d,.+-]+)\s+([\d,.+-]+)\s+([+-]?[\d.]+%)/);
     if (match) {
       const [, symbol, last, chg, chgPercentRaw] = match;
       const chgPercent = chgPercentRaw.replace(/[+%]/g, "");
