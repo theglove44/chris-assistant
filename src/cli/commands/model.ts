@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
+import { providerForModel } from "../../providers/model-routing.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ENV_PATH = resolve(__dirname, "../../..", ".env");
@@ -27,17 +28,6 @@ const KNOWN_MODELS: Record<string, { id: string; provider: string }> = {
   "minimax": { id: "MiniMax-M2.5", provider: "minimax" },
   "minimax-fast": { id: "MiniMax-M2.5-highspeed", provider: "minimax" },
 };
-
-function providerForModel(model: string): string {
-  if (isOpenAiModel(model)) return "openai";
-  if (model.startsWith("MiniMax")) return "minimax";
-  return "claude";
-}
-
-function isOpenAiModel(model: string): boolean {
-  const m = model.toLowerCase();
-  return m.startsWith("gpt-") || m.startsWith("o3") || m.startsWith("o4-");
-}
 
 function getCurrentModel(): string {
   if (!existsSync(ENV_PATH)) return DEFAULT_MODEL;

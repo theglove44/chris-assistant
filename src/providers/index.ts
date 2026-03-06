@@ -1,16 +1,13 @@
 import { config } from "../config.js";
-import { createClaudeProvider } from "./claude.js";
+import { clearSession, getSessionId } from "../claude-sessions.js";
+import { createClaudeProvider, abortClaudeQuery } from "./claude.js";
 import { createMiniMaxProvider } from "./minimax.js";
+import { isOpenAiModel, isMiniMaxModel, isClaudeModel } from "./model-routing.js";
 import { createOpenAiProvider } from "./openai.js";
 import type { Provider, ImageAttachment } from "./types.js";
 
 export type { ImageAttachment } from "./types.js";
 export { invalidatePromptCache } from "./shared.js";
-
-function isOpenAiModel(model: string): boolean {
-  const m = model.toLowerCase();
-  return m.startsWith("gpt-") || m.startsWith("o3") || m.startsWith("o4-");
-}
 
 function resolveProvider(): Provider {
   const model = config.model;
@@ -20,7 +17,7 @@ function resolveProvider(): Provider {
     return createOpenAiProvider(model);
   }
 
-  if (model.startsWith("MiniMax")) {
+  if (isMiniMaxModel(model)) {
     return createMiniMaxProvider(model);
   }
 
@@ -53,4 +50,35 @@ export async function chat(
     return createOpenAiProvider(imageModel).chat(chatId, userMessage, onChunk, images, allowedTools);
   }
   return getProvider().chat(chatId, userMessage, onChunk, images, allowedTools);
+}
+
+/**
+ * Clear the active provider's session state for a chat.
+ * Currently only Claude has persistent sessions.
+ */
+export function clearActiveProviderSession(chatId: number): void {
+  if (isClaudeModel(config.model)) {
+    clearSession(chatId);
+  }
+}
+
+/**
+ * Abort the active provider's in-progress query for a chat.
+ * Returns true if something was actually aborted.
+ */
+export function abortActiveProviderQuery(chatId: number): boolean {
+  if (isClaudeModel(config.model)) {
+    return abortClaudeQuery(chatId);
+  }
+  return false;
+}
+
+/**
+ * Get session info string for the active provider, or null if not applicable.
+ */
+export function getActiveProviderSessionInfo(chatId: number): string | null {
+  if (!isClaudeModel(config.model)) return null;
+  const sessionId = getSessionId(chatId);
+  if (!sessionId) return null;
+  return `Claude session: ${sessionId.slice(0, 12)}...`;
 }

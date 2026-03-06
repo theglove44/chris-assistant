@@ -2,7 +2,12 @@ import * as fs from "fs";
 import * as path from "path";
 import { Bot, Context } from "grammy";
 import { config } from "./config.js";
-import { chat } from "./providers/index.js";
+import {
+  chat,
+  clearActiveProviderSession,
+  abortActiveProviderQuery,
+  getActiveProviderSessionInfo,
+} from "./providers/index.js";
 import type { ImageAttachment } from "./providers/index.js";
 import { addMessage, clearHistory } from "./conversation.js";
 import { toMarkdownV2, stripMarkdown } from "./markdown.js";
@@ -10,8 +15,7 @@ import { authMiddleware, rateLimitMiddleware } from "./middleware.js";
 import { readMemoryFile } from "./memory/github.js";
 import { getWorkspaceRoot, setWorkspaceRoot, isProjectActive } from "./tools/files.js";
 import { invalidatePromptCache } from "./providers/shared.js";
-import { clearSession, getSessionId } from "./claude-sessions.js";
-import { abortClaudeQuery } from "./providers/claude.js";
+import { providerDisplayName } from "./providers/model-routing.js";
 import { datestamp, redactArchiveEntries, uploadArchives } from "./conversation-archive.js";
 
 const bot = new Bot(config.telegram.botToken);
@@ -151,10 +155,10 @@ bot.command("start", async (ctx) => {
   await ctx.reply("Hey Chris. I'm here whenever you need me.");
 });
 
-// /clear — reset conversation history and Claude session
+// /clear — reset conversation history and active provider session
 bot.command("clear", async (ctx) => {
   await clearHistory(ctx.chat.id);
-  clearSession(ctx.chat.id);
+  clearActiveProviderSession(ctx.chat.id);
   await ctx.reply("Conversation cleared. Memory is still intact.");
 });
 
@@ -162,9 +166,9 @@ bot.command("clear", async (ctx) => {
 bot.command("purge", async (ctx) => {
   const chatId = ctx.chat.id;
 
-  // Clear rolling window + Claude session
+  // Clear rolling window + active provider session
   await clearHistory(chatId);
-  clearSession(chatId);
+  clearActiveProviderSession(chatId);
 
   // Redact today's archive
   const today = datestamp();
@@ -187,12 +191,7 @@ bot.command("purge", async (ctx) => {
 // /model — show current model and provider
 bot.command("model", async (ctx) => {
   const model = config.model;
-  const m = model.toLowerCase();
-  const provider = m.startsWith("gpt-") || m.startsWith("o3") || m.startsWith("o4-")
-    ? "OpenAI"
-    : model.startsWith("MiniMax")
-      ? "MiniMax"
-      : "Claude";
+  const provider = providerDisplayName(model);
   await ctx.reply(`Model: ${model}\nProvider: ${provider}\nWorkspace: ${getWorkspaceRoot()}\n\nUse the CLI to switch: chris model set <name>`);
 });
 
@@ -225,30 +224,22 @@ bot.command("reload", async (ctx) => {
   await ctx.reply("System prompt cache cleared. Next message will reload memory from GitHub.");
 });
 
-// /stop — abort the current Claude query for this chat
+// /stop — abort the current query for this chat
 bot.command("stop", async (ctx) => {
-  const aborted = abortClaudeQuery(ctx.chat.id);
+  const aborted = abortActiveProviderQuery(ctx.chat.id);
   await ctx.reply(aborted ? "Stopping current query..." : "Nothing running to stop.");
 });
 
-// /session — show Claude session info
+// /session — show active provider session info
 bot.command("session", async (ctx) => {
-  const sessionId = getSessionId(ctx.chat.id);
-  const model = config.model;
-  const m = model.toLowerCase();
-  const isClaude = !m.startsWith("gpt-") && !m.startsWith("o3") && !m.startsWith("o4-") && !model.startsWith("MiniMax");
+  const info = getActiveProviderSessionInfo(ctx.chat.id);
 
-  if (!isClaude) {
-    await ctx.reply("Claude session tracking is only active when using a Claude model.");
+  if (info === null) {
+    await ctx.reply("No active session for the current provider.");
     return;
   }
 
-  if (!sessionId) {
-    await ctx.reply("No active Claude session. Send a message to start one.");
-    return;
-  }
-
-  await ctx.reply(`Claude session: ${sessionId.slice(0, 12)}...\nUse /clear to reset.`);
+  await ctx.reply(`${info}\nUse /clear to reset.`);
 });
 
 // /restart — graceful bot restart via pm2
@@ -263,10 +254,10 @@ bot.command("help", async (ctx) => {
   await ctx.reply(
     "Available commands:\n\n" +
     "/start — Greeting\n" +
-    "/clear — Reset conversation + Claude session\n" +
+    "/clear — Reset conversation + provider session\n" +
     "/purge — Full clear — conversation + today's archive\n" +
-    "/stop — Abort current Claude query\n" +
-    "/session — Show Claude session info\n" +
+    "/stop — Abort current query\n" +
+    "/session — Show provider session info\n" +
     "/model — Show current AI model\n" +
     "/memory — Show memory file status\n" +
     "/project — Show active workspace\n" +
