@@ -165,9 +165,8 @@ async function executeTask(task: Schedule): Promise<void> {
   console.log("[scheduler] Executing task: %s (%s) — %s", task.name, task.id, toolInfo);
 
   try {
-    // Use the user's actual chat ID so the AI has conversation context
-    const chatId = config.telegram.allowedUserId;
-    const response = await chat(chatId, task.prompt, undefined, undefined, task.allowedTools);
+    // Use chatId 0 for scheduled tasks — prevents session resume, gives each task a fresh context
+    const response = await chat(0, task.prompt, undefined, undefined, task.allowedTools);
 
     // Skip sending if response is empty, whitespace, or starts with NOUPDATE:
     const trimmed = response.trim();
