@@ -66,6 +66,8 @@ The assistant has its own identity, personality, and evolving memory. Everything
 - **Health monitoring** — Startup notification, periodic checks (GitHub access, token expiry), alerts with dedup.
 - **Context compaction** — When the conversation approaches the model's context window limit, older tool turns are summarized into a structured checkpoint and the loop continues. No hard turn ceiling — the bot can handle arbitrarily long SSH investigations and multi-file coding tasks.
 - **Dynamic skills** — Reusable workflows (e.g. check Hacker News, generate reports) that the AI can discover, execute, and create at runtime. Skills are JSON definitions in the memory repo that compose existing tools. Managed via `manage_skills`, executed via `run_skill`. Capped at 50 skills, 5000 char instructions, tool names validated against registry.
+- **macOS Calendar** — Native EventKit integration via compiled Swift binary. List, create, update, delete, and search calendar events in ~300ms. Move events between days, change times, search by text — all from chat. (macOS only)
+- **macOS Mail** — Read inbox, check unread count, and search by subject/sender via AppleScript. (macOS only)
 - **Prompt injection defense** — Memory writes are validated for size, rate, and suspicious content.
 
 ## Architecture
@@ -116,6 +118,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── recall.ts         # Conversation recall — list, read, search, summarize
 │   │   ├── journal.ts        # journal_entry tool — bot writes daily notes
 │   │   ├── skills.ts         # manage_skills + run_skill tools
+│   │   ├── macos.ts           # macOS Calendar (EventKit) and Mail (AppleScript) tools
 │   │   └── market-snapshot.ts # market_snapshot tool — market data via SSH
 │   ├── skills/
 │   │   ├── loader.ts         # GitHub-backed skill CRUD with index caching
@@ -126,6 +129,8 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   │   ├── journal.ts        # Daily memory journal — local storage + GitHub upload
 │   │   ├── loader.ts         # Assembles system prompt from memory
 │   │   └── tools.ts          # Memory tool executor + prompt injection validation
+│   ├── swift/
+│   │   └── chris-calendar.swift # Swift EventKit CLI — compiled to ChrisCalendar.app
 │   └── cli/
 │       ├── index.ts           # Commander.js program entry point
 │       ├── pm2-helper.ts      # pm2 connection helper and constants
@@ -366,6 +371,8 @@ The assistant has access to these tools (all providers pick them up automaticall
 | `journal_entry` | Always | Bot writes structured daily notes (timestamped markdown) |
 | `manage_skills` | Always | Create, list, get, update, delete, toggle, and manage reusable skills |
 | `run_skill` | Always | Execute a skill by ID with optional inputs |
+| `macos_calendar` | Always | macOS Calendar — list, get, add, update, delete, search events via native EventKit (macOS only) |
+| `macos_mail` | Always | macOS Mail — unread count, inbox, search via AppleScript (macOS only) |
 | `market_snapshot` | Always | Fetch market data via SSH to Mac Mini |
 
 "Always" tools are available in every conversation. "Coding" tools are only sent when a project workspace is active (set via `/project` command or `WORKSPACE_ROOT` env var).
@@ -396,6 +403,37 @@ The `ssh` tool lets the AI manage remote devices on your Tailscale network. Comm
 - Sessions attachable from any device: `ssh macmini && tmux attach -t chris-bot-*`
 
 See the [full SSH Tool Guide](docs/ssh-tool.md) for detailed documentation, the exec flow, timeouts, and troubleshooting.
+
+### macOS Calendar & Mail
+
+The bot integrates directly with macOS Calendar and Mail apps. Calendar uses a compiled Swift EventKit binary for sub-second operations. Mail uses AppleScript. Both are macOS-only — they silently skip registration on other platforms.
+
+**Calendar actions** (`macos_calendar`):
+
+| Action | What it does |
+|--------|-------------|
+| `list_calendars` | List all calendar names |
+| `get_events` | View events by date range |
+| `add_event` | Create an event with title, time, location, notes |
+| `update_event` | Modify an existing event — change title, time, location, notes (by UID) |
+| `delete_event` | Remove an event by UID or by title + date |
+| `search_events` | Find events by text across title, location, and notes |
+
+**Example use cases:**
+- "What's on my calendar this week?"
+- "Move my dentist appointment to Friday at 3pm"
+- "Search for all Tesco deliveries"
+- "Add a meeting with Phil tomorrow at 2pm at the office"
+
+**Mail actions** (`macos_mail`):
+
+| Action | What it does |
+|--------|-------------|
+| `summary` | Unread and total message counts |
+| `inbox` | Read recent messages (up to 20) |
+| `search` | Search by subject or sender |
+
+**Setup:** `npm run setup:calendar-helper` compiles the Swift binary and creates the app bundle. First run triggers a macOS permission dialog. See the [full macOS tools guide](docs/tools/macos.md) for TCC permissions, rebuild flow, and architecture details.
 
 ## CLI Reference
 

@@ -7,7 +7,9 @@ import EventKit
 //   list-calendars
 //   get-events <calendar> <start-iso> <end-iso>
 //   add-event <calendar> <title> <start-iso> <end-iso> [--location X] [--notes X] [--allday]
+//   update-event <calendar> --uid X [--title X] [--start X] [--end X] [--location X] [--notes X] [--allday] [--clear-location] [--clear-notes]
 //   delete-event <calendar> [<title>] [--uid X] [--date YYYY-MM-DD]
+//   search-events <query> [--calendar X] [--from X] [--to X] [--max N]
 // Output: JSON to stdout
 // ---------------------------------------------------------------------------
 
@@ -95,20 +97,23 @@ func findCalendar(_ name: String) -> EKCalendar? {
 }
 
 func requestAccess() -> Bool {
-    let semaphore = DispatchSemaphore(value: 0)
     var granted = false
+    var done = false
     if #available(macOS 14.0, *) {
         store.requestFullAccessToEvents { g, _ in
             granted = g
-            semaphore.signal()
+            done = true
         }
     } else {
         store.requestAccess(to: .event) { g, _ in
             granted = g
-            semaphore.signal()
+            done = true
         }
     }
-    semaphore.wait()
+    // Spin the run loop so macOS can present the TCC dialog
+    while !done {
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1))
+    }
     return granted
 }
 
@@ -239,6 +244,122 @@ func deleteEvent(calName: String, title: String?, uid: String?, dateStr: String?
     }
 }
 
+func updateEvent(calName: String, uid: String, title: String?, startStr: String?,
+                  endStr: String?, location: String?, notes: String?, allDay: Bool?,
+                  clearLocation: Bool, clearNotes: Bool) {
+    guard let cal = findCalendar(calName) else {
+        fail("Calendar not found: \(calName)")
+        return
+    }
+
+    // Search 3-year window for the event by UID
+    let searchStart = Calendar.current.date(byAdding: .year, value: -1, to: Date())!
+    let searchEnd = Calendar.current.date(byAdding: .year, value: 2, to: Date())!
+    let pred = store.predicateForEvents(withStart: searchStart, end: searchEnd, calendars: [cal])
+    let matches = store.events(matching: pred).filter { $0.eventIdentifier == uid }
+
+    guard let event = matches.first else {
+        fail("No event found for uid: \(uid)")
+        return
+    }
+
+    // Selectively update only provided fields
+    if let t = title { event.title = t }
+    if let s = startStr {
+        guard let d = dateFromArg(s) else { fail("Invalid start date: \(s)"); return }
+        event.startDate = d
+    }
+    if let e = endStr {
+        guard let d = dateFromArg(e) else { fail("Invalid end date: \(e)"); return }
+        event.endDate = d
+    }
+    if clearLocation {
+        event.location = nil
+    } else if let loc = location {
+        event.location = loc
+    }
+    if clearNotes {
+        event.notes = nil
+    } else if let n = notes {
+        event.notes = n
+    }
+    if let ad = allDay { event.isAllDay = ad }
+
+    do {
+        try store.save(event, span: .thisEvent)
+        let updated = EventOutput(
+            title: event.title ?? "Untitled",
+            start: isoOut.string(from: event.startDate),
+            end: isoOut.string(from: event.endDate),
+            allDay: event.isAllDay,
+            location: event.location,
+            notes: event.notes,
+            calendar: event.calendar.title,
+            uid: event.eventIdentifier
+        )
+        output([updated])
+    } catch {
+        fail("Failed to update event: \(error.localizedDescription)")
+    }
+}
+
+func searchEvents(query: String, calName: String?, fromStr: String?, toStr: String?, maxResults: Int) {
+    let calendars: [EKCalendar]?
+    if let name = calName {
+        guard let cal = findCalendar(name) else {
+            fail("Calendar not found: \(name)")
+            return
+        }
+        calendars = [cal]
+    } else {
+        calendars = nil  // Search all calendars
+    }
+
+    let start: Date
+    if let f = fromStr {
+        guard let d = dateFromArg(f) else { fail("Invalid from date: \(f)"); return }
+        start = d
+    } else {
+        // Default: 30 days ago
+        start = Calendar.current.date(byAdding: .day, value: -30, to: Date())!
+    }
+
+    let end: Date
+    if let t = toStr {
+        guard let d = dateFromArg(t) else { fail("Invalid to date: \(t)"); return }
+        end = d
+    } else {
+        // Default: 90 days from now
+        end = Calendar.current.date(byAdding: .day, value: 90, to: Date())!
+    }
+
+    let pred = store.predicateForEvents(withStart: start, end: end, calendars: calendars)
+    let allEvents = store.events(matching: pred)
+
+    let lowerQuery = query.lowercased()
+    let matched = allEvents.filter { e in
+        let title = (e.title ?? "").lowercased()
+        let location = (e.location ?? "").lowercased()
+        let notes = (e.notes ?? "").lowercased()
+        return title.contains(lowerQuery) || location.contains(lowerQuery) || notes.contains(lowerQuery)
+    }
+
+    let capped = Array(matched.prefix(maxResults))
+    let results = capped.map { e in
+        EventOutput(
+            title: e.title ?? "Untitled",
+            start: isoOut.string(from: e.startDate),
+            end: isoOut.string(from: e.endDate),
+            allDay: e.isAllDay,
+            location: e.location,
+            notes: e.notes,
+            calendar: e.calendar.title,
+            uid: e.eventIdentifier
+        )
+    }
+    output(results)
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -319,6 +440,82 @@ case "delete-event":
     }
     deleteEvent(calName: args[2], title: title, uid: uid, dateStr: dateStr)
 
+case "update-event":
+    guard args.count >= 3 else {
+        fail("Usage: chris-calendar update-event <calendar> --uid X [--title X] [--start X] [--end X] [--location X] [--notes X] [--allday] [--clear-location] [--clear-notes]")
+        exit(1)
+    }
+    var uUid: String?
+    var uTitle: String?
+    var uStart: String?
+    var uEnd: String?
+    var uLocation: String?
+    var uNotes: String?
+    var uAllDay: Bool?
+    var uClearLocation = false
+    var uClearNotes = false
+    var i = 3
+    while i < args.count {
+        switch args[i] {
+        case "--uid":
+            i += 1; if i < args.count { uUid = args[i] }
+        case "--title":
+            i += 1; if i < args.count { uTitle = args[i] }
+        case "--start":
+            i += 1; if i < args.count { uStart = args[i] }
+        case "--end":
+            i += 1; if i < args.count { uEnd = args[i] }
+        case "--location":
+            i += 1; if i < args.count { uLocation = args[i] }
+        case "--notes":
+            i += 1; if i < args.count { uNotes = args[i] }
+        case "--allday":
+            uAllDay = true
+        case "--no-allday":
+            uAllDay = false
+        case "--clear-location":
+            uClearLocation = true
+        case "--clear-notes":
+            uClearNotes = true
+        default: break
+        }
+        i += 1
+    }
+    guard let uid = uUid else {
+        fail("update-event requires --uid")
+        exit(1)
+    }
+    updateEvent(calName: args[2], uid: uid, title: uTitle, startStr: uStart,
+                endStr: uEnd, location: uLocation, notes: uNotes, allDay: uAllDay,
+                clearLocation: uClearLocation, clearNotes: uClearNotes)
+
+case "search-events":
+    guard args.count >= 3 else {
+        fail("Usage: chris-calendar search-events <query> [--calendar X] [--from X] [--to X] [--max N]")
+        exit(1)
+    }
+    let sQuery = args[2]
+    var sCal: String?
+    var sFrom: String?
+    var sTo: String?
+    var sMax = 20
+    var j = 3
+    while j < args.count {
+        switch args[j] {
+        case "--calendar":
+            j += 1; if j < args.count { sCal = args[j] }
+        case "--from":
+            j += 1; if j < args.count { sFrom = args[j] }
+        case "--to":
+            j += 1; if j < args.count { sTo = args[j] }
+        case "--max":
+            j += 1; if j < args.count { sMax = Int(args[j]) ?? 20 }
+        default: break
+        }
+        j += 1
+    }
+    searchEvents(query: sQuery, calName: sCal, fromStr: sFrom, toStr: sTo, maxResults: sMax)
+
 default:
-    fail("Unknown command: \(command). Use list-calendars, get-events, add-event, or delete-event.")
+    fail("Unknown command: \(command). Use list-calendars, get-events, add-event, update-event, delete-event, or search-events.")
 }

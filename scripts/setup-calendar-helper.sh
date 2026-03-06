@@ -40,7 +40,7 @@ cat > "$PLIST_FILE" <<'PLIST'
   <string>1.0</string>
   <key>CFBundleVersion</key>
   <string>1</string>
-  <key>LSBackgroundOnly</key>
+  <key>LSUIElement</key>
   <true/>
   <key>NSCalendarsUsageDescription</key>
   <string>Chris Assistant needs Calendar access to list and manage your events.</string>
@@ -48,8 +48,14 @@ cat > "$PLIST_FILE" <<'PLIST'
 </plist>
 PLIST
 
+# Remove any stale binaries (old name was chris-calendar)
+rm -f "$MACOS_DIR/chris-calendar"
+
 xcrun swiftc "$SRC_FILE" -framework EventKit -o "$BIN_FILE"
 chmod +x "$BIN_FILE"
+
+# Ad-hoc codesign so macOS treats it as a proper app for TCC
+codesign --force --deep --sign - "$APP_DIR"
 
 echo "Installed Calendar helper app:"
 echo "  $APP_DIR"

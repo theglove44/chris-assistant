@@ -230,11 +230,11 @@ registerTool({
   category: "always",
   description:
     "Interact with macOS Calendar via fast native EventKit. " +
-    "Actions: list_calendars, get_events, add_event, delete_event. " +
+    "Actions: list_calendars, get_events, add_event, update_event, delete_event, search_events. " +
     "Default calendar is 'Family'. Dates use YYYY-MM-DD or YYYY-MM-DD HH:MM format. " +
-    "Delete by UID (preferred) or by title + date (scoped to single day, first match only).",
+    "Update and delete by UID (preferred). Use search_events to find events by text across title/location/notes.",
   zodSchema: {
-    action: z.enum(["list_calendars", "get_events", "add_event", "delete_event"]),
+    action: z.enum(["list_calendars", "get_events", "add_event", "update_event", "delete_event", "search_events"]),
     calendar: z.string().optional(),
     title: z.string().optional(),
     uid: z.string().optional(),
@@ -243,6 +243,10 @@ registerTool({
     location: z.string().optional(),
     notes: z.string().optional(),
     all_day: z.boolean().optional(),
+    query: z.string().optional(),
+    clear_location: z.boolean().optional(),
+    clear_notes: z.boolean().optional(),
+    max_results: z.number().optional(),
   },
   jsonSchemaParameters: {
     type: "object",
@@ -250,12 +254,14 @@ registerTool({
     properties: {
       action: {
         type: "string",
-        enum: ["list_calendars", "get_events", "add_event", "delete_event"],
+        enum: ["list_calendars", "get_events", "add_event", "update_event", "delete_event", "search_events"],
         description:
           "list_calendars: show all calendar names. " +
           "get_events: view events (requires start_date; end_date defaults to next day). " +
           "add_event: create event (requires title, start_date; end_date defaults to +1hr). " +
-          "delete_event: remove event by uid (preferred) or by title + start_date (scoped to single day, first match only).",
+          "update_event: modify event by uid — change title, start/end time, location, notes, or all_day. " +
+          "delete_event: remove event by uid (preferred) or by title + start_date. " +
+          "search_events: find events by text query across title/location/notes (requires query).",
       },
       calendar: {
         type: "string",
@@ -279,7 +285,11 @@ registerTool({
       },
       location: { type: "string", description: "Event location (for add_event)" },
       notes: { type: "string", description: "Event notes (for add_event)" },
-      all_day: { type: "boolean", description: "All-day event (for add_event)" },
+      all_day: { type: "boolean", description: "All-day event (for add_event, update_event). Set false to remove all-day status." },
+      query: { type: "string", description: "Search text for search_events — matches title, location, and notes (case-insensitive)." },
+      clear_location: { type: "boolean", description: "For update_event: set true to remove the location." },
+      clear_notes: { type: "boolean", description: "For update_event: set true to remove the notes." },
+      max_results: { type: "number", description: "Max events to return for search_events (default 20)." },
     },
   },
   execute: async (args: any): Promise<string> => {
@@ -292,6 +302,10 @@ registerTool({
       location,
       notes,
       all_day,
+      query,
+      clear_location,
+      clear_notes,
+      max_results,
     } = args;
     const cal = args.calendar || DEFAULT_CALENDAR;
 
@@ -334,6 +348,51 @@ registerTool({
           if (notes) cmdArgs.push("--notes", notes);
           if (all_day) cmdArgs.push("--allday");
           return await runCalendar(cmdArgs);
+        }
+
+        case "update_event": {
+          if (!uid) return "Error: uid is required for update_event (use get_events or search_events to find UIDs)";
+          const cmdArgs = ["update-event", cal, "--uid", uid];
+          if (title) cmdArgs.push("--title", title);
+          if (start_date) cmdArgs.push("--start", start_date);
+          if (end_date) cmdArgs.push("--end", end_date);
+          if (clear_location) {
+            cmdArgs.push("--clear-location");
+          } else if (location) {
+            cmdArgs.push("--location", location);
+          }
+          if (clear_notes) {
+            cmdArgs.push("--clear-notes");
+          } else if (notes) {
+            cmdArgs.push("--notes", notes);
+          }
+          if (all_day === true) cmdArgs.push("--allday");
+          if (all_day === false) cmdArgs.push("--no-allday");
+          const updateRaw = await runCalendar(cmdArgs);
+          if (updateRaw.startsWith("Error:")) return updateRaw;
+          // Format the returned updated event
+          try {
+            const parsed = JSON.parse(updateRaw);
+            if (Array.isArray(parsed)) return "Event updated:\n" + formatEvents(updateRaw);
+          } catch { /* not JSON, return as-is */ }
+          return updateRaw;
+        }
+
+        case "search_events": {
+          if (!query) return "Error: query is required for search_events";
+          const cmdArgs = ["search-events", query];
+          if (args.calendar) cmdArgs.push("--calendar", cal);
+          if (start_date) cmdArgs.push("--from", start_date);
+          if (end_date) cmdArgs.push("--to", end_date);
+          if (max_results) cmdArgs.push("--max", String(max_results));
+          const searchRaw = await runCalendar(cmdArgs);
+          if (searchRaw.startsWith("Error:")) return searchRaw;
+          try {
+            const parsed = JSON.parse(searchRaw);
+            if (Array.isArray(parsed) && parsed.length === 0) return "No events found matching: " + query;
+            if (Array.isArray(parsed)) return formatEvents(searchRaw);
+          } catch { /* not JSON, return as-is */ }
+          return searchRaw;
         }
 
         case "delete_event": {
