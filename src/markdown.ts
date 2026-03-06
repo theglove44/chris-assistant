@@ -102,3 +102,23 @@ export function toMarkdownV2(text: string): string {
 
   return processed;
 }
+
+/**
+ * Detect whether text looks like it already contains Telegram HTML tags.
+ * Used to avoid double-processing responses that are already HTML-formatted.
+ */
+function looksLikeHtml(text: string): boolean {
+  return /<(b|i|u|s|code|pre|a\s)[\s>]/i.test(text);
+}
+
+/**
+ * Convert AI response text to Telegram HTML, regardless of whether the AI
+ * emitted Markdown or pre-formed HTML. Safe to call on any AI output.
+ */
+export function prepareForTelegram(text: string): string {
+  if (looksLikeHtml(text)) {
+    // Already HTML — just escape any stray & that aren't already entity refs
+    return text.replace(/&(?!(?:amp|lt|gt|quot|apos);)/g, "&amp;");
+  }
+  return toMarkdownV2(text);
+}

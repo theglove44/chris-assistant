@@ -12,7 +12,7 @@ import * as path from "path";
 import { config } from "./config.js";
 import { chat } from "./providers/index.js";
 import { sendToDiscordChannel } from "./discord.js";
-import { toMarkdownV2 } from "./markdown.js";
+import { prepareForTelegram } from "./markdown.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -165,8 +165,9 @@ async function executeTask(task: Schedule): Promise<void> {
   console.log("[scheduler] Executing task: %s (%s) — %s", task.name, task.id, toolInfo);
 
   try {
-    // Use the user's actual chat ID so the AI has conversation context
-    const chatId = config.telegram.allowedUserId;
+    // Use chatId 0 for scheduled tasks — isolates them from interactive sessions
+    // (prevents session resume from contaminating AI output format)
+    const chatId = 0;
     const response = await chat(chatId, task.prompt, undefined, undefined, task.allowedTools);
 
     // Skip sending if response is empty, whitespace, or starts with NOUPDATE:
@@ -176,7 +177,7 @@ async function executeTask(task: Schedule): Promise<void> {
     } else if (task.discordChannel) {
       await sendToDiscordChannel(task.discordChannel, trimmed);
     } else {
-      await sendTelegramMessage(toMarkdownV2(trimmed), task.name);
+      await sendTelegramMessage(prepareForTelegram(trimmed), task.name);
     }
 
     // Update lastRun
