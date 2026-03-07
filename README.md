@@ -44,9 +44,11 @@ Switch between providers with a single command. The model string determines the 
 
 | Provider | Models | Auth |
 |----------|--------|------|
-| **Claude** | Opus, Sonnet, Haiku | Claude Max subscription |
+| **Claude** | Opus, Sonnet, Haiku | Claude CLI (`claude` — uses your Max subscription) |
 | **OpenAI** | GPT-5.x, GPT-4o, o3, o4-mini | ChatGPT Plus/Pro subscription (OAuth) |
 | **MiniMax** | M2.5, M2.5-highspeed | MiniMax subscription (OAuth) |
+
+Claude uses the [Agent SDK](https://github.com/anthropics/claude-agent-sdk), which piggybacks on the Claude CLI's authentication — just run `claude` once to log in, and the bot picks it up automatically.
 
 ```bash
 chris model set sonnet     # Switch to Claude Sonnet
@@ -109,10 +111,11 @@ chris setup           # Interactive wizard — creates .env
 ### Authenticate with an AI Provider
 
 ```bash
-# OpenAI (default) — browser OAuth, uses your ChatGPT subscription
-chris openai login
+# Claude — log in via the Claude CLI (Agent SDK reuses its auth)
+claude
 
-# Claude — add CLAUDE_CODE_OAUTH_TOKEN to .env (via claude setup-token)
+# OpenAI — browser OAuth, uses your ChatGPT subscription
+chris openai login
 
 # MiniMax — browser OAuth
 chris minimax login
@@ -227,7 +230,6 @@ chris setup                      # First-time setup wizard
 | `DISCORD_BOT_TOKEN` | No | Enables Discord bot |
 | `DISCORD_ALLOWED_USER_ID` | No | Your Discord user ID |
 | `DASHBOARD_TOKEN` | No | Auth token for remote dashboard access |
-| `CLAUDE_CODE_OAUTH_TOKEN` | No | Enables Claude models |
 
 Full list in `src/config.ts`. Run `chris setup` for guided configuration.
 
