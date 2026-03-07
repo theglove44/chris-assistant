@@ -4,6 +4,7 @@
 import "./memory.js";
 import "./web-search.js";
 import "./fetch-url.js";
+import "./browse-url.js";
 import "./run-code.js";
 import "./files.js";
 import "./git.js";
