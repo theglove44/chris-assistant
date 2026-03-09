@@ -10,7 +10,7 @@ description: Development workflow, adding tools, and adding providers
 ```bash
 npm run dev              # Run bot with tsx watch (auto-reload on changes)
 npm run typecheck        # TypeScript type checking (includes esbuild compat check)
-npm test                 # Run vitest test suite (208 tests)
+npm test                 # Run Vitest test suite
 npx tsx src/cli/index.ts # Run CLI directly without global install
 npm run setup:calendar-helper # Build/install macOS Calendar helper app (~/.chris-assistant/ChrisCalendar.app)
 ```
@@ -42,7 +42,7 @@ The tool registry auto-generates both OpenAI and Claude MCP format definitions f
 ## Adding New Providers
 
 1. Create `src/providers/<name>.ts` implementing the `Provider` interface
-2. Add a prefix check in `src/providers/index.ts`
+2. Add model routing support via the model-routing helpers and `src/agent/chat-service.ts`
 3. Add model shortcuts to `src/cli/commands/model.ts`
 4. For OpenAI-compatible providers, use `getOpenAiToolDefinitions()` and `dispatchToolCall()` from `src/tools/index.ts`
 

@@ -12,6 +12,8 @@ import { registerDoctorCommand } from "./commands/doctor.js";
 import { registerSetupCommand } from "./commands/setup.js";
 import { registerMinimaxCommand } from "./commands/minimax-login.js";
 import { registerOpenaiCommand } from "./commands/openai-login.js";
+import { registerCodexCommand } from "./commands/codex.js";
+import { registerSymphonyCommand } from "./commands/symphony.js";
 
 const program = new Command();
 
@@ -36,6 +38,8 @@ registerConfigCommand(program);
 registerModelCommand(program);
 registerDoctorCommand(program);
 registerSetupCommand(program);
+registerCodexCommand(program);
+registerSymphonyCommand(program);
 
 // Provider management
 registerMinimaxCommand(program);

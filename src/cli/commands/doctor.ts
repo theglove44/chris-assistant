@@ -7,6 +7,7 @@ import { Octokit } from "@octokit/rest";
 import { getBotProcess, withPm2, PM2_NAME, PROJECT_ROOT } from "../pm2-helper.js";
 import { loadTokens } from "../../providers/minimax-oauth.js";
 import { loadTokens as loadOpenaiTokens } from "../../providers/openai-oauth.js";
+import { getCodexStatus } from "../../codex.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ENV_PATH = resolve(__dirname, "../../..", ".env");
@@ -57,6 +58,26 @@ export function registerDoctorCommand(program: Command) {
             if (env.CLAUDE_CODE_OAUTH_TOKEN) return "pass";
             console.log('    Not set — Claude provider unavailable. Set CLAUDE_CODE_OAUTH_TOKEN to enable.');
             return "warn";
+          },
+        },
+        {
+          name: "Codex CLI runtime (optional)",
+          run: async () => {
+            const status = getCodexStatus();
+            if (!status.binaryPath) {
+              console.log('    Not installed — codex-agent provider and Symphony worker runtime unavailable.');
+              return "warn";
+            }
+            if (!status.authenticated) {
+              console.log('    Binary found, but auth is missing — run "codex login"');
+              return "warn";
+            }
+            if (!status.appServerAvailable) {
+              console.log("    codex app-server command is unavailable");
+              return "fail";
+            }
+            console.log("    %s", status.version || "version unknown");
+            return "pass";
           },
         },
         {

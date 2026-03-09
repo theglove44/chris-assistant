@@ -4,6 +4,7 @@ import { formatHistoryForPrompt } from "../conversation.js";
 import { getOpenAiToolDefinitions, dispatchToolCall } from "../tools/index.js";
 import { getValidAccessToken, getAccountId } from "./openai-oauth.js";
 import { needsCompaction, compactCodexInput } from "./compaction.js";
+import { recordUsage } from "../usage-tracker.js";
 import type { Provider, ImageAttachment } from "./types.js";
 
 const CODEX_API_URL = "https://chatgpt.com/backend-api/codex/responses";
@@ -41,6 +42,7 @@ function getCodexToolDefinitions(allowedTools?: string[]): Array<{ type: "functi
 interface StreamResult {
   text: string;
   toolCalls: Array<{ call_id: string; name: string; arguments: string }>;
+  usage?: { input_tokens: number; output_tokens: number };
 }
 
 async function parseCodexStream(
@@ -54,6 +56,7 @@ async function parseCodexStream(
   let buffer = "";
   let textAccumulator = "";
   const toolCalls = new Map<number, { call_id: string; name: string; arguments: string }>();
+  let capturedUsage: { input_tokens: number; output_tokens: number } | undefined;
 
   // Strip think tags from content
   const thinkClose = "<" + "/think>";
@@ -108,6 +111,9 @@ async function parseCodexStream(
           tc.name = event.item.name || tc.name;
           tc.arguments = event.item.arguments || tc.arguments;
         }
+      } else if (eventType === "response.completed" && event.response?.usage) {
+        const u = event.response.usage;
+        capturedUsage = { input_tokens: u.input_tokens ?? 0, output_tokens: u.output_tokens ?? 0 };
       } else if (eventType === "response.failed") {
         const errorInfo = event.response?.error || event.error;
         if (errorInfo) {
@@ -120,6 +126,7 @@ async function parseCodexStream(
   return {
     text: stripThinkTags(textAccumulator),
     toolCalls: Array.from(toolCalls.values()),
+    usage: capturedUsage,
   };
 }
 
@@ -227,6 +234,16 @@ export function createOpenAiProvider(model: string): Provider {
 
           const result = await parseCodexStream(response, onChunk);
 
+          // Record usage from this turn
+          if (result.usage) {
+            recordUsage({
+              inputTokens: result.usage.input_tokens,
+              outputTokens: result.usage.output_tokens,
+              model,
+              provider: "openai",
+            });
+          }
+
           // If we got tool calls, execute them and continue the loop
           if (result.toolCalls.length > 0) {
             // Add assistant's text + tool calls to input
@@ -280,6 +297,14 @@ export function createOpenAiProvider(model: string): Provider {
             model, systemPrompt, summaryInput, [], accessToken, accountId,
           );
           const summaryResult = await parseCodexStream(summaryRes, onChunk);
+          if (summaryResult.usage) {
+            recordUsage({
+              inputTokens: summaryResult.usage.input_tokens,
+              outputTokens: summaryResult.usage.output_tokens,
+              model,
+              provider: "openai",
+            });
+          }
           invalidatePromptCache();
           return summaryResult.text || "I reached the processing limit. Please ask me to continue where I left off.";
         } catch {

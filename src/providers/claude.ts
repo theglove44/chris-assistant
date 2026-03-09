@@ -18,6 +18,7 @@ import { getClaudeAppendPrompt, invalidatePromptCache } from "./shared.js";
 import { getWorkspaceRoot } from "../tools/files.js";
 import { getSessionId, setSessionId } from "../claude-sessions.js";
 import type { Provider, ImageAttachment } from "./types.js";
+import { recordUsage } from "../usage-tracker.js";
 import * as os from "os";
 import * as path from "path";
 
@@ -209,6 +210,17 @@ export function createClaudeProvider(model: string): Provider {
               // Error results — use accumulated text if we have it, otherwise report error
               const errors = "errors" in message ? message.errors : [];
               responseText = accumulatedText || `I hit an issue: ${errors.join(", ") || "unknown error"}`;
+            }
+
+            // Record token usage if available
+            const usage = "usage" in message ? (message as any).usage : undefined;
+            if (usage && typeof usage.input_tokens === "number") {
+              recordUsage({
+                inputTokens: usage.input_tokens,
+                outputTokens: usage.output_tokens ?? 0,
+                model,
+                provider: "claude",
+              });
             }
           }
         }

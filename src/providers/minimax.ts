@@ -5,6 +5,7 @@ import { formatHistoryForPrompt } from "../conversation.js";
 import { getOpenAiToolDefinitions, dispatchToolCall } from "../tools/index.js";
 import { getValidAccessToken } from "./minimax-oauth.js";
 import { needsCompaction, compactMessages } from "./compaction.js";
+import { recordUsage } from "../usage-tracker.js";
 import type { Provider, ImageAttachment } from "./types.js";
 import type { ChatCompletionMessageParam, ChatCompletionContentPart } from "openai/resources/chat/completions";
 
@@ -71,6 +72,7 @@ export function createMiniMaxProvider(model: string): Provider {
           let contentAccumulator = "";
           // Tool calls accumulator: Map<index, { id, name, arguments }>
           const toolCallAccumulator = new Map<number, { id: string; name: string; arguments: string }>();
+          let lastChunkUsage: { prompt_tokens?: number; completion_tokens?: number } | null = null;
 
           // Strip think tags from content
           const thinkClose = "<" + "/think>";
@@ -78,6 +80,9 @@ export function createMiniMaxProvider(model: string): Provider {
             text.replace(new RegExp("<think>[\\s\\S]*?" + thinkClose, "g"), "").replace(/<think>[\s\S]*$/g, "");
 
           for await (const chunk of stream) {
+            if ((chunk as any).usage) {
+              lastChunkUsage = (chunk as any).usage;
+            }
             const choice = chunk.choices[0];
             if (!choice) continue;
 
@@ -107,6 +112,16 @@ export function createMiniMaxProvider(model: string): Provider {
                 }
               }
             }
+          }
+
+          // Record usage from this turn (every API call, not just the final one)
+          if (lastChunkUsage) {
+            recordUsage({
+              inputTokens: lastChunkUsage.prompt_tokens ?? 0,
+              outputTokens: lastChunkUsage.completion_tokens ?? 0,
+              model,
+              provider: "minimax",
+            });
           }
 
           // If we got tool calls, execute them and continue the loop
