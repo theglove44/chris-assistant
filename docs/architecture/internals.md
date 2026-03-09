@@ -4,80 +4,29 @@ This document contains the full implementation details for every module in the c
 
 ## Full File Tree
 
-```
-chris-assistant/              ← This repo (bot server + CLI)
-├── bin/chris                 # Shell wrapper for global CLI command
+The codebase was refactored into layered modules. The top-level shape now looks like this:
+
+```txt
+chris-assistant/
+├── bin/chris
 ├── src/
-│   ├── index.ts              # Bot entry point (starts Telegram long-polling)
-│   ├── config.ts             # Loads .env, exports typed config object
-│   ├── telegram.ts           # grammY bot — message handler (text/photo/document), streaming edits
-│   ├── discord.ts            # discord.js bot — message handler, typing indicator, reply chunking (2000 char limit)
-│   ├── markdown.ts           # Standard markdown → HTML converter for Telegram (with stripMarkdown() fallback)
-│   ├── middleware.ts          # grammY middleware — auth guard + rate limiting
-│   ├── rate-limit.ts         # Sliding window rate limiter (10 msgs/min per user)
-│   ├── health.ts             # Periodic health checks + Telegram alerts (startup, token expiry, GitHub)
-│   ├── scheduler.ts          # Cron-like scheduled tasks — tick loop, AI execution, Telegram delivery
-│   ├── conversation.ts       # Persistent short-term history (async I/O, write queue, last 20 messages)
-│   ├── conversation-archive.ts # Daily JSONL archiver — every message saved to ~/.chris-assistant/archive/
-│   ├── conversation-backup.ts # Periodic backup of conversations to GitHub memory repo (every 6 hours)
-│   ├── conversation-summary.ts # Daily AI summarizer — generates conversation summaries at 23:55
-│   ├── conversation-channel-summary.ts # Weekly per-channel summarizer — Sunday 23:50
-│   ├── memory-consolidation.ts # Weekly memory consolidation — curates SUMMARY.md from all sources
-│   ├── dashboard.ts          # Built-in web dashboard — HTTP server, JSON API, inline SPA
-│   ├── heartbeat.ts          # Periodic HEARTBEAT.md writer — bot status snapshot to GitHub (every 3h)
-│   ├── claude-sessions.ts    # Claude Agent SDK session persistence (per-chat session IDs)
-│   ├── providers/
-│   │   ├── types.ts          # Provider interface ({ name, chat() }) + ImageAttachment type
-│   │   ├── shared.ts         # System prompt builder — capabilities, formatting rules, project bootstrap, caching
-│   │   ├── claude.ts         # Claude Agent SDK provider — full agent mode with native tools + streaming
-│   │   ├── minimax.ts        # MiniMax provider (OpenAI-compatible API)
-│   │   ├── minimax-oauth.ts  # MiniMax OAuth device flow + token storage
-│   │   ├── openai.ts         # OpenAI provider — Codex Responses API + SSE streaming
-│   │   ├── openai-oauth.ts   # OpenAI OAuth — authorization code + PKCE + account ID
-│   │   ├── compaction.ts     # Context compaction — summarizes older turns when approaching context limit
-│   │   ├── context-limits.ts # Model context window sizes + compaction thresholds (70% trigger)
-│   │   └── index.ts          # Provider router — model string determines provider
-│   ├── tools/
-│   │   ├── registry.ts       # Shared tool registry — registerTool(), dispatch, MCP/OpenAI format gen
-│   │   ├── index.ts          # Imports tool modules, re-exports registry functions
-│   │   ├── memory.ts         # Registers update_memory tool with the registry
-│   │   ├── web-search.ts     # Brave Search API tool (conditionally registered if API key set)
-│   │   ├── fetch-url.ts      # URL fetcher tool — strips HTML, 15s timeout, 50KB truncation
-│   │   ├── run-code.ts       # Code execution tool — JS/TS/Python/shell, 10s timeout, execFile
-│   │   ├── files.ts          # File tools — read, write, edit, list, search (workspace-scoped)
-│   │   ├── git.ts            # Git tools — status, diff, commit (workspace-scoped)
-│   │   ├── scheduler.ts      # manage_schedule tool — create, list, delete, toggle scheduled tasks
-│   │   ├── ssh.ts            # SSH tool — exec, tmux, SCP, Tailnet device discovery (8 actions)
-│   │   ├── recall.ts         # Conversation recall tool — list, read, search, summarize past conversations
-│   │   ├── journal.ts        # journal_entry tool — bot writes daily notes via tool call
-│   │   ├── skills.ts         # manage_skills + run_skill tools
-│   │   └── market-snapshot.ts # market_snapshot tool — SSHes to Mac Mini for tasty-coach data
+│   ├── index.ts
+│   ├── config.ts
+│   ├── app/                  # bootstrap, lifecycle, service registry
+│   ├── agent/                # ChatService, session persistence helpers
+│   ├── channels/             # telegram/, discord/
+│   ├── domain/               # conversations/, memory/, schedules/
+│   ├── infra/                # config/, storage/
+│   ├── providers/            # Claude, OpenAI, Codex Agent, MiniMax
+│   ├── tools/                # tool platform + tool modules
+│   ├── dashboard/            # runtime + UI template
 │   ├── skills/
-│   │   ├── loader.ts             # GitHub-backed skill CRUD with index caching
-│   │   ├── validator.ts          # Skill definition + input validation, limits enforcement
-│   │   └── executor.ts           # Build execution prompt, nested chat() with filtered tools
-│   ├── memory/
-│   │   ├── github.ts         # Octokit wrapper — read/write/append files in memory repo
-│   │   ├── journal.ts        # Daily memory journal — local storage + periodic GitHub upload
-│   │   ├── loader.ts         # Loads identity + knowledge + memory + summaries + journal, builds system prompt
-│   │   └── tools.ts          # Memory tool executor + prompt injection validation
-│   └── cli/
-│       ├── index.ts           # Commander.js program — registers all subcommands
-│       ├── pm2-helper.ts      # pm2 connection helper, process info, constants
-│       └── commands/
-│           ├── start.ts       # chris start — pm2 start with tsx interpreter
-│           ├── stop.ts        # chris stop
-│           ├── restart.ts     # chris restart
-│           ├── status.ts      # chris status — pid, uptime, memory, restarts
-│           ├── logs.ts        # chris logs [-f] — tail pm2 logs
-│           ├── memory.ts      # chris memory status|show|edit|search
-│           ├── identity.ts    # chris identity [edit] — view/edit SOUL.md
-│           ├── config.ts      # chris config [get|set] — manage .env
-│           ├── model.ts       # chris model [set] — view/change AI model + provider
-│           ├── doctor.ts      # chris doctor [--fix] — diagnostic checks + auto-repair
-│           ├── setup.ts       # chris setup — interactive first-time wizard
-│           ├── minimax-login.ts # chris minimax login|status — OAuth device flow
-│           └── openai-login.ts  # chris openai login|status — browser OAuth + callback server
+│   ├── symphony/
+│   ├── cli/
+│   └── swift/
+```
+
+Important note: several legacy top-level files still exist as compatibility facades (`telegram.ts`, `discord.ts`, `dashboard.ts`, `scheduler.ts`, `conversation*.ts`, `memory/*`). They delegate into the new structure and are kept to reduce import churn.
 
 chris-assistant-memory/       ← Separate private repo (the brain)
 ├── HEARTBEAT.md              # Bot self-reported status snapshot (updated every 3h by heartbeat.ts)
@@ -130,7 +79,11 @@ Uses the `openai` npm package with custom baseURL (`https://api.minimax.io/v1`).
 
 ## Web Dashboard
 
-`src/dashboard.ts` — built-in HTTP server using Node's `http` module (zero new dependencies). Serves a single HTML page with all CSS/JS inlined as template strings.
+`src/dashboard/` now contains the implementation split by concern:
+- `runtime.ts` — HTTP server, auth, API routing, SSE log stream
+- `ui.ts` — inlined HTML/CSS/JS template
+
+`src/dashboard.ts` remains as a thin façade over those modules.
 
 **Tabs**: Status & Health (uptime, model, pm2 stats, health check indicators), Schedules (cron jobs with config/lastRun/tools), Conversations (browse archives by date, daily summaries), Memory (view/edit GitHub memory files), Logs (real-time SSE tail of pm2 logs via `fs.watch`).
 
@@ -142,11 +95,28 @@ Uses the `openai` npm package with custom baseURL (`https://api.minimax.io/v1`).
 
 ## Discord Bot
 
-`src/discord.ts` — discord.js `Client` with `Guilds`, `GuildMessages`, `MessageContent`, `DirectMessages` intents + `Partials.Channel` for DMs. Restricted to `DISCORD_ALLOWED_USER_ID` via `message.author.id` check.
+Discord is now implemented under `src/channels/discord/`:
+- `client.ts` — shared discord.js client
+- `handlers.ts` — inbound message handling
+- `channels.ts` — configured channel/category provisioning
+- `messaging.ts` — outbound channel posting
+- `formatting.ts` — chunking + markdown conversion
+
+`src/discord.ts` remains as a thin façade for start/stop/send exports.
 
 Shows typing indicator via `sendTyping()` (guarded with `"sendTyping" in message.channel` for `PartialGroupDMChannel` compat). No streaming (Discord API doesn't support live edits cleanly). Strips `<think>` tags. Converts Markdown headers to Discord bold via `toDiscordMarkdown()`. Splits at 2000 char limit. Fallback: `stripMarkdown()` if reply fails.
 
 Discord channelIds are strings — uses `parseInt(channelId.slice(-9), 10)` as numeric chatId for conversation tracking. Silently skips startup if `DISCORD_BOT_TOKEN` not set.
+
+## Telegram Bot
+
+Telegram is now implemented under `src/channels/telegram/`:
+- `bot.ts` — bot creation + file download helper
+- `commands.ts` — command registration
+- `handlers.ts` — text/photo/document handling + streaming updates
+- `index.ts` — transport entrypoint
+
+`src/telegram.ts` remains as a thin façade.
 
 ## Conversation System
 

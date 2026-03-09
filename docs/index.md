@@ -15,7 +15,7 @@ hero:
 
 features:
   - title: Multi-Provider AI
-    details: Claude, OpenAI, and MiniMax via a single bot. Switch models on the fly with a simple command.
+    details: Claude Agent, OpenAI Responses, OpenAI Codex Agent, and MiniMax via a single bot. Switch models on the fly with a simple command.
     icon: 🤖
   - title: Persistent Memory
     details: Long-term facts stored as markdown in a private GitHub repo. Every update is a git commit — fully auditable.

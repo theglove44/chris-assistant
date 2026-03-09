@@ -19,6 +19,8 @@ const KNOWN_MODELS: Record<string, { id: string; provider: string }> = {
   // OpenAI — current flagship
   "gpt5": { id: "gpt-5.2", provider: "openai" },
   "codex": { id: "GPT-5.3-Codex", provider: "openai" },
+  "codex-agent": { id: "codex-agent-o4-mini", provider: "codex-agent" },
+  "codex-agent-o3": { id: "codex-agent-o3", provider: "codex-agent" },
   "o3": { id: "o3", provider: "openai" },
   "o4-mini": { id: "o4-mini", provider: "openai" },
   // OpenAI — previous gen
@@ -116,6 +118,8 @@ export function registerModelCommand(program: Command) {
     { id: "GPT-5.3-Codex", provider: "openai", description: "Most advanced agentic coding model" },
     { id: "GPT-5.2-Codex", provider: "openai", description: "Previous Codex coding model" },
     { id: "GPT-5.1-Codex-Mini", provider: "openai", description: "Smaller, cost-effective Codex" },
+    { id: "codex-agent-o4-mini", provider: "codex-agent", description: "Codex SDK agent provider on o4-mini" },
+    { id: "codex-agent-o3", provider: "codex-agent", description: "Codex SDK agent provider on o3" },
     // OpenAI — o-series (reasoning)
     { id: "o3", provider: "openai", description: "Powerful reasoning (math, science, code)" },
     { id: "o3-mini", provider: "openai", description: "Lightweight reasoning" },

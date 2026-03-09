@@ -3,5 +3,7 @@ dist/
 .env
 *.log
 .DS_Store
+.claude/worktrees/
+.codex/
 docs/.vitepress/cache
 docs/.vitepress/dist

@@ -7,7 +7,7 @@ Personal AI assistant for Chris Taylor — Telegram + Discord bot with multi-pro
 ```bash
 npm run dev              # Run with tsx watch (auto-reload)
 npm run typecheck        # TypeScript checks + esbuild compat check
-npm test                 # vitest suite (48 tests)
+npm test                 # Vitest suite
 chris start              # Start bot via pm2
 chris stop / restart     # Stop / restart
 chris logs -f            # Tail pm2 logs
@@ -23,18 +23,31 @@ chris doctor --fix       # Diagnose + auto-repair
 
 ## Architecture
 
-Model string determines provider: `gpt-*`/`o3*`/`o4-*` → OpenAI, `MiniMax-*` → MiniMax, else → Claude.
+Model string determines provider:
+- `codex-agent-*` → OpenAI Codex Agent SDK
+- `gpt-*` / `o3*` / `o4-*` → OpenAI Responses
+- `MiniMax-*` → MiniMax
+- everything else → Claude Agent SDK
 
-Claude uses `@anthropic-ai/claude-agent-sdk` as full agent with native tools + custom MCP tools. OpenAI uses Codex Responses API (requires `stream: true`, `store: false`, GPT-5.x only). MiniMax uses OpenAI-compatible SDK.
+The project is now split into explicit layers:
+- `src/app/` — bootstrap, lifecycle, service registry
+- `src/agent/` — `ChatService`, provider orchestration, session persistence helpers
+- `src/channels/` — Telegram and Discord transport adapters
+- `src/domain/` — conversations, memory, schedules
+- `src/infra/` — config + storage infrastructure
+- `src/providers/` — Claude, OpenAI, Codex Agent, MiniMax implementations
+- `src/tools/` — tool registration, filtering, loop guard, provider adapters, tool modules
+- `src/dashboard/` — dashboard HTTP runtime + UI template
+- `src/skills/` — dynamic JSON workflow system
+- `src/symphony/` — autonomous workflow subsystem
 
-Key directories:
-- `src/providers/` — AI provider implementations + routing
-- `src/tools/` — Tool registry + individual tool modules
-- `src/memory/` — GitHub-backed memory storage + system prompt builder
-- `src/skills/` — Dynamic JSON workflow system
-- `src/cli/` — Commander.js CLI (`chris` command)
+Important boundaries:
+- `src/agent/chat-service.ts` is the main orchestration seam used by channels and background jobs.
+- `src/tools/registry.ts` is now a façade over split modules (`store`, `filtering`, `loop-guard`, provider adapters).
+- `src/memory/*`, `src/conversation*.ts`, `src/scheduler.ts`, `src/dashboard.ts`, `src/discord.ts`, and `src/telegram.ts` are mostly compatibility facades over the new structure.
+- Config is validated through `src/infra/config/load-config.ts`.
 
-For full architecture, design decisions, and data flow see `docs/architecture/`.
+For full architecture, design decisions, and data flow see `README.md` and project docs.
 
 ## Critical Safety Rules
 
@@ -64,8 +77,9 @@ See `src/config.ts` for all env vars. Key ones: `TELEGRAM_BOT_TOKEN`, `GITHUB_TO
 ## Adding Things
 
 - **New tool**: `src/tools/<name>.ts` with `registerTool()` + import in `src/tools/index.ts`
-- **New provider**: `src/providers/<name>.ts` implementing `Provider` + prefix in `providers/index.ts`
-- **New built-in module**: Follow tick-every-60s pattern (see `conversation-summary.ts`), add `start*()`/`stop*()` to `index.ts`
+- **New provider**: `src/providers/<name>.ts` implementing `Provider` + route it via `src/agent/chat-service.ts` / model routing helpers
+- **New built-in module**: Prefer a domain or channel service with `start*()` / `stop*()` hooks, then register it in `src/app/service-definitions.ts`
+- **New background service**: Add an `AppService` entry in `src/app/service-definitions.ts`
 - **New skill**: Runtime via `manage_skills` tool — no code changes needed
 
 ## Documentation

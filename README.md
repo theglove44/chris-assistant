@@ -44,16 +44,20 @@ Switch between providers with a single command. The model string determines the 
 
 | Provider | Models | Auth |
 |----------|--------|------|
-| **Claude** | Opus, Sonnet, Haiku | Claude CLI (`claude` — uses your Max subscription) |
-| **OpenAI** | GPT-5.x, GPT-4o, o3, o4-mini | ChatGPT Plus/Pro subscription (OAuth) |
+| **Claude Agent** | Opus, Sonnet, Haiku | Claude CLI (`claude` — uses your Max subscription) |
+| **OpenAI Responses** | GPT-5.x, GPT-4o, o3, o4-mini | ChatGPT Plus/Pro subscription (OAuth) |
+| **OpenAI Codex Agent** | `codex-agent-*` models | Codex CLI (`codex login`) |
 | **MiniMax** | M2.5, M2.5-highspeed | MiniMax subscription (OAuth) |
 
 Claude uses the [Agent SDK](https://github.com/anthropics/claude-agent-sdk), which piggybacks on the Claude CLI's authentication — just run `claude` once to log in, and the bot picks it up automatically.
 
+The Codex agent mode uses `@openai/codex-sdk`, which spawns the `codex` CLI under the hood for native coding tools and persistent threads.
+
 ```bash
-chris model set sonnet     # Switch to Claude Sonnet
-chris model set gpt5       # Switch to OpenAI GPT-5.2
-chris model set minimax    # Switch to MiniMax
+chris model set sonnet         # Switch to Claude Sonnet
+chris model set gpt5           # Switch to OpenAI GPT-5.2
+chris model set codex-agent    # Switch to OpenAI Codex Agent
+chris model set minimax        # Switch to MiniMax
 ```
 
 ### Memory Architecture
@@ -235,34 +239,56 @@ Full list in `src/config.ts`. Run `chris setup` for guided configuration.
 
 ## Architecture
 
-```
+The codebase is now organized into explicit layers:
+
+```txt
 src/
-├── index.ts                 # Entry point
-├── telegram.ts              # Telegram bot (grammY)
-├── discord.ts               # Discord bot (discord.js)
-├── providers/               # AI provider implementations + routing
-│   ├── claude.ts            #   Claude Agent SDK
-│   ├── openai.ts            #   OpenAI Codex Responses API
-│   ├── minimax.ts           #   MiniMax (OpenAI-compatible)
-│   └── compaction.ts        #   Context window management
-├── tools/                   # Tool registry + modules
-│   ├── registry.ts          #   Register once, all providers discover
-│   ├── memory.ts            #   GitHub-backed memory
-│   ├── web-search.ts        #   Brave Search
-│   ├── run-code.ts          #   Code execution (JS/TS/Python/shell)
-│   ├── files.ts             #   Workspace file operations
-│   ├── git.ts               #   Git status, diff, commit
-│   ├── ssh.ts               #   SSH, tmux, SCP, device discovery
-│   ├── macos.ts             #   Calendar (EventKit) + Mail
-│   └── ...
-├── memory/                  # GitHub-backed memory + system prompt
+├── app/                     # Bootstrap, lifecycle, service registry
+├── agent/                   # Chat orchestration + provider session handling
+├── channels/                # Transport adapters (Telegram, Discord)
+├── domain/                  # Core business domains
+│   ├── conversations/       # History, archive, backup, summaries
+│   ├── memory/              # Memory repo access, journals, consolidation, prompts
+│   └── schedules/           # Cron matching, storage, execution
+├── infra/                   # Shared infrastructure (config, storage)
+├── providers/               # AI provider implementations
+├── tools/                   # Tool registry platform + tool modules
+├── dashboard/               # Dashboard runtime + UI template
 ├── skills/                  # Dynamic workflow system
 ├── cli/                     # Commander.js CLI
-└── dashboard.ts             # Built-in web dashboard
+└── symphony/                # Autonomous workflow/orchestration subsystem
 ```
 
+### Runtime flow
+
+```txt
+Telegram / Discord message
+  → channel handler
+  → ChatService
+  → provider routing (Claude / OpenAI / Codex Agent / MiniMax)
+  → tool execution via shared registry
+  → conversation + archive persistence
+  → memory/journal updates
+```
+
+### Key modules
+
+- `src/app/` — app startup, shutdown, service registration
+- `src/agent/chat-service.ts` — central provider routing, image routing, abort/session helpers
+- `src/channels/telegram/*` — Telegram bot, commands, streaming handlers
+- `src/channels/discord/*` — Discord client, message handling, outbound notifications
+- `src/domain/conversations/*` — rolling history, archives, backups, daily/weekly summaries
+- `src/domain/memory/*` — GitHub memory repository, prompt loading, journal service, consolidation
+- `src/domain/schedules/*` — schedule CRUD, cron parsing, scheduled task execution
+- `src/tools/*` — provider-agnostic tool registration, filtering, loop guard, adapters
+- `src/providers/*` — Claude Agent SDK, OpenAI Responses, Codex Agent SDK, MiniMax
+- `src/dashboard/*` — HTTP runtime/API layer and HTML UI
+
 **Key design decisions:**
-- Tool registration is provider-agnostic — define once in `src/tools/`, all providers pick up automatically
+- Tool registration is provider-agnostic — define once in `src/tools/`, all providers discover it
+- `ChatService` is the single orchestration layer used by channels and background jobs
+- Domain services own persistence and runtime behavior; top-level files are mostly compatibility facades
+- Config is validated through a typed `zod` loader in `src/infra/config/`
 - No `git push` tool — deliberate safety choice
 - Code execution is unsandboxed but has dangerous pattern blocking and timeout limits
 - All file paths validated through `resolveSafePath()` — symlinks outside workspace rejected

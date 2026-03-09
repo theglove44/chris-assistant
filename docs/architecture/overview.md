@@ -7,72 +7,39 @@ description: System architecture and directory structure
 
 ## Directory Structure
 
-```
+```txt
 chris-assistant/              ← This repo (bot server + CLI)
 ├── bin/chris                 # Shell wrapper for global CLI command
 ├── src/
-│   ├── index.ts              # Bot entry point (starts Telegram long-polling)
-│   ├── config.ts             # Loads .env, exports typed config object
-│   ├── telegram.ts           # grammY bot — message handler (text/photo/document), streaming edits
-│   ├── discord.ts            # discord.js bot — message handler, typing indicator, reply chunking
-│   ├── markdown.ts           # Standard markdown → Telegram HTML converter (with stripMarkdown() fallback)
-│   ├── middleware.ts         # grammY middleware — auth guard + rate limiting
-│   ├── rate-limit.ts         # Sliding window rate limiter (10 msgs/min per user)
-│   ├── health.ts             # Periodic health checks + Telegram alerts
-│   ├── webhook.ts            # GitHub webhook server — PR merge → Discord notifications
-│   ├── scheduler.ts          # Cron-like scheduled tasks — tick loop, AI execution, Telegram delivery
-│   ├── conversation.ts       # Persistent short-term history (async I/O, write queue, last 20 messages)
-│   ├── conversation-archive.ts # Daily JSONL archiver (uploads every 30 min)
-│   ├── conversation-backup.ts  # Periodic backup to GitHub memory repo (every 6 hours)
-│   ├── conversation-summary.ts # Daily AI summarizer — generates summaries at 23:55
-│   ├── conversation-channel-summary.ts # Weekly per-channel summarizer — Sunday 23:50
-│   ├── memory-consolidation.ts # Weekly memory consolidation — Sunday 23:00
-│   ├── dashboard.ts          # Built-in web dashboard — HTTP server, JSON API, inline SPA
-│   ├── heartbeat.ts          # Periodic HEARTBEAT.md writer — bot status snapshot (every 3h)
-│   ├── claude-sessions.ts    # Claude Agent SDK session persistence (per-chat session IDs)
-│   ├── providers/
-│   │   ├── types.ts          # Provider interface ({ name, chat() }) + ImageAttachment type
-│   │   ├── shared.ts         # System prompt caching + model info injection
-│   │   ├── claude.ts         # Claude Agent SDK provider
-│   │   ├── openai.ts         # OpenAI provider — Codex Responses API + SSE streaming
-│   │   ├── openai-oauth.ts   # OpenAI OAuth — authorization code + PKCE + account ID
-│   │   ├── minimax.ts        # MiniMax provider (OpenAI-compatible API)
-│   │   ├── minimax-oauth.ts  # MiniMax OAuth device flow + token storage
-│   │   ├── compaction.ts     # Context compaction — summarizes old turns to stay in window
-│   │   ├── context-limits.ts # Model context window sizes and compaction thresholds
-│   │   └── index.ts          # Provider router — model string determines provider
-│   ├── tools/
-│   │   ├── registry.ts       # Tool registry — registerTool(), dispatch, MCP/OpenAI format
-│   │   ├── index.ts          # Imports all tool modules, re-exports registry
-│   │   ├── memory.ts         # update_memory tool
-│   │   ├── web-search.ts     # Brave Search API (conditional on API key)
-│   │   ├── fetch-url.ts      # URL fetcher — HTML stripping, 15s timeout
-│   │   ├── run-code.ts       # Code execution — JS/TS/Python/shell, 10s timeout
-│   │   ├── files.ts          # File tools — read, write, edit, list, search (workspace-scoped)
-│   │   ├── git.ts            # Git tools — status, diff, commit (workspace-scoped)
-│   │   ├── scheduler.ts      # manage_schedule tool — create, list, delete, toggle
-│   │   ├── ssh.ts            # SSH tool — exec, tmux, SCP, Tailnet device discovery
-│   │   ├── recall.ts         # Conversation recall tool
-│   │   ├── journal.ts        # journal_entry tool — bot writes daily notes
-│   │   ├── skills.ts         # manage_skills + run_skill tools
-│   │   ├── market-snapshot.ts # market_snapshot tool — SSH to Mac Mini for market data
-│   │   └── macos.ts          # macOS-only: Calendar (EventKit) + Mail (AppleScript)
-│   ├── skills/
-│   │   ├── loader.ts         # GitHub-backed skill CRUD with index caching
-│   │   ├── validator.ts      # Skill definition + input validation, limits
-│   │   └── executor.ts       # Build execution prompt, nested chat() with filtered tools
-│   ├── memory/
-│   │   ├── github.ts         # Read/write memory files via GitHub API
-│   │   ├── journal.ts        # Daily memory journal — local storage + periodic GitHub upload
-│   │   ├── loader.ts         # Assembles system prompt from memory
-│   │   └── tools.ts          # Memory tool executor + prompt injection validation
-│   ├── swift/
-│   │   └── chris-calendar.swift  # Swift EventKit CLI for fast calendar access
-│   └── cli/
-│       ├── index.ts           # Commander.js program entry point
-│       ├── pm2-helper.ts      # pm2 connection helper and constants
-│       └── commands/          # One file per CLI command
+│   ├── index.ts              # Thin entry point
+│   ├── config.ts             # Compatibility entry to validated config loader
+│   ├── app/                  # Bootstrap, lifecycle, service registry
+│   ├── agent/                # ChatService + session persistence helpers
+│   ├── channels/             # Telegram and Discord transport adapters
+│   ├── domain/               # Core domains: conversations, memory, schedules
+│   ├── infra/                # Shared infrastructure: config, storage
+│   ├── providers/            # Claude, OpenAI, Codex Agent, MiniMax providers
+│   ├── tools/                # Tool platform + tool modules
+│   ├── dashboard/            # Dashboard runtime + HTML UI
+│   ├── skills/               # Dynamic workflow system
+│   ├── cli/                  # Commander.js CLI
+│   ├── symphony/             # Autonomous orchestration subsystem
+│   └── swift/                # Swift EventKit helper
 ```
+
+### Compatibility facades
+
+Some top-level files remain as stable facades while imports gradually converge on the new structure:
+
+- `src/telegram.ts`
+- `src/discord.ts`
+- `src/dashboard.ts`
+- `src/scheduler.ts`
+- `src/conversation*.ts`
+- `src/memory/*`
+- `src/memory-consolidation.ts`
+
+These mostly re-export or delegate into `channels/`, `domain/`, or `dashboard/`.
 
 ## Memory Repository
 
@@ -104,37 +71,35 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 
 ## Data Flow
 
-```
-User sends Telegram message
+```txt
+User sends Telegram or Discord message
   │
-  ├── Auth middleware (user ID check)
-  ├── Rate limit middleware (10/min sliding window)
+  ├── Channel middleware / auth / rate limits
   │
-  ├── Load system prompt (5-min cache)
-  │   ├── Identity files (SOUL.md, RULES.md, VOICE.md)
-  │   ├── Knowledge files (about-chris, preferences, projects, people)
-  │   ├── Memory files (decisions, learnings)
-  │   ├── Recent summaries (last 7 days)
-  │   ├── Recent journal (today + yesterday)
-  │   ├── Skill discovery index (enabled skills with triggers)
-  │   └── Project context (CLAUDE.md / README.md from workspace)
+  ├── Channel handler normalizes message + attachments
   │
-  ├── Load conversation history (last 20 messages)
+  ├── ChatService
+  │   ├── image routing (vision always via OpenAI image model)
+  │   ├── provider selection from model string
+  │   ├── session helpers (Claude/Codex)
+  │   └── streaming callback plumbing
   │
-  ├── Route to provider (based on model string)
-  │   ├── gpt-* / o3* / o4-* → OpenAI
-  │   ├── MiniMax-* → MiniMax
-  │   └── everything else → Claude
+  ├── Provider
+  │   ├── system prompt loading via memory prompt loader
+  │   ├── provider-specific tool execution loop
+  │   └── optional provider session resume
   │
-  ├── AI generates response (may call tools in a loop)
-  │   ├── Tool calls dispatched via registry
-  │   ├── Loop detection (3 identical calls = break)
-  │   ├── Turn limit (configurable, default 200)
-  │   └── Context compaction if approaching window limit
+  ├── Shared tool registry platform
+  │   ├── filtering / allowedTools
+  │   ├── loop guard
+  │   ├── OpenAI adapter
+  │   └── Claude MCP adapter
   │
-  ├── Stream response to Telegram (1.5s edit interval)
+  ├── Domain persistence
+  │   ├── rolling conversation history
+  │   ├── daily archive append
+  │   ├── journal writes
+  │   └── memory updates
   │
-  ├── Save to conversation history
-  ├── Append to daily archive (JSONL)
-  └── Invalidate prompt cache
+  └── Channel-specific output formatting / streaming
 ```

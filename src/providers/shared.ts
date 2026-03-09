@@ -14,6 +14,7 @@ const BOOTSTRAP_CANDIDATES = ["CLAUDE.md", "AGENTS.md", "README.md"];
 setWorkspaceChangeCallback(() => invalidatePromptCache());
 
 function getProviderName(model: string): string {
+  if (model.toLowerCase().startsWith("codex-agent")) return "OpenAI Codex Agent";
   const m = model.toLowerCase();
   if (m.startsWith("gpt-") || m.startsWith("o3") || m.startsWith("o4-")) return "OpenAI";
   if (model.startsWith("MiniMax")) return "MiniMax";
@@ -119,6 +120,7 @@ export async function getSystemPrompt(): Promise<string> {
 export function invalidatePromptCache(): void {
   cachedSystemPrompt = null;
   cachedClaudeAppendPrompt = null;
+  cachedCodexSystemPrompt = null;
   resetLoopDetection();
 }
 
@@ -128,6 +130,8 @@ export function invalidatePromptCache(): void {
 
 let cachedClaudeAppendPrompt: string | null = null;
 let lastClaudePromptLoad = 0;
+let cachedCodexSystemPrompt: string | null = null;
+let lastCodexPromptLoad = 0;
 
 /**
  * Build a system prompt designed to APPEND to Claude Code's default preset.
@@ -225,4 +229,77 @@ You are running as model \`${model}\` via the Anthropic Claude Agent SDK, authen
   console.log("[prompt] Claude append prompt loaded (%d chars)", cachedClaudeAppendPrompt.length);
 
   return cachedClaudeAppendPrompt;
+}
+
+export async function getCodexSystemPrompt(): Promise<string> {
+  const now = Date.now();
+  if (cachedCodexSystemPrompt && now - lastCodexPromptLoad < PROMPT_CACHE_MS) {
+    return cachedCodexSystemPrompt;
+  }
+
+  console.log("[prompt] Loading memory for Codex system prompt...");
+  const memory = await loadMemory();
+  const model = config.model;
+
+  const parts: string[] = [];
+
+  if (memory.identity) {
+    parts.push(`# Identity\n\n${memory.identity}`);
+  }
+
+  if (memory.curatedSummary) {
+    parts.push(`# Curated Memory\n\n${memory.curatedSummary}`);
+  }
+
+  if (memory.knowledge) {
+    parts.push(`# Knowledge About Chris\n\n${memory.knowledge}`);
+  }
+
+  if (memory.memory) {
+    parts.push(`# Memories & Learnings\n\n${memory.memory}`);
+  }
+
+  if (memory.recentSummaries) {
+    parts.push(`# Recent Conversation History\n\n${memory.recentSummaries}`);
+  }
+
+  if (memory.recentJournal) {
+    parts.push(`# Recent Journal\n\n${memory.recentJournal}`);
+  }
+
+  if (memory.skillIndex) {
+    parts.push(`# Available Skills\n\n${memory.skillIndex}`);
+  }
+
+  const bootstrap = loadBootstrapFile();
+  if (bootstrap) {
+    parts.push(`# Project Context\n\n${bootstrap}`);
+  }
+
+  parts.push(`# Runtime Guidance
+
+You are Chris's personal AI assistant running through the OpenAI Codex SDK, which wraps the \`codex\` CLI.
+
+- Use Codex's native coding abilities for repository work.
+- Stay concise and scan-friendly for Telegram output.
+- Update Chris-facing memory only when it is genuinely useful.
+- Ask before destructive or wide-ranging changes.
+- Prefer making real progress over narrating tools.`);
+
+  parts.push(`# Formatting
+
+1. Use emoji sparingly but deliberately for scanability.
+2. Bold key terms and decisions.
+3. Prefer short paragraphs and compact lists.
+4. Do not dump raw tool chatter back to the user.`);
+
+  parts.push(`# System Info
+
+You are running as model \`${model}\` via the OpenAI Codex SDK backed by the local \`codex\` CLI. You are accessible through Telegram as Chris's personal assistant.`);
+
+  cachedCodexSystemPrompt = parts.join("\n\n---\n\n");
+  lastCodexPromptLoad = now;
+  console.log("[prompt] Codex system prompt loaded (%d chars)", cachedCodexSystemPrompt.length);
+
+  return cachedCodexSystemPrompt;
 }
