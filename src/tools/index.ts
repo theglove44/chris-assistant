@@ -14,6 +14,7 @@ import "./recall.js";
 import "./journal.js";
 import "./market-snapshot.js";
 import "./skills.js";
+import "./usage.js";
 // macOS-only tools — Calendar (EventKit) and Mail (AppleScript)
 if (process.platform === "darwin") {
   await import("./macos.js");
