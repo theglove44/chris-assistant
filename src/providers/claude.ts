@@ -17,6 +17,7 @@ import { getCustomMcpTools, getCustomMcpAllowedToolNames } from "../tools/index.
 import { getClaudeAppendPrompt, invalidatePromptCache } from "./shared.js";
 import { getWorkspaceRoot } from "../tools/files.js";
 import { getSessionId, setSessionId } from "../claude-sessions.js";
+import { formatHistoryForPrompt } from "../conversation.js";
 import type { Provider, ImageAttachment } from "./types.js";
 import { recordUsage } from "../usage-tracker.js";
 import * as os from "os";
@@ -152,12 +153,22 @@ export function createClaudeProvider(model: string): Provider {
         ? `[${_images.length} image(s) attached but the Claude Agent SDK can't process images directly in this mode. The user's caption follows.]\n\n${userMessage}`
         : userMessage;
 
+      // When no session exists (fresh start or cleared after image routing),
+      // prepend conversation history so Claude has context from prior exchanges.
+      let promptWithContext = messageWithImageNote;
+      if (!existingSessionId && chatId !== 0) {
+        const history = await formatHistoryForPrompt(chatId);
+        if (history) {
+          promptWithContext = `${history}\n\n${messageWithImageNote}`;
+        }
+      }
+
       let responseText = "";
       let accumulatedText = "";
 
       try {
         const conversation = query({
-          prompt: messageWithImageNote,
+          prompt: promptWithContext,
           options: {
             model,
             cwd: getWorkspaceRoot(),
