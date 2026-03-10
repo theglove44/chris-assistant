@@ -49,7 +49,12 @@ export class ChatService {
     if (images && images.length > 0) {
       const imageModel = config.imageModel;
       console.log("[provider] %d image(s) detected — routing to image model: %s", images.length, imageModel);
-      return createOpenAiProvider(imageModel).chat(chatId, userMessage, onChunk, images, allowedTools);
+      const response = await createOpenAiProvider(imageModel).chat(chatId, userMessage, onChunk, images, allowedTools);
+      // Clear the active provider's session so the next text message rebuilds
+      // context from conversation history instead of resuming a stale session
+      // that never saw the image exchange.
+      this.clearSession(chatId);
+      return response;
     }
 
     return this.getProvider().chat(chatId, userMessage, onChunk, images, allowedTools);
