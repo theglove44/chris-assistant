@@ -143,14 +143,16 @@ async function getInboxMessages(
   account: string,
   count: number,
   unreadOnly: boolean,
+  mailbox = "INBOX",
 ): Promise<string> {
   const limit = Math.min(count, 20);
+  const box = escapeAS(mailbox);
 
   if (unreadOnly) {
     const script = `
 tell application "Mail"
   set output to ""
-  set allMsgs to (messages of mailbox "INBOX" of account "${escapeAS(account)}" whose read status is false)
+  set allMsgs to (messages of mailbox "${box}" of account "${escapeAS(account)}" whose read status is false)
   set msgCount to count of allMsgs
   if msgCount > ${limit} then set msgCount to ${limit}
   repeat with i from 1 to msgCount
@@ -158,7 +160,8 @@ tell application "Mail"
     set subj to subject of m
     set sndr to sender of m
     set dt to date received of m as string
-    set output to output & "[UNREAD] " & subj & " | " & sndr & " | " & dt & "
+    set mid to message id of m
+    set output to output & "[UNREAD] " & subj & " | " & sndr & " | " & dt & " | id:" & mid & "
 "
   end repeat
   if msgCount = 0 then return "No unread messages."
@@ -170,7 +173,7 @@ end tell`;
   const script = `
 tell application "Mail"
   set output to ""
-  set allMsgs to messages of mailbox "INBOX" of account "${escapeAS(account)}"
+  set allMsgs to messages of mailbox "${box}" of account "${escapeAS(account)}"
   set msgCount to count of allMsgs
   if msgCount > ${limit} then set msgCount to ${limit}
   repeat with i from 1 to msgCount
@@ -179,9 +182,10 @@ tell application "Mail"
     set sndr to sender of m
     set dt to date received of m as string
     set isRead to read status of m
+    set mid to message id of m
     set tag to ""
     if isRead is false then set tag to "[UNREAD] "
-    set output to output & tag & subj & " | " & sndr & " | " & dt & "
+    set output to output & tag & subj & " | " & sndr & " | " & dt & " | id:" & mid & "
 "
   end repeat
   return output
@@ -193,14 +197,16 @@ async function searchMail(
   query: string,
   account: string,
   limit = 10,
+  mailbox = "INBOX",
 ): Promise<string> {
   const cap = Math.min(limit, 20);
+  const box = escapeAS(mailbox);
 
   const script = `
 tell application "Mail"
   set output to ""
   set matchCount to 0
-  set allMsgs to messages of mailbox "INBOX" of account "${escapeAS(account)}"
+  set allMsgs to messages of mailbox "${box}" of account "${escapeAS(account)}"
   repeat with m in allMsgs
     if matchCount is greater than or equal to ${cap} then exit repeat
     set subj to subject of m
@@ -208,9 +214,10 @@ tell application "Mail"
     if subj contains "${escapeAS(query)}" or sndr contains "${escapeAS(query)}" then
       set dt to date received of m as string
       set isRead to read status of m
+      set mid to message id of m
       set tag to ""
       if isRead is false then set tag to "[UNREAD] "
-      set output to output & tag & subj & " | " & sndr & " | " & dt & "
+      set output to output & tag & subj & " | " & sndr & " | " & dt & " | id:" & mid & "
 "
       set matchCount to matchCount + 1
     end if
@@ -219,6 +226,205 @@ tell application "Mail"
   return output
 end tell`;
 
+  return runAppleScript(script);
+}
+
+// ---------------------------------------------------------------------------
+// Mail: write/organise actions (AppleScript)
+// ---------------------------------------------------------------------------
+
+async function getMailMessage(
+  messageId: string,
+  account: string,
+): Promise<string> {
+  const script = `
+tell application "Mail"
+  set output to ""
+  set boxNames to {"INBOX", "Sent Messages", "Drafts", "Archive", "Junk"}
+  repeat with boxName in boxNames
+    try
+      set targetBox to mailbox boxName of account "${escapeAS(account)}"
+      set allMsgs to (messages of targetBox whose message id is "${escapeAS(messageId)}")
+      if (count of allMsgs) > 0 then
+        set m to item 1 of allMsgs
+        set subj to subject of m
+        set sndr to sender of m
+        set dt to date received of m as string
+        set recips to ""
+        repeat with r in to recipients of m
+          if recips is not "" then set recips to recips & ", "
+          set recips to recips & (address of r as string)
+        end repeat
+        set ccList to ""
+        repeat with c in cc recipients of m
+          if ccList is not "" then set ccList to ccList & ", "
+          set ccList to ccList & (address of c as string)
+        end repeat
+        set bd to content of m
+        set output to "Subject: " & subj & "
+From: " & sndr & "
+To: " & recips
+        if ccList is not "" then set output to output & "
+CC: " & ccList
+        set output to output & "
+Date: " & dt & "
+Mailbox: " & boxName & "
+" & "
+" & bd
+        return output
+      end if
+    end try
+  end repeat
+  return "Message not found with id: ${escapeAS(messageId)}"
+end tell`;
+  const result = await runAppleScript(script);
+  // Truncate long message bodies
+  if (result.length > 8000) {
+    return result.slice(0, 8000) + "\n\n[... body truncated ...]";
+  }
+  return result;
+}
+
+async function replyToMail(
+  messageId: string,
+  body: string,
+  replyAll: boolean,
+  account: string,
+): Promise<string> {
+  const replyCmd = replyAll
+    ? "set replyMsg to reply m with opening window and reply to all"
+    : "set replyMsg to reply m with opening window";
+
+  const script = `
+tell application "Mail"
+  set boxNames to {"INBOX", "Sent Messages", "Drafts", "Archive"}
+  repeat with boxName in boxNames
+    try
+      set targetBox to mailbox boxName of account "${escapeAS(account)}"
+      set allMsgs to (messages of targetBox whose message id is "${escapeAS(messageId)}")
+      if (count of allMsgs) > 0 then
+        set m to item 1 of allMsgs
+        ${replyCmd}
+        set content of replyMsg to "${escapeAS(body)}"
+        send replyMsg
+        return "Reply sent to: " & sender of m & " re: " & subject of m
+      end if
+    end try
+  end repeat
+  return "Message not found with id: ${escapeAS(messageId)}"
+end tell`;
+  return runAppleScript(script);
+}
+
+async function deleteMail(
+  messageId: string,
+  account: string,
+): Promise<string> {
+  const script = `
+tell application "Mail"
+  set boxNames to {"INBOX", "Sent Messages", "Drafts", "Archive", "Junk"}
+  repeat with boxName in boxNames
+    try
+      set targetBox to mailbox boxName of account "${escapeAS(account)}"
+      set allMsgs to (messages of targetBox whose message id is "${escapeAS(messageId)}")
+      if (count of allMsgs) > 0 then
+        set m to item 1 of allMsgs
+        set subj to subject of m
+        delete m
+        return "Moved to Trash: " & subj
+      end if
+    end try
+  end repeat
+  return "Message not found with id: ${escapeAS(messageId)}"
+end tell`;
+  return runAppleScript(script);
+}
+
+async function moveMail(
+  messageId: string,
+  targetMailbox: string,
+  account: string,
+): Promise<string> {
+  const script = `
+tell application "Mail"
+  set boxNames to {"INBOX", "Sent Messages", "Drafts", "Archive", "Junk"}
+  repeat with boxName in boxNames
+    try
+      set srcBox to mailbox boxName of account "${escapeAS(account)}"
+      set allMsgs to (messages of srcBox whose message id is "${escapeAS(messageId)}")
+      if (count of allMsgs) > 0 then
+        set m to item 1 of allMsgs
+        set subj to subject of m
+        set destBox to mailbox "${escapeAS(targetMailbox)}" of account "${escapeAS(account)}"
+        move m to destBox
+        return "Moved to ${escapeAS(targetMailbox)}: " & subj
+      end if
+    end try
+  end repeat
+  return "Message not found with id: ${escapeAS(messageId)}"
+end tell`;
+  return runAppleScript(script);
+}
+
+async function markMail(
+  messageId: string,
+  markAs: string,
+  account: string,
+): Promise<string> {
+  let action: string;
+  let label: string;
+  switch (markAs) {
+    case "read":
+      action = "set read status of m to true";
+      label = "Marked as read";
+      break;
+    case "unread":
+      action = "set read status of m to false";
+      label = "Marked as unread";
+      break;
+    case "flagged":
+      action = "set flag index of m to 1";
+      label = "Flagged";
+      break;
+    case "unflagged":
+      action = "set flag index of m to -1";
+      label = "Unflagged";
+      break;
+    default:
+      return `Error: invalid mark_as value: ${markAs}. Use read, unread, flagged, or unflagged.`;
+  }
+
+  const script = `
+tell application "Mail"
+  set boxNames to {"INBOX", "Sent Messages", "Drafts", "Archive", "Junk"}
+  repeat with boxName in boxNames
+    try
+      set targetBox to mailbox boxName of account "${escapeAS(account)}"
+      set allMsgs to (messages of targetBox whose message id is "${escapeAS(messageId)}")
+      if (count of allMsgs) > 0 then
+        set m to item 1 of allMsgs
+        set subj to subject of m
+        ${action}
+        return "${label}: " & subj
+      end if
+    end try
+  end repeat
+  return "Message not found with id: ${escapeAS(messageId)}"
+end tell`;
+  return runAppleScript(script);
+}
+
+async function listMailboxes(account: string): Promise<string> {
+  const script = `
+tell application "Mail"
+  set output to ""
+  set boxes to mailboxes of account "${escapeAS(account)}"
+  repeat with b in boxes
+    set output to output & name of b & "
+"
+  end repeat
+  return output
+end tell`;
   return runAppleScript(script);
 }
 
@@ -432,12 +638,19 @@ registerTool({
   category: "always",
   description:
     `Interact with macOS Mail app (default account: ${DEFAULT_MAIL_ACCOUNT}). ` +
-    "Actions: summary (unread count), inbox (recent messages), search (find by subject/sender).",
+    "Actions: summary, inbox, search, read, reply, delete, move, mark, list_mailboxes. " +
+    "Inbox/search results include message IDs (id:...) for use with write actions. " +
+    "Always confirm reply content with Chris before sending.",
   zodSchema: {
-    action: z.enum(["summary", "inbox", "search"]),
+    action: z.enum(["summary", "inbox", "search", "read", "reply", "delete", "move", "mark", "list_mailboxes"]),
     count: z.number().optional(),
     unread_only: z.boolean().optional(),
     query: z.string().optional(),
+    message_id: z.string().optional(),
+    body: z.string().optional(),
+    reply_all: z.boolean().optional(),
+    mailbox: z.string().optional(),
+    mark_as: z.string().optional(),
   },
   jsonSchemaParameters: {
     type: "object",
@@ -445,11 +658,17 @@ registerTool({
     properties: {
       action: {
         type: "string",
-        enum: ["summary", "inbox", "search"],
+        enum: ["summary", "inbox", "search", "read", "reply", "delete", "move", "mark", "list_mailboxes"],
         description:
           "summary: get total/unread message counts. " +
-          "inbox: read recent messages (optional: count, unread_only). " +
-          "search: find messages by subject or sender (requires query).",
+          "inbox: read recent messages (optional: count, unread_only, mailbox). " +
+          "search: find messages by subject or sender (requires query). " +
+          "read: get full message content (requires message_id). " +
+          "reply: reply to a message (requires message_id, body). " +
+          "delete: move message to trash (requires message_id). " +
+          "move: move message to a mailbox (requires message_id, mailbox). " +
+          "mark: mark as read/unread/flagged/unflagged (requires message_id, mark_as). " +
+          "list_mailboxes: show available mailbox names.",
       },
       count: {
         type: "number",
@@ -463,10 +682,31 @@ registerTool({
         type: "string",
         description: "Search term — matches against subject and sender.",
       },
+      message_id: {
+        type: "string",
+        description: "RFC Message-ID of the target message (from inbox/search output, the id:... field).",
+      },
+      body: {
+        type: "string",
+        description: "Reply body text. Required for reply action.",
+      },
+      reply_all: {
+        type: "boolean",
+        description: "If true, reply to all recipients. Default false.",
+      },
+      mailbox: {
+        type: "string",
+        description: "Mailbox name. For move: destination mailbox. For inbox/search: mailbox to query (default INBOX).",
+      },
+      mark_as: {
+        type: "string",
+        enum: ["read", "unread", "flagged", "unflagged"],
+        description: "How to mark the message. Required for mark action.",
+      },
     },
   },
   execute: async (args: any): Promise<string> => {
-    const { action, count, unread_only, query } = args;
+    const { action, count, unread_only, query, message_id, body, reply_all, mailbox, mark_as } = args;
 
     try {
       switch (action) {
@@ -474,15 +714,46 @@ registerTool({
           return await getMailSummary(DEFAULT_MAIL_ACCOUNT);
 
         case "inbox":
-          return await getInboxMessages(DEFAULT_MAIL_ACCOUNT, count ?? 5, unread_only ?? false);
+          return await getInboxMessages(DEFAULT_MAIL_ACCOUNT, count ?? 5, unread_only ?? false, mailbox ?? "INBOX");
 
         case "search": {
           if (!query) return "Error: query is required for search action";
-          return await searchMail(query, DEFAULT_MAIL_ACCOUNT, count ?? 10);
+          return await searchMail(query, DEFAULT_MAIL_ACCOUNT, count ?? 10, mailbox ?? "INBOX");
         }
 
+        case "read": {
+          if (!message_id) return "Error: message_id is required for read action";
+          return await getMailMessage(message_id, DEFAULT_MAIL_ACCOUNT);
+        }
+
+        case "reply": {
+          if (!message_id) return "Error: message_id is required for reply action";
+          if (!body) return "Error: body is required for reply action";
+          return await replyToMail(message_id, body, reply_all ?? false, DEFAULT_MAIL_ACCOUNT);
+        }
+
+        case "delete": {
+          if (!message_id) return "Error: message_id is required for delete action";
+          return await deleteMail(message_id, DEFAULT_MAIL_ACCOUNT);
+        }
+
+        case "move": {
+          if (!message_id) return "Error: message_id is required for move action";
+          if (!mailbox) return "Error: mailbox is required for move action";
+          return await moveMail(message_id, mailbox, DEFAULT_MAIL_ACCOUNT);
+        }
+
+        case "mark": {
+          if (!message_id) return "Error: message_id is required for mark action";
+          if (!mark_as) return "Error: mark_as is required for mark action";
+          return await markMail(message_id, mark_as, DEFAULT_MAIL_ACCOUNT);
+        }
+
+        case "list_mailboxes":
+          return await listMailboxes(DEFAULT_MAIL_ACCOUNT);
+
         default:
-          return `Unknown action: ${action}. Use summary, inbox, or search.`;
+          return `Unknown action: ${action}.`;
       }
     } catch (err: any) {
       console.error("[macos_mail] Error:", err.message);

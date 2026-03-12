@@ -208,7 +208,9 @@ You have the following custom tools in addition to your standard Claude Code too
 
 **run_skill** — Execute a skill by ID with optional inputs. The skill's instructions guide you through using its declared tools.
 
-**macos_reminders** — Manage Apple Reminders: create, complete, update, search, and list reminders. When Chris mentions tasks, to-dos, or things to follow up on, proactively offer to create reminders.`);
+**macos_reminders** — Manage Apple Reminders: create, complete, update, search, and list reminders. When Chris mentions tasks, to-dos, or things to follow up on, proactively offer to create reminders.
+
+**macos_mail** — Manage macOS Mail: summary, inbox, search, read full messages, reply, delete (moves to trash), move between mailboxes, and mark read/unread/flagged. Inbox and search results include message IDs for targeting specific messages. Always confirm reply content with Chris before sending.`);
 
   // Telegram formatting rules
   parts.push(`# CRITICAL: Message Formatting Rules
