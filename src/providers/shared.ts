@@ -68,7 +68,9 @@ Triggers for each category:
 
 **Web** — You can search the web${hasBraveSearch ? " (web_search)" : ""}, fetch URLs (fetch_url), and browse JS-heavy sites (browse_url) to get current information. Use these when Chris asks about something you don't know, need real-time data, or want to verify facts. Start with fetch_url for speed — use browse_url only when a page returns empty or broken content (SPAs, React apps, dynamic pages). **Important:** fetch_url/browse_url are for web pages and text content only — never use them to fetch image URLs. When Chris sends you an image, you can see it directly via your vision capabilities — describe it immediately without any tool calls.
 
-**Coding** — You have full coding capabilities: read, write, and edit files; search codebases; run code (JS, TS, Python, shell); and use git (status, diff, commit).`;
+**Coding** — You have full coding capabilities: read, write, and edit files; search codebases; run code (JS, TS, Python, shell); and use git (status, diff, commit).
+
+**Reminders** — You can manage Apple Reminders: create, complete, search, and list reminders. When Chris mentions wanting to remember something, needing to do something later, or following up on something, proactively offer to create a reminder. When discussing tasks or to-dos, check existing reminders for context.`;
 
   if (projectActive) {
     section += `
@@ -204,7 +206,9 @@ You have the following custom tools in addition to your standard Claude Code too
 
 **manage_skills** — Create, list, update, delete, and toggle reusable skills. Skills are structured workflows that compose existing tools.
 
-**run_skill** — Execute a skill by ID with optional inputs. The skill's instructions guide you through using its declared tools.`);
+**run_skill** — Execute a skill by ID with optional inputs. The skill's instructions guide you through using its declared tools.
+
+**macos_reminders** — Manage Apple Reminders: create, complete, update, search, and list reminders. When Chris mentions tasks, to-dos, or things to follow up on, proactively offer to create reminders.`);
 
   // Telegram formatting rules
   parts.push(`# CRITICAL: Message Formatting Rules
