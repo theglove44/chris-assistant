@@ -17,7 +17,7 @@ async function sendTelegramMessage(text: string, title?: string): Promise<void> 
 
     const truncated = fullText.length > 4000 ? fullText.slice(0, 4000) + "\n\n[truncated]" : fullText;
 
-    await fetch(url, {
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -26,8 +26,14 @@ async function sendTelegramMessage(text: string, title?: string): Promise<void> 
         parse_mode: "HTML",
       }),
     });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`Telegram API ${res.status}: ${body}`);
+    }
   } catch (err: any) {
     console.error("[scheduler] Failed to send Telegram message:", err.message);
+    throw err;
   }
 }
 
@@ -69,7 +75,7 @@ async function executeTask(task: Schedule): Promise<void> {
     console.log("[scheduler] Task completed: %s", task.name);
   } catch (err: any) {
     console.error("[scheduler] Task failed: %s — %s", task.name, err.message);
-    await sendTelegramMessage(`[${task.name}] Failed: ${err.message}`);
+    await sendTelegramMessage(`[${task.name}] Failed: ${err.message}`).catch(() => {});
     task.lastRun = Date.now();
     writeSchedules(readSchedules());
   }
