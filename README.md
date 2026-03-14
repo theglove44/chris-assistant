@@ -225,7 +225,7 @@ Basic operator loop:
 1. Label an issue with `symphony:todo`.
 2. Run `chris symphony run-once WORKFLOW.md`.
 3. Inspect progress with `chris symphony status` and `chris symphony logs <issue>`.
-4. When Symphony reaches `symphony:human-review`, it lands the workspace changes onto a `codex/symphony/*` branch and opens a draft PR automatically.
+4. When Symphony reaches `symphony:human-review`, it lands the workspace changes onto a `codex/symphony/*` branch and opens a draft PR automatically. That draft PR targets the repo's main integration branch so CI runs immediately.
 5. Reviewer assignment stays manual in v1; landing stops at a draft PR so a human can inspect before review handoff.
 
 Maintenance:
