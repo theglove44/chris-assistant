@@ -209,6 +209,30 @@ chris doctor --fix               # Auto-diagnose and repair
 chris setup                      # First-time setup wizard
 ```
 
+## GitHub-Backed Symphony
+
+Symphony uses GitHub Issues by default. The workflow contract lives in [WORKFLOW.md](WORKFLOW.md), including the managed issue labels:
+
+- `symphony:todo`
+- `symphony:in-progress`
+- `symphony:rework`
+- `symphony:human-review`
+
+Basic operator loop:
+
+1. Label an issue with `symphony:todo`.
+2. Run `chris symphony run-once WORKFLOW.md`.
+3. Inspect progress with `chris symphony status` and `chris symphony logs <issue>`.
+4. When Symphony reaches `symphony:human-review`, it lands the workspace changes onto a `codex/symphony/*` branch and opens a draft PR automatically.
+   Symphony intentionally stops at the draft PR stage and does not merge automatically, so a human can review the work.
+5. Reviewer assignment stays manual in v1; landing stops at a draft PR so a human can inspect before review handoff.
+
+Maintenance:
+
+- `chris symphony cleanup` shows finished workspaces that can be removed.
+- `chris symphony cleanup --apply` removes them.
+- `chris symphony cleanup --delete-remote-branches --apply` also prunes stale `codex/symphony/*` remote branches that no longer back an open PR.
+
 ## Telegram Commands
 
 | Command | Description |

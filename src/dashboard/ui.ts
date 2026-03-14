@@ -518,13 +518,14 @@ async function loadStatus() {
       '<div class="stat-grid">',
       stat("Workflow", symphony.workflowPath ? symphony.workflowPath.split("/").slice(-2).join("/") : "N/A"),
       stat("Tracker", symphony.tracker ? symphony.tracker.kind : "N/A"),
-      stat("Project", symphony.tracker && symphony.tracker.projectSlug ? symphony.tracker.projectSlug : "N/A"),
+      stat("Target", symphony.tracker && symphony.tracker.target ? symphony.tracker.target : "N/A"),
       stat("Running", symphony.running ? symphony.running.length : 0),
       stat("Retry Queue", symphony.retryQueue ? symphony.retryQueue.length : 0),
       stat("Claimed", symphony.claimedIssueIds ? symphony.claimedIssueIds.length : 0),
       stat("Last Poll", symphony.lastPollAt ? timeAgo(symphony.lastPollAt) : "never"),
       stat("Server Port", symphony.config && symphony.config.serverPort !== null ? symphony.config.serverPort : "N/A"),
       '</div>',
+      renderSymphonyRecent(symphony.completed || []),
     ].join("");
   } catch (e) {
     document.getElementById("status-stats").innerHTML = '<span class="loading">Error: ' + esc(e.message) + '</span>';
@@ -534,6 +535,31 @@ async function loadStatus() {
 
 function stat(label, value) {
   return '<div class="stat"><div class="label">' + esc(label) + '</div><div class="value">' + esc(String(value)) + '</div></div>';
+}
+
+function renderSymphonyRecent(completed) {
+  if (!completed.length) return '<div class="empty" style="margin-top:12px">No completed Symphony runs yet.</div>';
+  var rows = completed.slice(0, 5).map(function(entry) {
+    var landing = entry.landing || null;
+    var detail = landing && landing.pullRequest
+      ? '<a href="' + esc(landing.pullRequest.url) + '" target="_blank" rel="noopener noreferrer">' + esc(landing.pullRequest.url) + '</a>'
+      : landing && landing.branchName
+        ? '<span class="mono">' + esc(landing.branchName) + '</span>'
+        : '<span style="color:var(--text2)">No PR</span>';
+    var summary = entry.lastMessage
+      ? '<div style="font-size:12px;color:var(--text2);margin-top:4px">' + esc(entry.lastMessage.slice(0, 180)) + (entry.lastMessage.length > 180 ? '…' : '') + '</div>'
+      : '';
+    return '<tr><td><strong>' + esc(entry.identifier) + '</strong><div style="font-size:12px;color:var(--text2)">' + esc(entry.title) + '</div>' + summary + '</td><td>' + esc(entry.state) + '</td><td>' + detail + '</td><td>' + timeAgo(entry.finishedAt) + '</td></tr>';
+  }).join("");
+
+  return [
+    '<div style="margin-top:16px">',
+    '<h3 style="margin-bottom:8px">Recent Landings</h3>',
+    '<table><thead><tr><th>Issue</th><th>State</th><th>PR / Branch</th><th>Finished</th></tr></thead><tbody>',
+    rows,
+    '</tbody></table>',
+    '</div>',
+  ].join("");
 }
 
 // --- Schedules ---

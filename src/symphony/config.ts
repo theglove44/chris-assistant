@@ -30,6 +30,10 @@ function intValue(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? Math.trunc(value) : fallback;
 }
 
+function boolValue(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
 function boolLikePath(raw: string | null, fallback: string): string {
   if (!raw) return fallback;
   const envExpanded = raw.startsWith("$") ? process.env[raw.slice(1)] || fallback : raw;
@@ -65,6 +69,7 @@ export function buildSymphonyConfig(definition: WorkflowDefinition): SymphonyCon
   const tracker = section(definition.config, "tracker");
   const polling = section(definition.config, "polling");
   const workspace = section(definition.config, "workspace");
+  const landing = section(definition.config, "landing");
   const hooks = section(definition.config, "hooks");
   const agent = section(definition.config, "agent");
   const codex = section(definition.config, "codex");
@@ -73,11 +78,12 @@ export function buildSymphonyConfig(definition: WorkflowDefinition): SymphonyCon
   const resolvedConfig: SymphonyConfig = {
     workflowPath: definition.path,
     tracker: {
-      kind: stringValue(tracker.kind)?.toLowerCase() === "memory" ? "memory" : "linear",
+      kind: trackerKindValue(stringValue(tracker.kind)),
       endpoint: stringValue(tracker.endpoint) || "https://api.linear.app/graphql",
       apiKey: stringValue(tracker.api_key) || process.env.LINEAR_API_KEY || null,
       projectSlug: stringValue(tracker.project_slug),
-      assignee: stringValue(tracker.assignee) || process.env.LINEAR_ASSIGNEE || null,
+      repo: stringValue(tracker.repo) || process.env.SYMPHONY_GITHUB_REPO || null,
+      assignee: stringValue(tracker.assignee) || process.env.SYMPHONY_TRACKER_ASSIGNEE || process.env.LINEAR_ASSIGNEE || null,
       activeStates: listValue(tracker.active_states, DEFAULT_ACTIVE_STATES),
       terminalStates: listValue(tracker.terminal_states, DEFAULT_TERMINAL_STATES),
     },
@@ -86,6 +92,31 @@ export function buildSymphonyConfig(definition: WorkflowDefinition): SymphonyCon
     },
     workspace: {
       root: path.resolve(boolLikePath(stringValue(workspace.root), path.join(SYMPHONY_HOME, "workspaces"))),
+    },
+    landing: {
+      enabled: boolValue(landing.enabled, false),
+      triggerState: stringValue(landing.trigger_state) || "symphony:human-review",
+      baseBranch: stringValue(landing.base_branch),
+      branchPrefix: stringValue(landing.branch_prefix) || "codex/symphony/",
+      draft: boolValue(landing.draft, true),
+      commitMessageTemplate: stringValue(landing.commit_message)
+        || "chore: Symphony landing for {{ issue.identifier }}",
+      pullRequestTitleTemplate: stringValue(landing.pull_request_title)
+        || "{{ issue.identifier }} {{ issue.title }}",
+      pullRequestBodyTemplate: stringValue(landing.pull_request_body)
+        || [
+          "## Summary",
+          "",
+          "Automated Symphony landing for {{ issue.identifier }}.",
+          "",
+          "## Latest Agent Summary",
+          "",
+          "{{ last_agent_message | default: \"No agent summary provided.\" }}",
+          "",
+          "Refs {{ issue.identifier }}",
+        ].join("\n"),
+      authorName: stringValue(landing.author_name) || "Symphony Bot",
+      authorEmail: stringValue(landing.author_email) || "symphony-bot@users.noreply.github.com",
     },
     hooks: {
       afterCreate: stringValue(hooks.after_create),
@@ -147,7 +178,30 @@ export function validateSymphonyConfig(config: SymphonyConfig): void {
     }
   }
 
+  if (config.tracker.kind === "github" && !config.tracker.repo) {
+    throw new Error("Missing tracker.repo or SYMPHONY_GITHUB_REPO in WORKFLOW.md");
+  }
+
+  if (config.landing.enabled && config.tracker.kind !== "github") {
+    throw new Error("landing.enabled currently requires tracker.kind: github");
+  }
+
+  if (config.landing.enabled && !config.landing.branchPrefix.startsWith("codex/")) {
+    throw new Error("landing.branch_prefix must start with codex/");
+  }
+
   if (!config.codex.command.trim()) {
     throw new Error("Missing codex.command in WORKFLOW.md");
+  }
+}
+
+function trackerKindValue(value: string | null): SymphonyConfig["tracker"]["kind"] {
+  switch ((value || "").trim().toLowerCase()) {
+    case "memory":
+      return "memory";
+    case "github":
+      return "github";
+    default:
+      return "linear";
   }
 }
