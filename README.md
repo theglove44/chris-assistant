@@ -20,8 +20,11 @@ Built for a single user. Not a platform, not a framework — just a really good 
 | **Code** | Runs JavaScript, TypeScript, Python, and shell commands. Reads, writes, and edits files. Full git integration. |
 | **Calendar & Mail** | Native macOS Calendar (EventKit) and Mail integration. "Move my dentist appointment to Friday at 3pm" just works. |
 | **SSH** | Connects to Tailscale devices, runs commands in persistent tmux sessions you can attach to from your phone. |
+| **Reminders** | Native Apple Reminders integration (EventKit). Create, complete, update, and search tasks. |
 | **Scheduling** | "Check Hacker News every morning" — creates cron tasks that run with full AI + tool access. |
 | **Skills** | Reusable workflows the AI can discover, execute, and create at runtime. Stored as JSON in the memory repo. |
+| **Usage Tracking** | Token usage and cost tracking per model/provider. On-demand reports and daily cost summaries. |
+| **Health Monitoring** | Heartbeat checks, service health status, and GitHub webhook server for PR monitoring. |
 
 ## How It Works
 
@@ -256,11 +259,17 @@ Maintenance:
 | `AI_MODEL` | No | Model ID — determines provider (default: `gpt-4o`) |
 | `BRAVE_SEARCH_API_KEY` | No | Enables web search tool |
 | `WORKSPACE_ROOT` | No | Root for file/git tools (default: `~/Projects`) |
+| `CLAUDE_MODEL` | No | Alternative to `AI_MODEL` — used if `AI_MODEL` is not set |
+| `IMAGE_MODEL` | No | Model for image generation (default: `gpt-5.2`) |
+| `MAX_TOOL_TURNS` | No | Max tool call turns per conversation (default: 200) |
 | `DISCORD_BOT_TOKEN` | No | Enables Discord bot |
 | `DISCORD_ALLOWED_USER_ID` | No | Your Discord user ID |
+| `DISCORD_GUILD_ID` | No | Discord server ID |
 | `DASHBOARD_TOKEN` | No | Auth token for remote dashboard access |
+| `WEBHOOK_PORT` | No | GitHub webhook server port (default: 3001) |
+| `SYMPHONY_STATUS_URL` | No | Symphony status page URL (default: `http://127.0.0.1:3010`) |
 
-Full list in `src/config.ts`. Run `chris setup` for guided configuration.
+Config is validated through a typed zod schema in `src/infra/config/` (`src/config.ts` is a compatibility facade). Run `chris setup` for guided configuration.
 
 ## Architecture
 
@@ -280,6 +289,7 @@ src/
 ├── tools/                   # Tool registry platform + tool modules
 ├── dashboard/               # Dashboard runtime + UI template
 ├── skills/                  # Dynamic workflow system
+├── swift/                   # Swift source for EventKit binaries (Calendar, Reminders)
 ├── cli/                     # Commander.js CLI
 └── symphony/                # Autonomous workflow/orchestration subsystem
 ```

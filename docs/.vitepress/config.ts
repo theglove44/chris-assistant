@@ -48,6 +48,7 @@ export default defineConfig({
           { text: 'Code Execution', link: '/tools/code-execution' },
           { text: 'Memory', link: '/tools/memory' },
           { text: 'Scheduler', link: '/tools/scheduler' },
+          { text: 'macOS (Calendar, Mail, Reminders)', link: '/tools/macos' },
         ],
       },
       {

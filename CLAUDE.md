@@ -72,7 +72,7 @@ Critical ones inline, full list in `docs/development/gotchas.md`:
 
 ## Environment
 
-See `src/config.ts` for all env vars. Key ones: `TELEGRAM_BOT_TOKEN`, `GITHUB_TOKEN`, `GITHUB_MEMORY_REPO`, `AI_MODEL`. Auth tokens stored in `~/.chris-assistant/`.
+Config is validated through `src/infra/config/` (`src/config.ts` is a facade). Key ones: `TELEGRAM_BOT_TOKEN`, `GITHUB_TOKEN`, `GITHUB_MEMORY_REPO`, `AI_MODEL`. Auth tokens stored in `~/.chris-assistant/`.
 
 ## Adding Things
 
