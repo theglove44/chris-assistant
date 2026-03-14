@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Git post-merge hook: auto-deploy docs site when docs/ changes.
+# Install: cp scripts/post-merge-hook .git/hooks/post-merge && chmod +x .git/hooks/post-merge
+changed_files=$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD)
+
+if echo "$changed_files" | grep -q '^docs/'; then
+  echo "[docs] Changes detected in docs/, rebuilding and deploying..."
+  npm run docs:deploy
+  echo "[docs] Deploy complete."
+fi
