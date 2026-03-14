@@ -6,6 +6,7 @@ import { createCodexAgentProvider, abortCodexQuery } from "../providers/codex-ag
 import { createMiniMaxProvider } from "../providers/minimax.js";
 import { isOpenAiModel, isMiniMaxModel, isClaudeModel, isCodexAgentModel } from "../providers/model-routing.js";
 import { createOpenAiProvider } from "../providers/openai.js";
+import { resetLoopDetection } from "../tools/index.js";
 import type { Provider, ImageAttachment } from "../providers/types.js";
 
 export interface ChatRequest {
@@ -46,6 +47,11 @@ export class ChatService {
   }
 
   async sendMessage({ chatId, userMessage, onChunk, images, allowedTools }: ChatRequest): Promise<string> {
+    // Reset loop-guard counters at the start of each new user turn so the
+    // frequency limit protects against runaway loops within a single AI
+    // response, not across the entire conversation.
+    resetLoopDetection();
+
     if (images && images.length > 0) {
       const imageModel = config.imageModel;
       console.log("[provider] %d image(s) detected — routing to image model: %s", images.length, imageModel);
