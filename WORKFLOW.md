@@ -1,20 +1,32 @@
 ---
 tracker:
-  kind: linear
-  api_key: $LINEAR_API_KEY
-  project_slug: "chris-assistant"
+  kind: github
+  repo: "theglove44/chris-assistant"
   active_states:
-    - "Todo"
-    - "In Progress"
-    - "Rework"
+    - "symphony:todo"
+    - "symphony:in-progress"
+    - "symphony:rework"
   terminal_states:
-    - "Closed"
-    - "Cancelled"
-    - "Canceled"
-    - "Duplicate"
-    - "Done"
+    - "closed"
 workspace:
   root: ~/.chris-assistant/symphony/workspaces
+landing:
+  enabled: true
+  trigger_state: "symphony:human-review"
+  branch_prefix: "codex/symphony/"
+  draft: true
+  commit_message: "chore: Symphony landing for {{ issue.identifier }}"
+  pull_request_title: "{{ issue.identifier }} {{ issue.title }}"
+  pull_request_body: |
+    ## Summary
+
+    Automated Symphony landing for {{ issue.identifier }}.
+
+    ## Latest Agent Summary
+
+    {{ last_agent_message | default: "See the linked issue comments for the proof-of-work summary." }}
+
+    Refs {{ issue.identifier }}
 hooks:
   after_create: |
     if [ ! -d .git ]; then
@@ -43,7 +55,7 @@ server:
   host: "127.0.0.1"
   port: 3010
 ---
-You are working on the `chris-assistant` repository for Linear issue {{ issue.identifier }}.
+You are working on the `chris-assistant` repository for GitHub issue {{ issue.identifier }}.
 
 Issue title: {{ issue.title }}
 
@@ -55,8 +67,13 @@ Working rules:
 - Follow the repository's `AGENTS.md` and any repo-local `.codex/skills`.
 - Work inside the current issue workspace only.
 - Prefer small, reviewable commits and keep the branch state clean.
+- If the issue already names the file to change, open that file directly and avoid broad repo exploration.
+- For small documentation-only edits, stay scoped to the named doc section, keep the patch minimal, and verify with a quick diff instead of wandering through unrelated files.
+- Only use semantic search when the location is genuinely unclear after direct inspection.
 - Run `npm run typecheck` for meaningful changes.
 - Run `npm test` when behavior, orchestration, or path safety changes.
-- Use the `linear_graphql` tool when you need to comment on the ticket or move it between states.
-- When implementation is ready, move the issue to `Human Review` with a concise proof-of-work summary.
-- If blocked, explain the blocker clearly in Linear and stop rather than looping.
+- Use the `github_issue` tool with `issue_id: "{{ issue.id }}"` when you need to comment on the ticket or move it between Symphony-managed labels.
+- When implementation is ready, move the issue to `symphony:human-review` with a concise proof-of-work summary.
+- Do not open pull requests manually; the Symphony landing step will create the branch, commit, push, and draft PR after the issue reaches `symphony:human-review`.
+- Leave landed PRs as draft-only; do not assign reviewers automatically in v1.
+- If blocked, comment clearly on the GitHub issue and stop rather than looping.

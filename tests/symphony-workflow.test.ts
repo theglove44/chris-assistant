@@ -40,6 +40,7 @@ Attempt: {{ attempt }}
     expect(workflow.path).toBe(workflowPath);
     expect(config.polling.intervalMs).toBe(45_000);
     expect(config.agent.maxTurns).toBe(3);
+    expect(config.landing.enabled).toBe(false);
     expect(rendered).toContain("Issue: CA-42");
     expect(rendered).toContain("Title: Build Symphony");
     expect(rendered).toContain("Attempt: 2");

@@ -39,10 +39,11 @@ export type CodexThreadSandbox = "read-only" | "workspace-write" | "danger-full-
 export interface SymphonyConfig {
   workflowPath: string;
   tracker: {
-    kind: "linear" | "memory";
+    kind: "linear" | "github" | "memory";
     endpoint: string;
     apiKey: string | null;
     projectSlug: string | null;
+    repo: string | null;
     assignee: string | null;
     activeStates: string[];
     terminalStates: string[];
@@ -52,6 +53,18 @@ export interface SymphonyConfig {
   };
   workspace: {
     root: string;
+  };
+  landing: {
+    enabled: boolean;
+    triggerState: string | null;
+    baseBranch: string | null;
+    branchPrefix: string;
+    draft: boolean;
+    commitMessageTemplate: string;
+    pullRequestTitleTemplate: string;
+    pullRequestBodyTemplate: string;
+    authorName: string;
+    authorEmail: string;
   };
   hooks: {
     afterCreate: string | null;
@@ -153,6 +166,31 @@ export interface RunningIssueSnapshot {
   lastMessage: string | null;
 }
 
+export interface PullRequestRef {
+  number: number;
+  url: string;
+  headBranch: string;
+  existed: boolean;
+}
+
+export interface LandingResult {
+  status: "created" | "updated" | "skipped";
+  branchName: string | null;
+  commitSha: string | null;
+  pullRequest: PullRequestRef | null;
+  reason: string | null;
+}
+
+export interface CompletedIssueSnapshot {
+  issueId: string;
+  identifier: string;
+  title: string;
+  state: string;
+  finishedAt: number;
+  lastMessage: string | null;
+  landing: LandingResult | null;
+}
+
 export interface SymphonySnapshot {
   workflowPath: string;
   startedAt: number;
@@ -162,6 +200,7 @@ export interface SymphonySnapshot {
   tracker: {
     kind: string;
     projectSlug: string | null;
+    target: string | null;
   };
   config: {
     pollIntervalMs: number;
@@ -171,6 +210,7 @@ export interface SymphonySnapshot {
   };
   running: RunningIssueSnapshot[];
   retryQueue: RetryEntrySnapshot[];
+  completed: CompletedIssueSnapshot[];
   claimedIssueIds: string[];
   completedIssueIds: string[];
   lastError: string | null;
@@ -182,5 +222,14 @@ export interface Tracker {
   fetchIssueStatesByIds(ids: string[]): Promise<Issue[]>;
   createComment(issueId: string, body: string): Promise<void>;
   updateIssueState(issueId: string, stateName: string): Promise<void>;
+  ensurePullRequest?(
+    input: {
+      headBranch: string;
+      baseBranch: string;
+      title: string;
+      body: string;
+      draft: boolean;
+    },
+  ): Promise<PullRequestRef>;
   graphql?(query: string, variables?: Record<string, unknown>): Promise<Record<string, unknown>>;
 }

@@ -1,12 +1,15 @@
 import { buildTurnSandboxPolicy } from "./config.js";
 import { AgentRunner } from "./agent-runner.js";
+import { GitHubIssueLander } from "./landing.js";
 import { appendIssueLog, writeSnapshot } from "./paths.js";
 import { notifyIssueBlocked, notifyIssueClaimed, notifyIssueReady, notifyRetryExhausted } from "./notifications.js";
 import { WorkspaceManager } from "./workspace.js";
 import type {
   AppServerUpdate,
+  CompletedIssueSnapshot,
   DynamicToolHandler,
   Issue,
+  LandingResult,
   RetryEntrySnapshot,
   RunnerHandle,
   RunningIssueSnapshot,
@@ -39,9 +42,11 @@ interface RunningEntry {
 export class SymphonyOrchestrator {
   private readonly workspaceManager: WorkspaceManager;
   private readonly runner: AgentRunner;
+  private readonly lander: GitHubIssueLander | null;
   private running = new Map<string, RunningEntry>();
   private claimed = new Set<string>();
   private completed = new Set<string>();
+  private completedRuns: CompletedIssueSnapshot[] = [];
   private retries = new Map<string, RetryEntry>();
   private blocked = new Map<string, string>();
   private externallyStopped = new Set<string>();
@@ -57,9 +62,11 @@ export class SymphonyOrchestrator {
     private readonly config: SymphonyConfig,
     private readonly tracker: Tracker,
     dynamicTools: DynamicToolHandler,
+    deps: { lander?: GitHubIssueLander | null } = {},
   ) {
     this.workspaceManager = new WorkspaceManager(config);
     this.runner = new AgentRunner(definition, config, tracker, dynamicTools, this.workspaceManager);
+    this.lander = deps.lander === undefined ? createIssueLander(config, tracker) : deps.lander;
   }
 
   async start(): Promise<void> {
@@ -102,6 +109,7 @@ export class SymphonyOrchestrator {
       tracker: {
         kind: this.config.tracker.kind,
         projectSlug: this.config.tracker.projectSlug,
+        target: this.config.tracker.repo || this.config.tracker.projectSlug,
       },
       config: {
         pollIntervalMs: this.config.polling.intervalMs,
@@ -129,6 +137,7 @@ export class SymphonyOrchestrator {
         dueAt: entry.dueAt,
         reason: entry.reason,
       })),
+      completed: this.completedRuns,
       claimedIssueIds: Array.from(this.claimed.values()),
       completedIssueIds: Array.from(this.completed.values()),
       lastError: this.lastError,
@@ -246,15 +255,18 @@ export class SymphonyOrchestrator {
           this.completed.add(issue.id);
           this.claimed.delete(issue.id);
           appendIssueLog(issue.identifier, `[complete] ${result.issue.state}`);
+          let landing: LandingResult | null = null;
           if (!isActiveState(result.issue.state, this.config)) {
+            landing = await this.tryLandResult(result.issue, result.workspacePath, result.lastAgentMessage);
             await notifyIssueReady(result.issue);
             if (!isTerminalState(result.issue.state, this.config)) {
               await this.safeCreateComment(
                 result.issue,
-                buildReadyComment(result.issue, result.lastAgentMessage),
+                buildReadyComment(result.issue, result.lastAgentMessage, landing),
               );
             }
           }
+          this.recordCompletedRun(result.issue, result.lastAgentMessage, landing);
           if (isTerminalState(result.issue.state, this.config)) {
             await this.workspaceManager.removeIssueWorkspace(result.issue.identifier);
           }
@@ -398,6 +410,46 @@ export class SymphonyOrchestrator {
       appendIssueLog(issue.identifier, `[tracker-comment-failed] ${err.message}`);
     }
   }
+
+  private async tryLandResult(
+    issue: Issue,
+    workspacePath: string,
+    lastAgentMessage: string | null,
+  ): Promise<LandingResult | null> {
+    if (!this.lander?.shouldLand(issue)) {
+      return null;
+    }
+
+    try {
+      return await this.lander.land(issue, workspacePath, lastAgentMessage);
+    } catch (err: any) {
+      appendIssueLog(issue.identifier, `[landing-failed] ${err.message}`);
+      return {
+        status: "skipped",
+        branchName: null,
+        commitSha: null,
+        pullRequest: null,
+        reason: `automatic landing failed: ${err.message}`,
+      };
+    }
+  }
+
+  private recordCompletedRun(issue: Issue, lastMessage: string | null, landing: LandingResult | null): void {
+    const nextEntry: CompletedIssueSnapshot = {
+      issueId: issue.id,
+      identifier: issue.identifier,
+      title: issue.title,
+      state: issue.state,
+      finishedAt: Date.now(),
+      lastMessage,
+      landing,
+    };
+
+    this.completedRuns = [
+      nextEntry,
+      ...this.completedRuns.filter((entry) => entry.issueId !== issue.id),
+    ].slice(0, 10);
+  }
 }
 
 function compareIssues(a: Issue, b: Issue): number {
@@ -441,9 +493,14 @@ export function buildBlockedComment(reason: string): string {
   ].join("\n\n");
 }
 
-export function buildReadyComment(issue: Issue, lastAgentMessage: string | null): string {
+export function buildReadyComment(
+  issue: Issue,
+  lastAgentMessage: string | null,
+  landing: LandingResult | null = null,
+): string {
   return [
     `Symphony completed its current run and the issue is now in \`${issue.state}\`.`,
+    landing ? formatLandingSummary(landing) : null,
     lastAgentMessage ? `Latest agent summary:\n\n${truncateText(lastAgentMessage, 1500)}` : null,
   ].filter(Boolean).join("\n\n");
 }
@@ -458,4 +515,27 @@ export function buildRetryExhaustedComment(reason: string): string {
 function truncateText(value: string, maxLength: number): string {
   if (value.length <= maxLength) return value;
   return `${value.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+}
+
+function formatLandingSummary(landing: LandingResult): string {
+  if (landing.pullRequest) {
+    return [
+      `Landing status: ${landing.status}.`,
+      `Branch: \`${landing.branchName}\``,
+      `Pull request: ${landing.pullRequest.url}`,
+      landing.commitSha ? `Commit: \`${landing.commitSha.slice(0, 12)}\`` : null,
+    ].filter(Boolean).join("\n");
+  }
+
+  return [
+    "Landing status: skipped.",
+    landing.reason ? `Reason: ${landing.reason}` : null,
+  ].filter(Boolean).join("\n");
+}
+
+function createIssueLander(config: SymphonyConfig, tracker: Tracker): GitHubIssueLander | null {
+  if (!config.landing.enabled || config.tracker.kind !== "github" || !tracker.ensurePullRequest) {
+    return null;
+  }
+  return new GitHubIssueLander(config, tracker);
 }

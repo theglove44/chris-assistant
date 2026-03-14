@@ -53,6 +53,13 @@ export function loadWorkflow(workflowPath = defaultWorkflowPath()): WorkflowDefi
   };
 }
 
+export async function renderTemplateString(
+  template: string,
+  context: Record<string, unknown>,
+): Promise<string> {
+  return liquid.parseAndRender(template, context);
+}
+
 export async function renderWorkflowPrompt(
   definition: WorkflowDefinition,
   context: Record<string, unknown>,
@@ -66,5 +73,5 @@ export async function renderWorkflowPrompt(
     ].join("\n");
   }
 
-  return liquid.parseAndRender(definition.promptTemplate, context);
+  return renderTemplateString(definition.promptTemplate, context);
 }
