@@ -220,7 +220,7 @@ describe("GitHubIssueLander", () => {
 
   it("falls back to remote main when the local source repo is on an unpublished feature branch", async () => {
     const sourceRepo = initGitWorkspace();
-    execFileSync("git", ["checkout", "-b", "codex/symphony-sidecar"], { cwd: sourceRepo });
+    execFileSync("git", ["checkout", "-b", "codex/symphony/unpublished-test-landing"], { cwd: sourceRepo });
     const workspace = cloneWorkspaceFromLocalSource(sourceRepo);
     const previousSourceRepo = process.env.SYMPHONY_SOURCE_REPO;
     process.env.SYMPHONY_SOURCE_REPO = sourceRepo;

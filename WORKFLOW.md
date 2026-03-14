@@ -13,6 +13,7 @@ workspace:
 landing:
   enabled: true
   trigger_state: "symphony:human-review"
+  base_branch: "main"
   branch_prefix: "codex/symphony/"
   draft: true
   commit_message: "chore: Symphony landing for {{ issue.identifier }}"

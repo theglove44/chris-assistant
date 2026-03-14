@@ -12,11 +12,15 @@ describe("Symphony workflow", () => {
 
     fs.writeFileSync(workflowPath, `---
 tracker:
-  kind: memory
+  kind: github
+  repo: "theglove44/chris-assistant"
 polling:
   interval_ms: 45000
 workspace:
   root: ${JSON.stringify(path.join(tempDir, "workspaces"))}
+landing:
+  enabled: true
+  base_branch: "main"
 agent:
   max_turns: 3
 codex:
@@ -40,7 +44,8 @@ Attempt: {{ attempt }}
     expect(workflow.path).toBe(workflowPath);
     expect(config.polling.intervalMs).toBe(45_000);
     expect(config.agent.maxTurns).toBe(3);
-    expect(config.landing.enabled).toBe(false);
+    expect(config.landing.enabled).toBe(true);
+    expect(config.landing.baseBranch).toBe("main");
     expect(rendered).toContain("Issue: CA-42");
     expect(rendered).toContain("Title: Build Symphony");
     expect(rendered).toContain("Attempt: 2");
