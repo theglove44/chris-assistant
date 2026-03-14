@@ -60,8 +60,13 @@ async function parseCodexStream(
 
   // Strip think tags from content
   const thinkClose = "<" + "/think>";
+  const thinkingClose = "<" + "/thinking>";
   const stripThinkTags = (text: string) =>
-    text.replace(new RegExp("<think>[\\s\\S]*?" + thinkClose, "g"), "").replace(/<think>[\s\S]*$/g, "");
+    text
+      .replace(new RegExp("<think>[\\s\\S]*?" + thinkClose, "g"), "")
+      .replace(new RegExp("<thinking>[\\s\\S]*?" + thinkingClose, "g"), "")
+      .replace(/<think>[\s\S]*$/g, "")
+      .replace(/<thinking>[\s\S]*$/g, "");
 
   while (true) {
     const { done, value } = await reader.read();

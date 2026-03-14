@@ -124,7 +124,11 @@ export function registerDiscordHandlers(): void {
       });
 
       const thinkClose = "<" + "/think>";
-      const response = rawResponse.replace(new RegExp("<think>[\\s\\S]*?" + thinkClose, "g"), "").trim();
+      const thinkingClose = "<" + "/thinking>";
+      const response = rawResponse
+        .replace(new RegExp("<think>[\\s\\S]*?" + thinkClose, "g"), "")
+        .replace(new RegExp("<thinking>[\\s\\S]*?" + thinkingClose, "g"), "")
+        .trim();
 
       void addMessage(chatId, "assistant", response, meta);
 
