@@ -120,7 +120,7 @@ describe("GitHubIssueLander", () => {
     };
 
     const lander = new GitHubIssueLander(makeConfig(root), tracker, async (args, cwd, env = {}) => {
-      if (args[0] === "push") {
+      if (args[0] === "push" || args[0] === "fetch") {
         return "pushed";
       }
       return execFileSync("git", args, {
@@ -196,7 +196,7 @@ describe("GitHubIssueLander", () => {
 
     try {
       const lander = new GitHubIssueLander(makeConfig(workspace), tracker, async (args, cwd, env = {}) => {
-        if (args[0] === "push") {
+        if (args[0] === "push" || args[0] === "fetch") {
           return "pushed";
         }
         return execFileSync("git", args, {
@@ -218,7 +218,7 @@ describe("GitHubIssueLander", () => {
     }
   });
 
-  it("falls back to remote main when the local source repo is on an unpublished feature branch", async () => {
+  it("uses the configured main base branch even when the source repo is on a feature branch", async () => {
     const sourceRepo = initGitWorkspace();
     execFileSync("git", ["checkout", "-b", "codex/symphony/unpublished-test-landing"], { cwd: sourceRepo });
     const workspace = cloneWorkspaceFromLocalSource(sourceRepo);
@@ -245,10 +245,10 @@ describe("GitHubIssueLander", () => {
 
     try {
       const config = makeConfig(workspace);
-      config.landing.baseBranch = null;
+      config.landing.baseBranch = "main";
 
       const lander = new GitHubIssueLander(config, tracker, async (args, cwd, env = {}) => {
-        if (args[0] === "push") {
+        if (args[0] === "push" || args[0] === "fetch") {
           return "pushed";
         }
         return execFileSync("git", args, {
