@@ -20,7 +20,7 @@ const NATIVE_CLAUDE_TOOLS = new Set([
 function toMcpTool(tool: ReturnType<typeof getRegisteredTools>[number]) {
   return createMcpTool(tool.name, tool.description, tool.zodSchema, async (args: any) => {
     const argsJson = JSON.stringify(args);
-    const loopError = checkToolLoop(tool.name, argsJson);
+    const loopError = checkToolLoop(tool.name, argsJson, tool.frequencyLimit);
     if (loopError) {
       return {
         content: [{ type: "text" as const, text: loopError }],
