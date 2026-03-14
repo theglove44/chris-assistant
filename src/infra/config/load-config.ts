@@ -56,6 +56,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): { config: AppC
       symphony: {
         statusUrl: values.SYMPHONY_STATUS_URL || "http://127.0.0.1:3010",
       },
+      octopus: {
+        apiKey: normalizeOptional(values.OCTOPUS_API_KEY),
+        accountNumber: normalizeOptional(values.OCTOPUS_ACCOUNT_NUMBER),
+      },
     },
     repo: { owner, name },
   };

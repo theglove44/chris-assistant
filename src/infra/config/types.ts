@@ -27,4 +27,8 @@ export interface AppConfig {
   symphony: {
     statusUrl: string;
   };
+  octopus: {
+    apiKey: string | null;
+    accountNumber: string | null;
+  };
 }
