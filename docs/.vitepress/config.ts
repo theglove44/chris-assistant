@@ -32,6 +32,7 @@ export default defineConfig({
         text: 'Channels',
         items: [
           { text: 'Discord Setup', link: '/discord-setup' },
+          { text: 'Webhook Server', link: '/webhook' },
         ],
       },
       {
@@ -68,6 +69,12 @@ export default defineConfig({
         items: [
           { text: 'Command Reference', link: '/cli/reference' },
           { text: 'Environment & Config', link: '/cli/environment' },
+        ],
+      },
+      {
+        text: 'Skills',
+        items: [
+          { text: 'Skills Guide', link: '/skills-guide' },
         ],
       },
       {

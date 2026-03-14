@@ -103,3 +103,31 @@ User sends Telegram or Discord message
   │
   └── Channel-specific output formatting / streaming
 ```
+
+## Service Registry
+
+Background services are registered as `AppService` entries in `src/app/service-definitions.ts`. Each service implements a `start()` / `stop()` pair and is managed by a `ServiceRegistry` that starts them in order and stops them in reverse order on shutdown.
+
+Services are split into two registries based on boot timing:
+
+- **Pre-Telegram** -- runs before the Telegram bot connects (e.g. setting the command menu)
+- **Post-Telegram** -- runs after the bot is online
+
+| Service | Purpose |
+|---------|---------|
+| `telegram-command-menu` | Sets the Telegram `/` command menu |
+| `health-monitor` | Periodic health checks |
+| `scheduler` | Cron-style scheduled task execution |
+| `conversation-backup` | Backs up conversation history |
+| `archive-uploader` | Uploads daily JSONL archives to GitHub |
+| `daily-summarizer` | Generates daily conversation summaries |
+| `channel-summarizer` | Weekly per-channel Discord summaries |
+| `journal-uploader` | Uploads the bot's daily journal |
+| `memory-consolidation` | Consolidates memory files periodically |
+| `heartbeat` | Writes `HEARTBEAT.md` status to memory repo |
+| `dashboard` | HTTP dashboard server |
+| `discord` | Discord bot client |
+| `webhook` | GitHub webhook server for PR notifications |
+| `usage-report` | Daily token usage report |
+
+To add a new background service, create a module with `start*()` / `stop*()` exports and add a `createService()` entry to the appropriate registry in `service-definitions.ts`.

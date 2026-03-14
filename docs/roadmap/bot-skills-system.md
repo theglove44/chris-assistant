@@ -1,6 +1,8 @@
 # Bot Skills System — Implementation Plan
 
 > **Status: Implemented** — PRs #24 (core infrastructure), #25 (system prompt integration), #26 (documentation) merged 2026-03-03.
+>
+> **This is a historical planning document.** For usage instructions, see the [Skills Guide](/skills-guide).
 
 ## Context
 
