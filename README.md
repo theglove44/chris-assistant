@@ -259,6 +259,8 @@ src/
 └── symphony/                # Autonomous workflow/orchestration subsystem
 ```
 
+In the GitHub-backed Symphony flow, when an issue reaches `symphony:human-review`, Symphony now lands the workspace changes to a `codex/symphony/*` branch and opens a draft PR automatically.
+
 ### Runtime flow
 
 ```txt
