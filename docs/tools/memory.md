@@ -50,6 +50,34 @@ Registered in `src/tools/memory.ts`. All providers support it — Claude uses MC
 
 The tool targets specific memory file categories: `about-chris`, `preferences`, `projects`, `people`, `decisions`, `learnings`.
 
+## Quick Examples
+
+| What you tell the bot | What happens |
+|------------------------|-------------|
+| "Remember that I prefer dark mode in all apps" | AI calls `update_memory` with action `add`, category `preferences` |
+| "My friend Jake works at Stripe" | AI adds to `people` memory — stored in `knowledge/people.md` |
+| "I decided to use Postgres instead of SQLite for the new project" | AI adds to `decisions` memory |
+| "What do you know about my preferences?" | AI reads the `preferences` memory file from the system prompt context |
+| "Update my project notes — the deadline moved to April" | AI calls `update_memory` with action `replace` on the `projects` category |
+
+### Memory Lifecycle
+
+1. **Storage**: The AI decides when something is worth remembering and calls `update_memory` automatically
+2. **Recall**: All memory files are loaded into the system prompt at the start of each conversation (cached for 5 minutes)
+3. **Consolidation**: Weekly, a consolidation job curates `memory/SUMMARY.md` from all sources
+4. **Audit**: Every memory write is a git commit in the memory repo — fully auditable and rollback-able
+
+### What Gets Stored Where
+
+| Category | File | Use for |
+|----------|------|---------|
+| `about-chris` | `knowledge/about-chris.md` | Facts about you — job, location, family |
+| `preferences` | `knowledge/preferences.md` | Likes, dislikes, style preferences |
+| `projects` | `knowledge/projects.md` | Current work and side projects |
+| `people` | `knowledge/people.md` | People you mention — names, context |
+| `decisions` | `memory/decisions.md` | Important decisions and reasoning |
+| `learnings` | `memory/learnings.md` | Things the bot learned about how to help you better |
+
 ## Memory Guard
 
 `validateMemoryContent()` in `memory/tools.ts` defends against prompt injection:

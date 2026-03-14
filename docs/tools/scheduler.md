@@ -48,6 +48,29 @@ Each schedule can optionally include:
 - **`allowedTools`** — When set, only those tools are available during execution (e.g. `["ssh", "web_search"]`). When omitted, all tools are available.
 - **`discordChannel`** — When set, results are posted to that Discord channel instead of Telegram.
 
+## Quick Examples
+
+| What you tell the bot | Cron expression | What happens |
+|------------------------|-----------------|-------------|
+| "Check the weather every morning at 8am" | `0 8 * * *` | Fires daily at 08:00, AI fetches weather and sends it to Telegram |
+| "Remind me to review PRs every weekday at 2pm" | `0 14 * * 1-5` | Fires Mon-Fri at 14:00 |
+| "Check if mediaserver is online every 30 minutes" | `*/30 * * * *` | Fires every 30 min, AI runs SSH health check |
+| "Run the market report skill every morning at 7" | `0 7 * * *` | Fires daily at 07:00, AI calls `run_skill` |
+| "Send a daily standup summary to Discord at 9am" | `0 9 * * 1-5` | Fires weekdays, posts to `discordChannel` instead of Telegram |
+
+### Common Cron Patterns
+
+| Pattern | Meaning |
+|---------|---------|
+| `0 8 * * *` | Every day at 8:00 AM |
+| `*/15 * * * *` | Every 15 minutes |
+| `0 9 * * 1-5` | Weekdays at 9:00 AM |
+| `0 0 1 * *` | First day of each month at midnight |
+| `30 18 * * 0` | Sundays at 6:30 PM |
+| `0 */3 * * *` | Every 3 hours |
+
+Scheduled tasks execute with full tool access by default. Use `allowedTools` to restrict a task to specific tools (e.g. `["ssh", "web_search"]`).
+
 ## Built-in Scheduled Modules
 
 Some scheduled behavior is built into the bot and cannot be accidentally deleted:

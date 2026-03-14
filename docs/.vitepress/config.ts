@@ -29,6 +29,18 @@ export default defineConfig({
         ],
       },
       {
+        text: 'Channels',
+        items: [
+          { text: 'Discord Setup', link: '/discord-setup' },
+        ],
+      },
+      {
+        text: 'Dashboard',
+        items: [
+          { text: 'Dashboard', link: '/dashboard' },
+        ],
+      },
+      {
         text: 'Architecture',
         items: [
           { text: 'Overview', link: '/architecture/overview' },
@@ -69,6 +81,7 @@ export default defineConfig({
         text: 'Roadmap',
         items: [
           { text: 'Features', link: '/roadmap/features' },
+          { text: 'Bot Skills System', link: '/roadmap/bot-skills-system' },
           { text: 'OpenClaw Comparison', link: '/roadmap/openclaw-comparison' },
         ],
       },

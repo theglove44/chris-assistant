@@ -1,6 +1,6 @@
 ---
 title: Providers
-description: Multi-provider architecture — Claude, OpenAI, and MiniMax
+description: Multi-provider architecture — Claude, OpenAI, Codex Agent, and MiniMax
 ---
 
 # Providers
@@ -9,6 +9,7 @@ The model string determines the provider. No separate "provider" config key need
 
 | Prefix | Provider | Implementation |
 |--------|----------|---------------|
+| `codex-agent-*` | OpenAI Codex Agent | `src/providers/codex-agent.ts` |
 | `gpt-*`, `o3*`, `o4-*` | OpenAI | `src/providers/openai.ts` |
 | `MiniMax-*` | MiniMax | `src/providers/minimax.ts` |
 | Everything else | Claude | `src/providers/claude.ts` |
@@ -28,6 +29,24 @@ Uses the `@anthropic-ai/claude-agent-sdk` as a full agent with Claude Code's nat
 **Abort support**: Per-chat `AbortController` map. `/stop` aborts the active query for the calling chat without affecting concurrent queries (e.g. scheduled tasks).
 
 **Authentication**: Requires `CLAUDE_CODE_OAUTH_TOKEN` in `.env` from a Max subscription, or run `claude` CLI once to authenticate.
+
+## Codex Agent
+
+Uses the `@openai/codex-sdk` to run a full agent with workspace access. This is a distinct provider from the OpenAI Responses API — it uses OpenAI's Codex Agent SDK to manage persistent threads with tool execution in a sandboxed workspace.
+
+**Model routing**: Models prefixed with `codex-agent-` route here. The prefix is stripped to determine the underlying model (e.g. `codex-agent-o4-mini` uses `o4-mini`). If no model suffix is provided, defaults to `o4-mini`.
+
+**Thread persistence**: Each chat gets a persistent thread via `src/codex-sessions.ts` (parallel to `claude-sessions.ts`). First message starts a new thread; follow-up messages resume the existing thread via `codex.resumeThread()`. `/clear` resets the thread. System context (identity, memory, formatting rules) is prepended to the first message only.
+
+**Workspace**: The agent runs with `workspace-write` sandbox mode in `getWorkspaceRoot()`, with additional access to `~/.chris-assistant/`. Network access is enabled and git repo checks are skipped.
+
+**Streaming**: Streams via the SDK's `runStreamed()` method. The provider listens for `item.updated` and `item.completed` events, extracting text from `agent_message` items and forwarding via `onChunk()`.
+
+**Abort support**: Per-chat `AbortController` map, same pattern as Claude. `/stop` aborts the active agent run.
+
+**Image handling**: The Codex Agent SDK operates text-only. When images are attached, a note is prepended indicating the number of images, and the user's caption is passed through.
+
+**Headless runs**: When `chatId === 0` (scheduled tasks, system calls), threads are not persisted.
 
 ## OpenAI
 
@@ -53,7 +72,7 @@ The `/oauth/code` endpoint requires `response_type: "code"` in the body. The `ex
 
 ## Streaming
 
-All three providers stream via the `onChunk` callback in the Provider interface. `telegram.ts` sends a "..." placeholder and edits it every 1.5s with accumulated text + cursor (▍). OpenAI streams via SSE, MiniMax via the OpenAI SDK, and Claude via the Agent SDK's `includePartialMessages` events. Final render uses Markdown with plain text fallback.
+All four providers stream via the `onChunk` callback in the Provider interface. `telegram.ts` sends a "..." placeholder and edits it every 1.5s with accumulated text + cursor. OpenAI streams via SSE, MiniMax via the OpenAI SDK, Claude via the Agent SDK's `includePartialMessages` events, and Codex Agent via the SDK's `runStreamed()` events. Final render uses Markdown with plain text fallback.
 
 ## Image and Document Handling
 

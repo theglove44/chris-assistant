@@ -30,6 +30,18 @@ description: The run_code tool for executing code in multiple languages
 - **Output truncation**: 50KB
 - **Working directory**: `getWorkspaceRoot()` (matches file tools)
 
+## Quick Examples
+
+| What you tell the bot | Language | What runs |
+|------------------------|----------|-----------|
+| "What's 2^128?" | JavaScript | `node -e "console.log(2n ** 128n)"` |
+| "Run `df -h` locally" | Shell | `bash -c "df -h"` |
+| "Calculate the SHA-256 of 'hello'" | Python | `python3 -c "import hashlib; print(hashlib.sha256(b'hello').hexdigest())"` |
+| "Parse this JSON and extract the names" | TypeScript | Runs via tsx with full type support |
+| "How much free memory is there?" | Shell | `bash -c "vm_stat"` or equivalent |
+
+The bot picks the language automatically based on the task. You can also be explicit: "run this Python script..." or "use bash to check...".
+
 ## Security
 
 ### No shell injection
