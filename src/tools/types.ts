@@ -13,4 +13,6 @@ export interface ToolRegistration {
     properties: Record<string, any>;
   };
   execute: (args: any) => Promise<string>;
+  /** Per-tool frequency limit for loop guard. Defaults to 20 if not set. */
+  frequencyLimit?: number;
 }

@@ -1,14 +1,19 @@
 const LOOP_THRESHOLD = 3;
-const FREQUENCY_LIMIT = 20;
+const DEFAULT_FREQUENCY_LIMIT = 20;
 
 let recentFingerprints: string[] = [];
 const toolCallCounts = new Map<string, number>();
 
-export function checkToolLoop(name: string, argsJson: string): string | null {
+/**
+ * Check for tool call loops and frequency abuse.
+ * @param frequencyLimit - per-tool override; falls back to DEFAULT_FREQUENCY_LIMIT (20)
+ */
+export function checkToolLoop(name: string, argsJson: string, frequencyLimit?: number): string | null {
+  const limit = frequencyLimit ?? DEFAULT_FREQUENCY_LIMIT;
   const count = (toolCallCounts.get(name) ?? 0) + 1;
   toolCallCounts.set(name, count);
 
-  if (count >= FREQUENCY_LIMIT) {
+  if (count >= limit) {
     console.warn("[tools] Frequency limit reached: %s called %d times this conversation", name, count);
     return `Tool ${name} has been called ${count} times this conversation. You appear to be stuck — try a different approach or ask the user for help.`;
   }
