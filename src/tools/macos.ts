@@ -636,6 +636,7 @@ registerTool({
 registerTool({
   name: "macos_mail",
   category: "always",
+  frequencyLimit: 100,
   description:
     `Interact with macOS Mail app (default account: ${DEFAULT_MAIL_ACCOUNT}). ` +
     "Actions: summary, inbox, search, read, reply, delete, move, mark, list_mailboxes. " +

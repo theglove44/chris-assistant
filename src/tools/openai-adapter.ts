@@ -19,7 +19,7 @@ export async function dispatchToolCall(name: string, argsJson: string, logPrefix
   if (!tool) return `Unknown tool: ${name}`;
 
   try {
-    const loopError = checkToolLoop(name, argsJson);
+    const loopError = checkToolLoop(name, argsJson, tool.frequencyLimit);
     if (loopError) return loopError;
 
     const args = JSON.parse(argsJson);
