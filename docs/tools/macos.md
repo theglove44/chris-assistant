@@ -5,7 +5,7 @@ description: Calendar (EventKit) and Mail (AppleScript) integration for macOS
 
 # macOS Tools
 
-Two macOS-only tools: `macos_calendar` (fast native EventKit) and `macos_mail` (AppleScript). Both are platform-gated — they only register on `darwin`.
+Three macOS-only tools: `macos_calendar` (fast native EventKit), `macos_mail` (AppleScript), and `macos_reminders` (fast native EventKit). All are platform-gated — they only register on `darwin`.
 
 ## Calendar (`macos_calendar`)
 
@@ -120,12 +120,49 @@ Uses AppleScript via `osascript` to interact with Mail.app. Default account: **i
 | Action | Required Params | Optional Params | Description |
 |--------|----------------|-----------------|-------------|
 | `summary` | — | — | Total and unread message counts |
-| `inbox` | — | `count`, `unread_only` | Recent messages (default 5, max 20) |
-| `search` | `query` | `count` | Search by subject or sender (default 10, max 20) |
+| `inbox` | — | `count`, `unread_only`, `mailbox` | Recent messages (default 5, max 20) |
+| `search` | `query` | `count`, `mailbox` | Search by subject or sender (default 10, max 20) |
+| `read` | `message_id` | — | Get full message content (subject, from, to, cc, date, body) |
+| `reply` | `message_id`, `body` | `reply_all` | Reply to a message (confirm content with user first) |
+| `delete` | `message_id` | — | Move message to Trash |
+| `move` | `message_id`, `mailbox` | — | Move message to a specific mailbox |
+| `mark` | `message_id`, `mark_as` | — | Mark as `read`, `unread`, `flagged`, or `unflagged` |
+| `list_mailboxes` | — | — | Show available mailbox names |
+
+Message IDs are returned in inbox/search results as `id:...` fields. Use these for `read`, `reply`, `delete`, `move`, and `mark` actions.
 
 ### Implementation
 
 AppleScript is written to temp files and executed via `/usr/bin/osascript` (multi-line scripts don't work reliably with `-e` flag). 120s timeout to handle Mail.app's slow scripting bridge. Output truncated at 50KB.
+
+## Reminders (`macos_reminders`)
+
+Uses a compiled Swift EventKit binary (`~/.chris-assistant/ChrisReminders.app`) for fast reminder operations. Default list: **Reminders**. Same `.app` bundle architecture as Calendar for TCC permissions.
+
+### Actions
+
+| Action | Required Params | Optional Params | Description |
+|--------|----------------|-----------------|-------------|
+| `list_lists` | — | — | List all reminder list names |
+| `get_reminders` | — | `list`, `include_completed`, `count` | View reminders (default: incomplete only, max 50) |
+| `create_reminder` | `title` | `list`, `due_date`, `due_time`, `priority`, `notes` | Create a new reminder |
+| `update_reminder` | `title` | `list`, `new_title`, `due_date`, `due_time`, `priority`, `notes`, `clear_due_date` | Update an existing reminder (found by title) |
+| `complete_reminder` | `title` | `list` | Mark a reminder as done |
+| `search_reminders` | `query` | `list`, `include_completed`, `count` | Search across reminder names and notes |
+
+Priority levels: `none` (default), `low`, `medium`, `high`.
+
+### Setup
+
+```bash
+npm run setup:reminders-helper   # Compile Swift, create app bundle, codesign
+```
+
+First run requires granting Reminders permission. TCC rebuild behavior is the same as Calendar — see the Calendar TCC section above.
+
+### Swift Source
+
+`src/swift/chris-reminders.swift`. Commands: `list-lists`, `get-reminders`, `create-reminder`, `update-reminder`, `complete-reminder`, `search-reminders`. Outputs JSON `{ok, data, error}` to stdout.
 
 ## Files
 
@@ -133,5 +170,7 @@ AppleScript is written to temp files and executed via `/usr/bin/osascript` (mult
 |------|---------|
 | `src/tools/macos.ts` | Tool registration + execution logic (Node.js wrapper) |
 | `src/swift/chris-calendar.swift` | Swift EventKit CLI source (~430 lines) |
+| `src/swift/chris-reminders.swift` | Swift EventKit CLI source for Reminders |
 | `scripts/setup-calendar-helper.sh` | Build + install script (`npm run setup:calendar-helper`) |
-| `~/.chris-assistant/ChrisCalendar.app` | Installed app bundle (not in repo) |
+| `~/.chris-assistant/ChrisCalendar.app` | Installed Calendar app bundle (not in repo) |
+| `~/.chris-assistant/ChrisReminders.app` | Installed Reminders app bundle (not in repo) |
