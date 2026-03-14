@@ -224,7 +224,7 @@ Basic operator loop:
 2. Run `chris symphony run-once WORKFLOW.md`.
 3. Inspect progress with `chris symphony status` and `chris symphony logs <issue>`.
 4. When Symphony reaches `symphony:human-review`, it lands the workspace changes onto a `codex/symphony/*` branch and opens a draft PR automatically.
-   Symphony opens draft pull requests intentionally and stops at that draft PR stage so a human can review the work before any merge.
+   Symphony intentionally stops at the draft PR stage and does not merge automatically, so a human can review the work.
 5. Reviewer assignment stays manual in v1; landing stops at a draft PR so a human can inspect before review handoff.
 
 Maintenance:
