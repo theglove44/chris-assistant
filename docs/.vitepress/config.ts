@@ -7,6 +7,7 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: 'Guide', link: '/getting-started/overview' },
+      { text: 'Symphony', link: '/symphony-overview' },
       { text: 'Architecture', link: '/architecture/overview' },
       { text: 'Tools', link: '/tools/overview' },
       { text: 'CLI', link: '/cli/reference' },
@@ -19,6 +20,12 @@ export default defineConfig({
           { text: 'Overview', link: '/getting-started/overview' },
           { text: 'Setup', link: '/getting-started/setup' },
           { text: 'Usage', link: '/getting-started/usage' },
+        ],
+      },
+      {
+        text: 'Symphony',
+        items: [
+          { text: 'Overview', link: '/symphony-overview' },
         ],
       },
       {

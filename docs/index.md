@@ -10,6 +10,9 @@ hero:
       text: Get Started
       link: /getting-started/overview
     - theme: alt
+      text: See Symphony
+      link: /symphony-overview
+    - theme: alt
       text: View on GitHub
       link: https://github.com/christaylor/chris-assistant
 
@@ -32,4 +35,7 @@ features:
   - title: Scheduled Tasks
     details: Cron-like task scheduling with full AI tool access. Tell the bot what to check and when.
     icon: ⏰
+  - title: Symphony Delivery Flow
+    details: Turn GitHub issues into supervised AI work runs that end in draft pull requests for human review.
+    icon: 🎼
 ---

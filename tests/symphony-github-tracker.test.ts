@@ -89,6 +89,7 @@ function createFakeClient() {
   const updates: Array<Record<string, unknown>> = [];
   const labelSets: Array<Record<string, unknown>> = [];
   const pulls = new Map<string, { number: number; html_url: string; head: { ref: string } }>();
+  const workflowRuns: Array<Record<string, unknown>> = [];
 
   return {
     issues,
@@ -96,7 +97,13 @@ function createFakeClient() {
     updates,
     labelSets,
     pulls,
+    workflowRuns,
     client: {
+      actions: {
+        async listWorkflowRunsForRepo() {
+          return { data: { workflow_runs: workflowRuns as any[] } };
+        },
+      },
       issues: {
         async listForRepo(params: Record<string, unknown>) {
           const state = params.state;
@@ -208,5 +215,41 @@ describe("GitHubTracker", () => {
     expect(first.existed).toBe(false);
     expect(second.existed).toBe(true);
     expect(second.url).toContain("/pull/501");
+  });
+
+  it("summarizes pull request CI status from workflow runs", async () => {
+    const fake = createFakeClient();
+    fake.workflowRuns.push(
+      {
+        name: "CI",
+        display_title: "check",
+        status: "completed",
+        conclusion: "failure",
+        html_url: "https://github.com/theglove44/chris-assistant/actions/runs/1",
+        head_sha: "abc123",
+        head_branch: "codex/symphony/issue-12",
+      },
+      {
+        name: "Lint",
+        display_title: "lint",
+        status: "completed",
+        conclusion: "success",
+        html_url: "https://github.com/theglove44/chris-assistant/actions/runs/2",
+        head_sha: "abc123",
+        head_branch: "codex/symphony/issue-12",
+      },
+    );
+
+    const tracker = new GitHubTracker(makeConfig(), { client: fake.client as any });
+    const status = await tracker.getPullRequestCiStatus!({
+      pullRequestNumber: 501,
+      commitSha: "abc123",
+      headBranch: "codex/symphony/issue-12",
+    });
+
+    expect(status?.state).toBe("failure");
+    expect(status?.completed).toBe(true);
+    expect(status?.summary).toContain("failed");
+    expect(status?.runs).toHaveLength(2);
   });
 });

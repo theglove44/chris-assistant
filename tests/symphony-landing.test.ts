@@ -217,4 +217,57 @@ describe("GitHubIssueLander", () => {
       }
     }
   });
+
+  it("falls back to remote main when the local source repo is on an unpublished feature branch", async () => {
+    const sourceRepo = initGitWorkspace();
+    execFileSync("git", ["checkout", "-b", "codex/symphony-sidecar"], { cwd: sourceRepo });
+    const workspace = cloneWorkspaceFromLocalSource(sourceRepo);
+    const previousSourceRepo = process.env.SYMPHONY_SOURCE_REPO;
+    process.env.SYMPHONY_SOURCE_REPO = sourceRepo;
+    const calls: Array<Record<string, unknown>> = [];
+
+    const tracker: Tracker = {
+      async fetchCandidateIssues() { return []; },
+      async fetchIssuesByStates() { return []; },
+      async fetchIssueStatesByIds() { return []; },
+      async createComment() {},
+      async updateIssueState() {},
+      async ensurePullRequest(input) {
+        calls.push(input);
+        return {
+          number: 903,
+          url: "https://github.com/theglove44/chris-assistant/pull/903",
+          headBranch: input.headBranch,
+          existed: false,
+        };
+      },
+    };
+
+    try {
+      const config = makeConfig(workspace);
+      config.landing.baseBranch = null;
+
+      const lander = new GitHubIssueLander(config, tracker, async (args, cwd, env = {}) => {
+        if (args[0] === "push") {
+          return "pushed";
+        }
+        return execFileSync("git", args, {
+          cwd,
+          env: { ...process.env, ...env },
+          encoding: "utf-8",
+        });
+      });
+
+      await lander.land(ISSUE, workspace, "updated docs");
+      expect(calls[0]?.baseBranch).toBe("main");
+      expect(execFileSync("git", ["remote", "get-url", "origin"], { cwd: workspace, encoding: "utf-8" }).trim())
+        .toBe("git@github.com:theglove44/chris-assistant.git");
+    } finally {
+      if (previousSourceRepo === undefined) {
+        delete process.env.SYMPHONY_SOURCE_REPO;
+      } else {
+        process.env.SYMPHONY_SOURCE_REPO = previousSourceRepo;
+      }
+    }
+  });
 });

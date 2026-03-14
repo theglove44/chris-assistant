@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import type {
   DynamicToolHandler,
   Issue,
+  LandingResult,
+  PullRequestCiStatus,
   SymphonyConfig,
   Tracker,
   WorkflowDefinition,
@@ -186,6 +188,72 @@ describe("SymphonyOrchestrator", () => {
     return withTempHome(async () => {
       const { getBlockingReason } = await import("../src/symphony/orchestrator.js");
       expect(getBlockingReason(issue, config)).toBe("Blocked by CA-101 (Todo).");
+    });
+  });
+
+  it("posts CI-aware feedback after landing when workflow runs fail", async () => {
+    await withTempHome(async () => {
+      const { SymphonyOrchestrator } = await import("../src/symphony/orchestrator.js");
+      const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "symphony-orchestrator-"));
+      cleanupPaths.push(workspaceRoot);
+      const comments: Array<{ issueId: string; body: string }> = [];
+      const ciStatus: PullRequestCiStatus = {
+        state: "failure",
+        completed: true,
+        summary: "CI failed in 1 workflow run(s).",
+        runs: [
+          {
+            workflowName: "CI",
+            name: "check",
+            status: "completed",
+            conclusion: "failure",
+            url: "https://github.com/theglove44/chris-assistant/actions/runs/1",
+          },
+        ],
+      };
+
+      const tracker: Tracker = {
+        async fetchCandidateIssues() { return []; },
+        async fetchIssuesByStates() { return []; },
+        async fetchIssueStatesByIds() { return []; },
+        async createComment(issueId: string, body: string) {
+          comments.push({ issueId, body });
+        },
+        async updateIssueState() {},
+        async getPullRequestCiStatus() {
+          return ciStatus;
+        },
+      };
+
+      const orchestrator = new SymphonyOrchestrator(
+        makeDefinition(path.join(workspaceRoot, "WORKFLOW.md")),
+        makeConfig(workspaceRoot),
+        tracker,
+        DYNAMIC_TOOLS,
+      );
+
+      const landing: LandingResult = {
+        status: "created",
+        branchName: "codex/symphony/issue-1",
+        commitSha: "abc123def456",
+        pullRequest: {
+          number: 46,
+          url: "https://github.com/theglove44/chris-assistant/pull/46",
+          headBranch: "codex/symphony/issue-1",
+          existed: false,
+        },
+        reason: null,
+      };
+
+      const issue = makeIssue({ state: "symphony:human-review" });
+      const enriched = await (orchestrator as any).attachCiFeedback(issue, landing);
+
+      expect(enriched?.ci?.state).toBe("failure");
+      expect(comments).toHaveLength(1);
+      expect(comments[0]?.body).toContain("CI update for draft PR");
+      expect(comments[0]?.body).toContain("CI status: failed.");
+      expect(comments[0]?.body).toContain("symphony:rework");
+      await orchestrator.stop();
     });
   });
 });

@@ -213,6 +213,8 @@ chris setup                      # First-time setup wizard
 
 Symphony uses GitHub Issues by default. The workflow contract lives in [WORKFLOW.md](WORKFLOW.md), including the managed issue labels:
 
+If you want the plain-English explanation and use cases first, read [docs/symphony-overview.md](docs/symphony-overview.md).
+
 - `symphony:todo`
 - `symphony:in-progress`
 - `symphony:rework`

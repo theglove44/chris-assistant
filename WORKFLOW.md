@@ -70,6 +70,7 @@ Working rules:
 - If the issue already names the file to change, open that file directly and avoid broad repo exploration.
 - For small documentation-only edits, stay scoped to the named doc section, keep the patch minimal, and verify with a quick diff instead of wandering through unrelated files.
 - Only use semantic search when the location is genuinely unclear after direct inspection.
+- If the issue is in `symphony:rework`, assume there is already a draft PR branch for this ticket and continue from that branch state rather than starting over.
 - Run `npm run typecheck` for meaningful changes.
 - Run `npm test` when behavior, orchestration, or path safety changes.
 - Use the `github_issue` tool with `issue_id: "{{ issue.id }}"` when you need to comment on the ticket or move it between Symphony-managed labels.

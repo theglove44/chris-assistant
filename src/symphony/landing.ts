@@ -48,7 +48,9 @@ export class GitHubIssueLander {
       };
     }
 
-    const branchName = buildBranchName(this.config.landing.branchPrefix, issue);
+    const branchName = buildLandingBranchName(this.config.landing.branchPrefix, issue);
+    await this.ensurePushRemote(issue.identifier, workspacePath);
+    await this.git(["fetch", "--prune", "origin"], workspacePath);
     const baseBranch = this.config.landing.baseBranch || await detectBaseBranch(workspacePath);
     const templateContext = {
       issue,
@@ -72,7 +74,6 @@ export class GitHubIssueLander {
     });
 
     const commitSha = (await this.git(["rev-parse", "HEAD"], workspacePath)).trim();
-    await this.ensurePushRemote(issue.identifier, workspacePath);
     await this.git(["push", "--force-with-lease", "--set-upstream", "origin", branchName], workspacePath);
 
     const pullRequest = await this.tracker.ensurePullRequest!({
@@ -122,17 +123,33 @@ async function detectBaseBranch(workspacePath: string): Promise<string> {
     const result = await execFileAsync("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], {
       cwd: workspacePath,
     });
-    return result.stdout.trim().replace(/^origin\//, "") || "main";
+    const resolved = result.stdout.trim().replace(/^origin\//, "");
+    if (resolved) {
+      return resolved;
+    }
   } catch {
-    try {
-      const result = await execFileAsync("git", ["branch", "--show-current"], {
-        cwd: workspacePath,
-      });
-      return result.stdout.trim() || "main";
-    } catch {
-      return "main";
+    // Fall through to remote branch probing.
+  }
+
+  for (const candidate of ["main", "master"]) {
+    if (await remoteBranchExists(workspacePath, candidate)) {
+      return candidate;
     }
   }
+
+  try {
+    const result = await execFileAsync("git", ["branch", "--show-current"], {
+      cwd: workspacePath,
+    });
+    const current = result.stdout.trim();
+    if (current && await remoteBranchExists(workspacePath, current)) {
+      return current;
+    }
+  } catch {
+    // Fall through to default.
+  }
+
+  return "main";
 }
 
 async function resolvePushRemoteUrl(config: SymphonyConfig, currentOrigin: string): Promise<string | null> {
@@ -160,7 +177,18 @@ function looksLikeLocalGitRemote(value: string): boolean {
   return value.startsWith("/") || value.startsWith("./") || value.startsWith("../") || value.startsWith("file://");
 }
 
-function buildBranchName(prefix: string, issue: Issue): string {
+async function remoteBranchExists(workspacePath: string, branchName: string): Promise<boolean> {
+  try {
+    await execFileAsync("git", ["show-ref", "--verify", `refs/remotes/origin/${branchName}`], {
+      cwd: workspacePath,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function buildLandingBranchName(prefix: string, issue: Issue): string {
   const identifierPart = sanitizeIssueKey(issue.identifier.replace(/^#/, "issue-")).toLowerCase();
   const titleSlug = sanitizeIssueKey(issue.title)
     .toLowerCase()

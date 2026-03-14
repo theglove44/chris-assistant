@@ -7,9 +7,11 @@ import { WorkspaceManager } from "./workspace.js";
 import type {
   AppServerUpdate,
   CompletedIssueSnapshot,
+  CiRunRef,
   DynamicToolHandler,
   Issue,
   LandingResult,
+  PullRequestCiStatus,
   RetryEntrySnapshot,
   RunnerHandle,
   RunningIssueSnapshot,
@@ -18,6 +20,9 @@ import type {
   Tracker,
   WorkflowDefinition,
 } from "./types.js";
+
+const CI_FEEDBACK_WAIT_TIMEOUT_MS = 60_000;
+const CI_FEEDBACK_POLL_INTERVAL_MS = 5_000;
 
 interface RetryEntry {
   issue: Issue;
@@ -265,6 +270,7 @@ export class SymphonyOrchestrator {
                 buildReadyComment(result.issue, result.lastAgentMessage, landing),
               );
             }
+            landing = await this.attachCiFeedback(result.issue, landing);
           }
           this.recordCompletedRun(result.issue, result.lastAgentMessage, landing);
           if (isTerminalState(result.issue.state, this.config)) {
@@ -430,8 +436,47 @@ export class SymphonyOrchestrator {
         commitSha: null,
         pullRequest: null,
         reason: `automatic landing failed: ${err.message}`,
+        ci: null,
       };
     }
+  }
+
+  private async attachCiFeedback(issue: Issue, landing: LandingResult | null): Promise<LandingResult | null> {
+    if (!landing?.pullRequest || !landing.commitSha || !this.tracker.getPullRequestCiStatus) {
+      return landing;
+    }
+
+    const deadline = Date.now() + CI_FEEDBACK_WAIT_TIMEOUT_MS;
+    let lastStatus: PullRequestCiStatus | null = null;
+
+    while (Date.now() < deadline) {
+      const status = await this.tracker.getPullRequestCiStatus({
+        pullRequestNumber: landing.pullRequest.number,
+        commitSha: landing.commitSha,
+        headBranch: landing.pullRequest.headBranch,
+      });
+
+      if (status) {
+        lastStatus = status;
+        if (status.completed) {
+          break;
+        }
+      }
+
+      await sleep(CI_FEEDBACK_POLL_INTERVAL_MS);
+    }
+
+    const ciStatus = lastStatus || {
+      state: "pending",
+      completed: false,
+      summary: "CI is still running or no workflow runs were reported within the wait window.",
+      runs: [] as CiRunRef[],
+    };
+
+    landing.ci = ciStatus;
+    appendIssueLog(issue.identifier, `[ci] ${ciStatus.state} ${ciStatus.summary}`);
+    await this.safeCreateComment(issue, buildCiFeedbackComment(landing.pullRequest.url, ciStatus));
+    return landing;
   }
 
   private recordCompletedRun(issue: Issue, lastMessage: string | null, landing: LandingResult | null): void {
@@ -531,6 +576,63 @@ function formatLandingSummary(landing: LandingResult): string {
     "Landing status: skipped.",
     landing.reason ? `Reason: ${landing.reason}` : null,
   ].filter(Boolean).join("\n");
+}
+
+export function buildCiFeedbackComment(pullRequestUrl: string, status: PullRequestCiStatus): string {
+  const lines = [
+    `CI update for draft PR ${pullRequestUrl}`,
+    "",
+    `CI status: ${formatCiState(status.state)}.`,
+    status.summary,
+  ];
+
+  const runs = status.state === "failure"
+    ? status.runs.filter((run) => !isSuccessfulCiRun(run))
+    : status.runs;
+
+  if (runs.length > 0) {
+    lines.push("");
+    lines.push(status.state === "failure" ? "Relevant workflow runs:" : "Workflow runs:");
+    for (const run of runs.slice(0, 5)) {
+      lines.push(`- ${formatCiRun(run)}`);
+    }
+  }
+
+  if (status.state === "failure") {
+    lines.push("");
+    lines.push("Symphony did not auto-requeue this issue.");
+    lines.push("If you want another implementation pass, move the issue to `symphony:rework` with concrete feedback.");
+  }
+
+  return lines.join("\n");
+}
+
+function formatCiState(state: PullRequestCiStatus["state"]): string {
+  switch (state) {
+    case "success":
+      return "passed";
+    case "failure":
+      return "failed";
+    default:
+      return "still running";
+  }
+}
+
+function formatCiRun(run: CiRunRef): string {
+  const label = run.workflowName && run.workflowName !== run.name
+    ? `${run.workflowName} / ${run.name}`
+    : run.name;
+  const status = run.conclusion || run.status;
+  return run.url ? `${label}: ${status} (${run.url})` : `${label}: ${status}`;
+}
+
+function isSuccessfulCiRun(run: CiRunRef): boolean {
+  const normalized = (run.conclusion || "").trim().toLowerCase();
+  return normalized === "success" || normalized === "neutral" || normalized === "skipped";
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function createIssueLander(config: SymphonyConfig, tracker: Tracker): GitHubIssueLander | null {

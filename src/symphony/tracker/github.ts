@@ -1,6 +1,5 @@
 import { Octokit } from "@octokit/rest";
-import { config as appConfig } from "../../config.js";
-import type { Issue, SymphonyConfig, Tracker } from "../types.js";
+import type { Issue, PullRequestCiStatus, SymphonyConfig, Tracker } from "../types.js";
 
 interface GitHubIssueShape {
   number: number;
@@ -16,6 +15,21 @@ interface GitHubIssueShape {
 }
 
 interface GitHubApiClient {
+  actions: {
+    listWorkflowRunsForRepo(params: Record<string, unknown>): Promise<{
+      data: {
+        workflow_runs: Array<{
+          name?: string | null;
+          display_title?: string | null;
+          status?: string | null;
+          conclusion?: string | null;
+          html_url?: string | null;
+          head_sha?: string | null;
+          head_branch?: string | null;
+        }>;
+      };
+    }>;
+  };
   issues: {
     listForRepo(params: Record<string, unknown>): Promise<{ data: GitHubIssueShape[] }>;
     get(params: Record<string, unknown>): Promise<{ data: GitHubIssueShape }>;
@@ -32,9 +46,9 @@ interface GitHubApiClient {
   };
 }
 
-function createGitHubClient(): GitHubApiClient {
+function createGitHubClient(authToken: string | null = process.env.GITHUB_TOKEN || null): GitHubApiClient {
   return new Octokit({
-    auth: appConfig.github.token,
+    auth: authToken || undefined,
     log: {
       debug: () => {},
       info: () => {},
@@ -52,12 +66,12 @@ export class GitHubTracker implements Tracker {
 
   constructor(
     private readonly config: SymphonyConfig,
-    deps: { client?: GitHubApiClient } = {},
+    deps: { client?: GitHubApiClient; authToken?: string | null } = {},
   ) {
     const repo = parseRepo(config.tracker.repo);
     this.owner = repo.owner;
     this.repo = repo.repo;
-    this.client = deps.client || createGitHubClient();
+    this.client = deps.client || createGitHubClient(deps.authToken);
   }
 
   async fetchCandidateIssues(): Promise<Issue[]> {
@@ -192,6 +206,69 @@ export class GitHubTracker implements Tracker {
       url: created.data.html_url,
       headBranch: created.data.head?.ref || input.headBranch,
       existed: false,
+    };
+  }
+
+  async getPullRequestCiStatus(input: {
+    pullRequestNumber: number;
+    commitSha: string;
+    headBranch: string;
+  }): Promise<PullRequestCiStatus | null> {
+    const response = await this.client.actions.listWorkflowRunsForRepo({
+      owner: this.owner,
+      repo: this.repo,
+      head_sha: input.commitSha,
+      per_page: 50,
+    });
+
+    const runs = response.data.workflow_runs
+      .filter((run) => {
+        const runSha = String(run.head_sha || "").trim();
+        const runBranch = String(run.head_branch || "").trim();
+        return (runSha && runSha === input.commitSha) || (runBranch && runBranch === input.headBranch);
+      })
+      .map((run) => ({
+        workflowName: typeof run.name === "string" ? run.name : null,
+        name: String(run.display_title || run.name || "Workflow run"),
+        status: String(run.status || "unknown"),
+        conclusion: typeof run.conclusion === "string" ? run.conclusion : null,
+        url: typeof run.html_url === "string" ? run.html_url : null,
+      }));
+
+    if (runs.length === 0) {
+      return {
+        state: "pending",
+        completed: false,
+        summary: "No CI workflow runs have been reported yet.",
+        runs,
+      };
+    }
+
+    const pendingRuns = runs.filter((run) => run.status.toLowerCase() !== "completed");
+    if (pendingRuns.length > 0) {
+      return {
+        state: "pending",
+        completed: false,
+        summary: `CI is still running for ${pendingRuns.length} workflow run(s).`,
+        runs,
+      };
+    }
+
+    const failingRuns = runs.filter((run) => !isSuccessfulConclusion(run.conclusion));
+    if (failingRuns.length > 0) {
+      return {
+        state: "failure",
+        completed: true,
+        summary: `CI failed in ${failingRuns.length} workflow run(s).`,
+        runs,
+      };
+    }
+
+    return {
+      state: "success",
+      completed: true,
+      summary: `CI passed in ${runs.length} workflow run(s).`,
+      runs,
     };
   }
 
@@ -339,4 +416,9 @@ function isManagedGitHubStateLabel(value: string): boolean {
 function isGitHubClosedState(value: string): boolean {
   const normalized = value.trim().toLowerCase();
   return normalized === "closed" || normalized === "done";
+}
+
+function isSuccessfulConclusion(value: string | null): boolean {
+  const normalized = (value || "").trim().toLowerCase();
+  return normalized === "success" || normalized === "neutral" || normalized === "skipped";
 }

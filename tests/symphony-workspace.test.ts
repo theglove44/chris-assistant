@@ -1,7 +1,9 @@
+import { execFileSync } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { describe, expect, it } from "vitest";
+import { buildLandingBranchName } from "../src/symphony/landing.js";
 import { WorkspaceManager } from "../src/symphony/workspace.js";
 import type { Issue, SymphonyConfig } from "../src/symphony/types.js";
 
@@ -62,6 +64,27 @@ function makeConfig(root: string): SymphonyConfig {
   };
 }
 
+function makeGitHubConfig(root: string): SymphonyConfig {
+  return {
+    ...makeConfig(root),
+    tracker: {
+      kind: "github",
+      endpoint: "",
+      apiKey: null,
+      projectSlug: null,
+      repo: "theglove44/chris-assistant",
+      assignee: null,
+      activeStates: ["symphony:todo", "symphony:in-progress", "symphony:rework"],
+      terminalStates: ["closed"],
+    },
+    landing: {
+      ...makeConfig(root).landing,
+      enabled: true,
+      baseBranch: "main",
+    },
+  };
+}
+
 const TEST_ISSUE: Issue = {
   id: "issue-1",
   identifier: "CA-100",
@@ -97,5 +120,43 @@ describe("WorkspaceManager", () => {
     const manager = new WorkspaceManager(makeConfig(root));
 
     expect(() => manager.validateWorkspacePath("/tmp/not-allowed")).toThrow();
+  });
+
+  it("resets existing rework workspaces onto the landed issue branch", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "symphony-workspaces-"));
+    const config = makeGitHubConfig(root);
+    const remote = fs.mkdtempSync(path.join(os.tmpdir(), "symphony-remote-"));
+    execFileSync("git", ["init", "--bare"], { cwd: remote });
+
+    const seed = fs.mkdtempSync(path.join(os.tmpdir(), "symphony-seed-"));
+    execFileSync("git", ["init", "-b", "main"], { cwd: seed });
+    execFileSync("git", ["remote", "add", "origin", remote], { cwd: seed });
+    fs.writeFileSync(path.join(seed, "README.md"), "main\n", "utf-8");
+    execFileSync("git", ["add", "README.md"], { cwd: seed });
+    execFileSync("git", ["-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "init"], { cwd: seed });
+    execFileSync("git", ["push", "-u", "origin", "main"], { cwd: seed });
+
+    const issue = { ...TEST_ISSUE, state: "symphony:rework" };
+    const issueBranch = buildLandingBranchName(config.landing.branchPrefix, issue);
+    execFileSync("git", ["checkout", "-b", issueBranch], { cwd: seed });
+    fs.writeFileSync(path.join(seed, "README.md"), "rework branch\n", "utf-8");
+    execFileSync("git", ["add", "README.md"], { cwd: seed });
+    execFileSync("git", ["-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "issue branch"], { cwd: seed });
+    execFileSync("git", ["push", "-u", "origin", issueBranch], { cwd: seed });
+
+    const workspacePath = path.join(root, "CA-100");
+    execFileSync("git", ["clone", remote, workspacePath], { stdio: "pipe" });
+    execFileSync("git", ["checkout", "main"], { cwd: workspacePath });
+    fs.writeFileSync(path.join(workspacePath, "README.md"), "stale local\n", "utf-8");
+    fs.writeFileSync(path.join(workspacePath, "scratch.txt"), "remove me\n", "utf-8");
+
+    const manager = new WorkspaceManager(config);
+    const workspace = await manager.createForIssue(issue);
+
+    expect(workspace.createdNow).toBe(false);
+    expect(execFileSync("git", ["branch", "--show-current"], { cwd: workspace.path, encoding: "utf-8" }).trim())
+      .toBe(issueBranch);
+    expect(fs.readFileSync(path.join(workspace.path, "README.md"), "utf-8")).toBe("rework branch\n");
+    expect(fs.existsSync(path.join(workspace.path, "scratch.txt"))).toBe(false);
   });
 });

@@ -173,12 +173,28 @@ export interface PullRequestRef {
   existed: boolean;
 }
 
+export interface CiRunRef {
+  workflowName: string | null;
+  name: string;
+  status: string;
+  conclusion: string | null;
+  url: string | null;
+}
+
+export interface PullRequestCiStatus {
+  state: "pending" | "success" | "failure";
+  completed: boolean;
+  summary: string;
+  runs: CiRunRef[];
+}
+
 export interface LandingResult {
   status: "created" | "updated" | "skipped";
   branchName: string | null;
   commitSha: string | null;
   pullRequest: PullRequestRef | null;
   reason: string | null;
+  ci?: PullRequestCiStatus | null;
 }
 
 export interface CompletedIssueSnapshot {
@@ -231,5 +247,12 @@ export interface Tracker {
       draft: boolean;
     },
   ): Promise<PullRequestRef>;
+  getPullRequestCiStatus?(
+    input: {
+      pullRequestNumber: number;
+      commitSha: string;
+      headBranch: string;
+    },
+  ): Promise<PullRequestCiStatus | null>;
   graphql?(query: string, variables?: Record<string, unknown>): Promise<Record<string, unknown>>;
 }

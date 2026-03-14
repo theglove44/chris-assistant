@@ -28,6 +28,7 @@ chris-assistant/
 
 Important note: several legacy top-level files still exist as compatibility facades (`telegram.ts`, `discord.ts`, `dashboard.ts`, `scheduler.ts`, `conversation*.ts`, `memory/*`). They delegate into the new structure and are kept to reduce import churn.
 
+```txt
 chris-assistant-memory/       ← Separate private repo (the brain)
 ├── HEARTBEAT.md              # Bot self-reported status snapshot (updated every 3h by heartbeat.ts)
 ├── identity/SOUL.md          # Personality, purpose, onboarding instructions
@@ -48,7 +49,6 @@ chris-assistant-memory/       ← Separate private repo (the brain)
     ├── _index.json               # Lightweight skill index for system prompt discovery
     └── *.json                    # Individual skill definitions
 ```
-
 ## Provider Details
 
 ### Claude Agent SDK
