@@ -1,6 +1,6 @@
 ---
 layout: home
-
+sidebar: false
 hero:
   name: Chris Assistant
   text: Personal AI Assistant

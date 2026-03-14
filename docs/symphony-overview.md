@@ -229,7 +229,7 @@ After an agent finishes and moves the issue to `symphony:human-review`, the land
 
 If the workspace has no changes, or the workspace is not a git checkout, landing is skipped.
 
-Landing templates for the commit message, PR title, and PR body support `{{ issue.identifier }}`, `{{ issue.title }}`, and `{{ last_agent_message }}` placeholders.
+Landing templates for the commit message, PR title, and PR body support `issue.identifier`, `issue.title`, and `last_agent_message` template placeholders (double-brace syntax).
 
 ## WORKFLOW.md Configuration
 
@@ -300,7 +300,7 @@ Working rules:
 
 **server** -- the local HTTP status server. Defaults to `127.0.0.1:3010`.
 
-**Prompt template** -- the Markdown body below the front matter is rendered per-issue using `{{ issue.* }}` template variables and passed to the Codex agent as its system prompt.
+**Prompt template** -- the Markdown body below the front matter is rendered per-issue using `issue.*` template variables (double-brace syntax) and passed to the Codex agent as its system prompt.
 
 ### Linear Configuration
 
