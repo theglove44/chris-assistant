@@ -14,8 +14,12 @@ import { sendToDiscordChannel } from "./discord.js";
 // Constants
 // ---------------------------------------------------------------------------
 
-const DISCORD_CHANNEL = "pr-reviews";
+const DISCORD_CHANNEL_PR = "pr-reviews";
+const DISCORD_CHANNEL_STATUS = "claude-status";
 const MAX_BODY_SIZE = 1024 * 1024; // 1 MB — GitHub payloads are typically ~30 KB
+
+// Token for Claude status webhook URL — loaded from env
+const CLAUDE_STATUS_TOKEN = process.env.CLAUDE_STATUS_WEBHOOK_TOKEN ?? "";
 
 // ---------------------------------------------------------------------------
 // Signature verification
@@ -103,6 +107,115 @@ function formatPrMergeMessage(pr: any): string {
 }
 
 // ---------------------------------------------------------------------------
+// Claude status formatter (Statuspage webhook payload)
+// ---------------------------------------------------------------------------
+
+const IMPACT_EMOJI: Record<string, string> = {
+  none: "✅",
+  minor: "⚠️",
+  major: "🔴",
+  critical: "🚨",
+};
+
+const STATUS_EMOJI: Record<string, string> = {
+  investigating: "🔍",
+  identified: "🎯",
+  monitoring: "👀",
+  resolved: "✅",
+  postmortem: "📝",
+};
+
+function formatClaudeStatusMessage(payload: any): string | null {
+  const incident = payload.incident;
+  const componentUpdate = payload.component_update;
+  const component = payload.component;
+
+  if (incident) {
+    const latestUpdate = (incident.incident_updates ?? [])[0];
+    const status = incident.status ?? "unknown";
+    const impact = incident.impact ?? "none";
+    const impactEmoji = IMPACT_EMOJI[impact] ?? "⚠️";
+    const statusEmoji = STATUS_EMOJI[status] ?? "🔔";
+    const name = stripMentions(incident.name ?? "Unknown incident");
+    const body = latestUpdate?.body ? stripMentions(latestUpdate.body.trim().slice(0, 400)) : "";
+    const url = `https://status.claude.com`;
+
+    const lines = [
+      `${impactEmoji} **Claude Status — ${name}**`,
+      `${statusEmoji} **Status:** ${status}`,
+      `📊 **Impact:** ${impact}`,
+    ];
+
+    if (body) lines.push(``, `📋 ${body}`);
+    lines.push(``, `🔗 [View status](${url})`);
+
+    return lines.join("\n");
+  }
+
+  if (componentUpdate && component) {
+    const name = stripMentions(component.name ?? "Unknown component");
+    const oldStatus = componentUpdate.old_status ?? "unknown";
+    const newStatus = componentUpdate.new_status ?? "unknown";
+    const emoji = newStatus === "operational" ? "✅" : "⚠️";
+
+    return [
+      `${emoji} **Claude Component Update**`,
+      `📦 **Component:** ${name}`,
+      `🔄 **Status:** \`${oldStatus}\` → \`${newStatus}\``,
+      `🔗 [View status](https://status.claude.com)`,
+    ].join("\n");
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Claude status webhook handler
+// ---------------------------------------------------------------------------
+
+async function handleClaudeStatusWebhook(
+  req: IncomingMessage,
+  res: ServerResponse,
+  parsedUrl: URL,
+): Promise<void> {
+  // Verify token if configured — token is passed as a query param for security
+  // (Statuspage doesn't support HMAC signing, so a long random token in the URL is the best available option)
+  if (CLAUDE_STATUS_TOKEN && parsedUrl.searchParams.get("token") !== CLAUDE_STATUS_TOKEN) {
+    console.warn("[webhook/claude-status] Invalid or missing token — rejecting");
+    res.writeHead(401, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Unauthorized" }));
+    return;
+  }
+
+  const body = await readBody(req);
+
+  // Acknowledge immediately
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ ok: true }));
+
+  let payload: any;
+  try {
+    payload = JSON.parse(body);
+  } catch {
+    console.error("[webhook/claude-status] Failed to parse JSON payload");
+    return;
+  }
+
+  const message = formatClaudeStatusMessage(payload);
+  if (!message) {
+    console.log("[webhook/claude-status] No actionable event in payload — skipping");
+    return;
+  }
+
+  try {
+    await sendToDiscordChannel(DISCORD_CHANNEL_STATUS, message);
+    console.log("[webhook/claude-status] Posted status update to #%s", DISCORD_CHANNEL_STATUS);
+  } catch (err: any) {
+    console.error("[webhook/claude-status] Failed to post to Discord:", err.message);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Request handler
 // ---------------------------------------------------------------------------
 
@@ -111,6 +224,13 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
   if (req.method === "GET" && req.url === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ status: "ok" }));
+    return;
+  }
+
+  // Route: Claude status webhook
+  const parsedUrl = new URL(req.url ?? "/", "http://localhost");
+  if (req.method === "POST" && parsedUrl.pathname === "/webhooks/status/claude") {
+    await handleClaudeStatusWebhook(req, res, parsedUrl);
     return;
   }
 
@@ -176,8 +296,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 
   try {
     const message = formatPrMergeMessage(pr);
-    await sendToDiscordChannel(DISCORD_CHANNEL, message);
-    console.log("[webhook] Posted PR #%d merge to #%s", pr.number, DISCORD_CHANNEL);
+    await sendToDiscordChannel(DISCORD_CHANNEL_PR, message);
+    console.log("[webhook] Posted PR #%d merge to #%s", pr.number, DISCORD_CHANNEL_PR);
   } catch (err: any) {
     console.error("[webhook] Failed to post to Discord:", err.message);
   }

@@ -1,11 +1,11 @@
 ---
 title: macOS Tools
-description: Calendar (EventKit) and Mail (AppleScript) integration for macOS
+description: Calendar (EventKit), Mail (AppleScript), Reminders (EventKit), and Notes (AppleScript) integration for macOS
 ---
 
 # macOS Tools
 
-Three macOS-only tools: `macos_calendar` (fast native EventKit), `macos_mail` (AppleScript), and `macos_reminders` (fast native EventKit). All are platform-gated — they only register on `darwin`.
+Four macOS-only tools: `macos_calendar` (fast native EventKit), `macos_mail` (AppleScript), `macos_reminders` (fast native EventKit), and `macos_notes` (AppleScript). All are platform-gated — they only register on `darwin`.
 
 ## Calendar (`macos_calendar`)
 
@@ -164,11 +164,37 @@ First run requires granting Reminders permission. TCC rebuild behavior is the sa
 
 `src/swift/chris-reminders.swift`. Commands: `list-lists`, `get-reminders`, `create-reminder`, `update-reminder`, `complete-reminder`, `search-reminders`. Outputs JSON `{ok, data, error}` to stdout.
 
+## Notes (`macos_notes`)
+
+Uses AppleScript via `osascript` to interact with Apple Notes. Default folder: **Notes**. No Swift binary or TCC setup needed — AppleScript has native access to Notes.
+
+### Actions
+
+| Action | Required Params | Optional Params | Description |
+|--------|----------------|-----------------|-------------|
+| `list_folders` | — | — | List all folders with note counts (shows account names) |
+| `list_notes` | — | `folder`, `count`, `offset` | List notes in a folder (default 20, max 50, pagination via offset) |
+| `read` | `note_id` | — | Get full note content (title, folder, dates, body) |
+| `create` | `title` | `body`, `folder` | Create a new note |
+| `update` | `note_id` | `title`, `body`, `append_body` | Update a note — rename, replace body, or append text |
+| `search` | `query` | `folder`, `count` | Search across note titles and body content |
+| `delete` | `note_id` | — | Delete a note (confirm with user first) |
+
+Note IDs are returned in `list_notes` and `search` results as `id:...` fields. Use these for `read`, `update`, and `delete` actions.
+
+### iCloud Notes Support
+
+Apple Notes nests folders under accounts (iCloud, On My Mac, etc.). The tool searches across all accounts to find folders by name, so iCloud-synced notes work transparently. The `list_folders` action shows account names alongside each folder.
+
+### Implementation
+
+AppleScript is written to temp files and executed via `/usr/bin/osascript`. 30s timeout. Notes body is stored as HTML internally — `create` and `update` convert plain text to HTML automatically. `read` returns the `plaintext` property for clean output.
+
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `src/tools/macos.ts` | Tool registration + execution logic (Node.js wrapper) |
+| `src/tools/macos.ts` | Tool registration + execution logic for all four macOS tools |
 | `src/swift/chris-calendar.swift` | Swift EventKit CLI source (~430 lines) |
 | `src/swift/chris-reminders.swift` | Swift EventKit CLI source for Reminders |
 | `scripts/setup-calendar-helper.sh` | Build + install script (`npm run setup:calendar-helper`) |

@@ -13,86 +13,88 @@ export default defineConfig({
       { text: 'CLI', link: '/cli/reference' },
     ],
 
-    sidebar: [
-      {
-        text: 'Getting Started',
-        items: [
-          { text: 'Overview', link: '/getting-started/overview' },
-          { text: 'Setup', link: '/getting-started/setup' },
-          { text: 'Usage', link: '/getting-started/usage' },
-        ],
-      },
-      {
-        text: 'Symphony',
-        items: [
-          { text: 'Overview', link: '/symphony-overview' },
-        ],
-      },
-      {
-        text: 'Channels',
-        items: [
-          { text: 'Discord Setup', link: '/discord-setup' },
-          { text: 'Webhook Server', link: '/webhook' },
-        ],
-      },
-      {
-        text: 'Dashboard',
-        items: [
-          { text: 'Dashboard', link: '/dashboard' },
-        ],
-      },
-      {
-        text: 'Architecture',
-        items: [
-          { text: 'Overview', link: '/architecture/overview' },
-          { text: 'Design Decisions', link: '/architecture/design-decisions' },
-          { text: 'Providers', link: '/architecture/providers' },
-          { text: 'Agent SDKs', link: '/architecture/agent-sdks' },
-          { text: 'Security', link: '/architecture/security' },
-        ],
-      },
-      {
-        text: 'Tools',
-        items: [
-          { text: 'Overview', link: '/tools/overview' },
-          { text: 'SSH & Remote Access', link: '/tools/ssh' },
-          { text: 'Files & Git', link: '/tools/files-and-git' },
-          { text: 'Web & Fetch', link: '/tools/web-and-fetch' },
-          { text: 'Code Execution', link: '/tools/code-execution' },
-          { text: 'Memory', link: '/tools/memory' },
-          { text: 'Scheduler', link: '/tools/scheduler' },
-          { text: 'macOS (Calendar, Mail, Reminders)', link: '/tools/macos' },
-        ],
-      },
-      {
-        text: 'CLI',
-        items: [
-          { text: 'Command Reference', link: '/cli/reference' },
-          { text: 'Environment & Config', link: '/cli/environment' },
-        ],
-      },
-      {
-        text: 'Skills',
-        items: [
-          { text: 'Skills Guide', link: '/skills-guide' },
-        ],
-      },
-      {
-        text: 'Development',
-        items: [
-          { text: 'Local Development', link: '/development/local-dev' },
-          { text: 'Gotchas', link: '/development/gotchas' },
-        ],
-      },
-      {
-        text: 'Roadmap',
-        items: [
-          { text: 'Features', link: '/roadmap/features' },
-          { text: 'Bot Skills System', link: '/roadmap/bot-skills-system' },
-          { text: 'OpenClaw Comparison', link: '/roadmap/openclaw-comparison' },
-        ],
-      },
-    ],
+    sidebar: {
+      '/': [
+        {
+          text: 'Getting Started',
+          items: [
+            { text: 'Overview', link: '/getting-started/overview' },
+            { text: 'Setup', link: '/getting-started/setup' },
+            { text: 'Usage', link: '/getting-started/usage' },
+          ],
+        },
+        {
+          text: 'Symphony',
+          items: [
+            { text: 'Overview', link: '/symphony-overview' },
+          ],
+        },
+        {
+          text: 'Channels',
+          items: [
+            { text: 'Discord Setup', link: '/discord-setup' },
+            { text: 'Webhook Server', link: '/webhook' },
+          ],
+        },
+        {
+          text: 'Dashboard',
+          items: [
+            { text: 'Dashboard', link: '/dashboard' },
+          ],
+        },
+        {
+          text: 'Architecture',
+          items: [
+            { text: 'Overview', link: '/architecture/overview' },
+            { text: 'Design Decisions', link: '/architecture/design-decisions' },
+            { text: 'Providers', link: '/architecture/providers' },
+            { text: 'Agent SDKs', link: '/architecture/agent-sdks' },
+            { text: 'Security', link: '/architecture/security' },
+          ],
+        },
+        {
+          text: 'Tools',
+          items: [
+            { text: 'Overview', link: '/tools/overview' },
+            { text: 'SSH & Remote Access', link: '/tools/ssh' },
+            { text: 'Files & Git', link: '/tools/files-and-git' },
+            { text: 'Web & Fetch', link: '/tools/web-and-fetch' },
+            { text: 'Code Execution', link: '/tools/code-execution' },
+            { text: 'Memory', link: '/tools/memory' },
+            { text: 'Scheduler', link: '/tools/scheduler' },
+            { text: 'macOS (Calendar, Mail, Reminders, Notes)', link: '/tools/macos' },
+          ],
+        },
+        {
+          text: 'CLI',
+          items: [
+            { text: 'Command Reference', link: '/cli/reference' },
+            { text: 'Environment & Config', link: '/cli/environment' },
+          ],
+        },
+        {
+          text: 'Skills',
+          items: [
+            { text: 'Skills Guide', link: '/skills-guide' },
+          ],
+        },
+        {
+          text: 'Development',
+          items: [
+            { text: 'Local Development', link: '/development/local-dev' },
+            { text: 'Gotchas', link: '/development/gotchas' },
+          ],
+        },
+        {
+          text: 'Roadmap',
+          items: [
+            { text: 'Features', link: '/roadmap/features' },
+            { text: 'Bot Skills System', link: '/roadmap/bot-skills-system' },
+            { text: 'OpenClaw Comparison', link: '/roadmap/openclaw-comparison' },
+          ],
+        },
+      ],
+    },
 
     socialLinks: [
       { icon: 'github', link: 'https://github.com/christaylor/chris-assistant' },
