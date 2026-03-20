@@ -175,11 +175,16 @@ export function createClaudeProvider(model: string): Provider {
             additionalDirectories: [
               path.join(os.homedir(), ".chris-assistant"),
             ],
-            systemPrompt: {
-              type: "preset",
-              preset: "claude_code",
-              append: appendPrompt,
-            },
+            // Scheduled tasks (chatId 0) use a plain string system prompt to
+            // avoid the claude_code preset's "I am Claude Code CLI" identity,
+            // which causes the model to refuse custom MCP tool calls.
+            systemPrompt: chatId === 0
+              ? appendPrompt
+              : {
+                  type: "preset",
+                  preset: "claude_code",
+                  append: appendPrompt,
+                },
             tools: { type: "preset", preset: "claude_code" },
             mcpServers: {
               [MCP_SERVER_NAME]: toolServer,
