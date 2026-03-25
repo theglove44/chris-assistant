@@ -1,5 +1,6 @@
 import { config } from "../../config.js";
 import { chatService } from "../../agent/chat-service.js";
+import { addMessage } from "../../conversation.js";
 import { sendToDiscordChannel } from "../../discord.js";
 import { toMarkdownV2 } from "../../markdown.js";
 import { matchesCron } from "./cron.js";
@@ -54,9 +55,12 @@ async function executeTask(task: Schedule): Promise<void> {
   const toolInfo = task.allowedTools ? `tools: ${task.allowedTools.join(", ")}` : "tools: all";
   console.log("[scheduler] Executing task: %s (%s) — %s", task.name, task.id, toolInfo);
 
+  const chatId = config.telegram.allowedUserId;
+  const meta = { source: "scheduled" as const };
+
   try {
     const response = await chatService.sendMessage({
-      chatId: 0,
+      chatId,
       userMessage: task.prompt,
       allowedTools: task.allowedTools,
     });
@@ -64,10 +68,17 @@ async function executeTask(task: Schedule): Promise<void> {
     const trimmed = response.trim();
     if (!trimmed || trimmed.startsWith("NOUPDATE:")) {
       console.log("[scheduler] No update for task: %s — staying quiet", task.name);
-    } else if (task.discordChannel) {
-      await sendToDiscordChannel(task.discordChannel, trimmed);
     } else {
-      await sendTelegramMessage(toMarkdownV2(trimmed), task.name);
+      // Store the prompt and response in conversation history so the user
+      // can ask follow-up questions and the bot retains context
+      void addMessage(chatId, "user", `[Scheduled: ${task.name}] ${task.prompt}`, meta);
+      void addMessage(chatId, "assistant", trimmed, meta);
+
+      if (task.discordChannel) {
+        await sendToDiscordChannel(task.discordChannel, trimmed);
+      } else {
+        await sendTelegramMessage(toMarkdownV2(trimmed), task.name);
+      }
     }
 
     task.lastRun = Date.now();

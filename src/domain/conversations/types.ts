@@ -5,7 +5,7 @@ export interface ConversationMessage {
 }
 
 export interface ConversationMeta {
-  source?: "telegram" | "discord";
+  source?: "telegram" | "discord" | "scheduled";
   channelName?: string;
 }
 
@@ -14,6 +14,6 @@ export interface ArchiveEntry {
   chatId: number;
   role: "user" | "assistant";
   content: string;
-  source?: "telegram" | "discord";
+  source?: "telegram" | "discord" | "scheduled";
   channelName?: string;
 }
