@@ -128,19 +128,22 @@ async function safetyHook(
 const MCP_SERVER_NAME = "chris-tools";
 
 export function createClaudeProvider(model: string): Provider {
-  const toolServer = createSdkMcpServer({
-    name: MCP_SERVER_NAME,
-    tools: getCustomMcpTools(),
-  });
-
   return {
     name: "claude",
     async chat(chatId, userMessage, onChunk, _images?: ImageAttachment[], allowedTools?: string[]) {
+      // Build tool server fresh each call so newly registered tools are always
+      // available (avoids stale snapshot when the provider is cached).
+      const toolServer = createSdkMcpServer({
+        name: MCP_SERVER_NAME,
+        tools: getCustomMcpTools(),
+      });
+
       const appendPrompt = await getClaudeAppendPrompt();
       const thinkingTokens = getThinkingTokens(userMessage);
 
       // Build allowed tools list: custom MCP tools + all native Claude Code tools
       const customMcpAllowed = getCustomMcpAllowedToolNames(MCP_SERVER_NAME, allowedTools);
+      console.log("[claude] chatId=%d tools=%d allowed=%d", chatId, getCustomMcpTools().length, customMcpAllowed.length);
 
       // Session resume — continue existing conversation if we have one
       const existingSessionId = chatId !== 0 ? getSessionId(chatId) : null;
