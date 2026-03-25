@@ -19,16 +19,16 @@ const ERR_LOG = path.join(PM2_LOG_DIR, "chris-assistant-error.log");
 const PM2_CACHE_TTL = 30_000;
 
 const MEMORY_FILES = [
-  "identity/SOUL.md",
-  "identity/RULES.md",
-  "identity/VOICE.md",
-  "knowledge/about-chris.md",
-  "knowledge/preferences.md",
-  "knowledge/projects.md",
-  "knowledge/people.md",
-  "memory/decisions.md",
-  "memory/learnings.md",
+  "SOUL.md",
+  "IDENTITY.md",
+  "USER.md",
+  "MEMORY.md",
+  "AGENTS.md",
+  "TOOLS.md",
+  "BOOTSTRAP.md",
   "memory/SUMMARY.md",
+  "memory/DASHBOARD.md",
+  "memory/learnings.md",
 ];
 
 let server: Server | null = null;

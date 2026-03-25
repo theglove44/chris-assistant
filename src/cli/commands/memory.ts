@@ -7,14 +7,15 @@ import { join } from "path";
 
 /** All memory files and their shorthand aliases. */
 const MEMORY_FILES: Record<string, string> = {
-  "soul": "identity/SOUL.md",
-  "rules": "identity/RULES.md",
-  "voice": "identity/VOICE.md",
-  "about-chris": "knowledge/about-chris.md",
-  "preferences": "knowledge/preferences.md",
-  "projects": "knowledge/projects.md",
-  "people": "knowledge/people.md",
-  "decisions": "memory/decisions.md",
+  "soul": "SOUL.md",
+  "identity": "IDENTITY.md",
+  "user": "USER.md",
+  "memory": "MEMORY.md",
+  "agents": "AGENTS.md",
+  "tools": "TOOLS.md",
+  "bootstrap": "BOOTSTRAP.md",
+  "summary": "memory/SUMMARY.md",
+  "dashboard": "memory/DASHBOARD.md",
   "learnings": "memory/learnings.md",
 };
 
