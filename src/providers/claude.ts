@@ -20,6 +20,7 @@ import { getSessionId, setSessionId } from "../claude-sessions.js";
 import { formatHistoryForPrompt } from "../conversation.js";
 import type { Provider, ImageAttachment } from "./types.js";
 import { recordUsage } from "../usage-tracker.js";
+import { findRelevantMemories, formatRecalledMemories } from "../domain/memory/recall.js";
 import * as os from "os";
 import * as path from "path";
 
@@ -138,7 +139,26 @@ export function createClaudeProvider(model: string): Provider {
         tools: getCustomMcpTools(),
       });
 
-      const appendPrompt = await getClaudeAppendPrompt();
+      // Fire memory recall + prompt load concurrently — recall is a cheap
+      // Sonnet side-call (~500 tokens in, ~50 out) that selects which local
+      // memory files are relevant to this query.
+      const [appendPromptBase, recalledMemories] = await Promise.all([
+        getClaudeAppendPrompt(),
+        findRelevantMemories(userMessage).catch((e) => {
+          console.warn("[claude] Memory recall failed:", e instanceof Error ? e.message : e);
+          return [];
+        }),
+      ]);
+
+      // Inject recalled memories into the append prompt
+      const recalledSection = formatRecalledMemories(recalledMemories);
+      const appendPrompt = recalledSection
+        ? `${appendPromptBase}\n\n---\n\n${recalledSection}`
+        : appendPromptBase;
+      if (recalledMemories.length > 0) {
+        console.log("[claude] Recalled %d memories for chatId=%d", recalledMemories.length, chatId);
+      }
+
       const thinkingTokens = getThinkingTokens(userMessage);
 
       // Build allowed tools list: custom MCP tools + all native Claude Code tools
