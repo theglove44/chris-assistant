@@ -2,15 +2,17 @@
  * Sonnet-powered memory recall.
  *
  * On every user message, scans the local memory/ directory for .md file
- * headers, sends them + the user query to Sonnet 4.6, and returns the
- * content of the top 5 most relevant files for injection into context.
+ * headers, sends them + the user query to Sonnet 4.6 via the Agent SDK,
+ * and returns the content of the top 5 most relevant files for injection
+ * into context.
+ *
+ * Uses the Agent SDK's query() for the side-call so it shares the same
+ * OAuth auth as the main conversation — no separate API key needed.
  *
  * The side-call is cheap: ~500 tokens in, ~50 tokens out per query.
- *
- * Adapted from Claude Code's findRelevantMemories.ts blueprint.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import { query } from "@anthropic-ai/claude-agent-sdk";
 import { mkdir, readFile } from "fs/promises";
 import * as path from "path";
 import { memoryFreshnessText } from "./memory-age.js";
@@ -31,36 +33,16 @@ export interface RelevantMemory {
 }
 
 // ---------------------------------------------------------------------------
-// Sonnet client (lazy singleton)
-// ---------------------------------------------------------------------------
-
-let client: Anthropic | null = null;
-
-function getClient(): Anthropic {
-  if (!client) {
-    // The project uses OAuth (CLAUDE_CODE_OAUTH_TOKEN) for the Agent SDK,
-    // not a standard API key. Pass it as authToken for the Messages API.
-    const oauthToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
-    if (oauthToken) {
-      client = new Anthropic({ authToken: oauthToken });
-    } else {
-      // Falls back to ANTHROPIC_API_KEY if set
-      client = new Anthropic();
-    }
-  }
-  return client;
-}
-
-// ---------------------------------------------------------------------------
 // Selector prompt
 // ---------------------------------------------------------------------------
 
 const SELECT_MEMORIES_SYSTEM_PROMPT = `You are selecting memories that will be useful to an AI assistant as it processes a user's query. You will be given the user's query and a list of available memory files with their filenames and descriptions.
 
-Return a JSON object with a "selected_memories" array of filenames for the memories that will clearly be useful (up to 5). Only include memories that you are certain will be helpful based on their name and description.
+Return ONLY a JSON object with a "selected_memories" array of filenames for the memories that will clearly be useful (up to 5). Only include memories that you are certain will be helpful based on their name and description.
 - If you are unsure if a memory will be useful, do not include it.
 - If no memories are clearly useful, return an empty array.
-- Be selective and discerning.`;
+- Be selective and discerning.
+- Return raw JSON only, no markdown fences or extra text.`;
 
 // ---------------------------------------------------------------------------
 // Memory directory
@@ -144,31 +126,41 @@ export function formatRecalledMemories(memories: RelevantMemory[]): string {
 // ---------------------------------------------------------------------------
 
 async function selectRelevantMemories(
-  query: string,
+  queryText: string,
   memories: MemoryHeader[],
 ): Promise<string[]> {
   const validFilenames = new Set(memories.map((m) => m.filename));
   const manifest = formatMemoryManifest(memories);
 
   try {
-    const response = await getClient().messages.create({
-      model: "claude-sonnet-4-6-20250514",
-      max_tokens: 256,
-      system: SELECT_MEMORIES_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: `Query: ${query}\n\nAvailable memories:\n${manifest}`,
-        },
-      ],
+    const userPrompt = `Query: ${queryText}\n\nAvailable memories:\n${manifest}`;
+
+    let resultText = "";
+    const conversation = query({
+      prompt: userPrompt,
+      options: {
+        model: "claude-sonnet-4-6-20250514",
+        systemPrompt: SELECT_MEMORIES_SYSTEM_PROMPT,
+        maxTurns: 1,
+        tools: [],
+        allowedTools: [],
+        permissionMode: "bypassPermissions",
+        allowDangerouslySkipPermissions: true,
+        persistSession: false,
+      },
     });
 
-    const textBlock = response.content.find((block) => block.type === "text");
-    if (!textBlock || textBlock.type !== "text") {
-      return [];
+    for await (const message of conversation) {
+      if (message.type === "result" && message.subtype === "success") {
+        resultText = message.result;
+      }
     }
 
-    const parsed: { selected_memories: string[] } = JSON.parse(textBlock.text);
+    if (!resultText) return [];
+
+    // Strip markdown fences if present
+    const cleaned = resultText.replace(/```(?:json)?\s*/g, "").replace(/```\s*$/g, "").trim();
+    const parsed: { selected_memories: string[] } = JSON.parse(cleaned);
     return parsed.selected_memories.filter((f) => validFilenames.has(f));
   } catch (e) {
     console.warn("[recall] selectRelevantMemories failed:", e instanceof Error ? e.message : e);
