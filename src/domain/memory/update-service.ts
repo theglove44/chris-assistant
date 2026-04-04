@@ -1,5 +1,8 @@
+import { mkdir, readFile, writeFile } from "fs/promises";
+import * as path from "path";
 import { appendToMemoryFile, writeMemoryFile } from "./repository.js";
 import { MEMORY_CATEGORY_FILES } from "./constants.js";
+import { LOCAL_MEMORY_DIR } from "./recall.js";
 
 const CONTENT_MAX_CHARS = 2000;
 const REPLACE_THROTTLE_MS = 5 * 60 * 1000;
@@ -67,6 +70,82 @@ function validateMemoryContent(args: { category: string; action: "add" | "replac
   return { valid: true };
 }
 
+// ---------------------------------------------------------------------------
+// Category → memory type mapping for local recall files
+// ---------------------------------------------------------------------------
+
+const CATEGORY_TO_TYPE: Record<string, string> = {
+  "about-chris": "user",
+  preferences: "feedback",
+  projects: "project",
+  people: "user",
+  decisions: "project",
+  learnings: "feedback",
+};
+
+/**
+ * Generate a short slug from content for the filename.
+ * Takes first ~40 chars, lowercases, strips non-alphanumeric, joins with dashes.
+ */
+function slugify(text: string): string {
+  return text
+    .slice(0, 60)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .slice(0, 40) || "entry";
+}
+
+/**
+ * Auto-generate a one-line description from content for the frontmatter.
+ * Uses the first line/sentence, capped at 120 chars.
+ */
+function autoDescription(content: string, category: string): string {
+  const firstLine = content.split("\n").find((l) => l.trim().length > 0) || content;
+  // Strip markdown bullets, bold, comment tags
+  const cleaned = firstLine
+    .replace(/^<!--.*?-->\s*/g, "")
+    .replace(/^[-*•]\s*/g, "")
+    .replace(/\*\*/g, "")
+    .trim();
+  const capped = cleaned.length > 120 ? cleaned.slice(0, 117) + "..." : cleaned;
+  return capped || `${category} memory update`;
+}
+
+/**
+ * Dual-write: persist a local topic file in memory/ alongside the GitHub write.
+ * Each update_memory call creates a new file so the recall system has granular
+ * entries to select from. Fire-and-forget — failures are logged but don't block.
+ */
+async function writeLocalMemoryFile(
+  category: string,
+  content: string,
+): Promise<void> {
+  try {
+    await mkdir(LOCAL_MEMORY_DIR, { recursive: true });
+    const type = CATEGORY_TO_TYPE[category] || "reference";
+    const timestamp = new Date().toISOString().split("T")[0];
+    const slug = slugify(content);
+    const filename = `${category}_${timestamp}_${slug}.md`;
+    const filePath = path.join(LOCAL_MEMORY_DIR, filename);
+    const description = autoDescription(content, category);
+
+    const fileContent = `---
+name: ${category} — ${slug.replace(/-/g, " ")}
+description: ${description}
+type: ${type}
+---
+
+${content}
+`;
+    await writeFile(filePath, fileContent, "utf-8");
+    console.log("[memory] Local recall file written: %s", filename);
+  } catch (err: any) {
+    console.warn("[memory] Failed to write local recall file:", err.message);
+  }
+}
+
 export async function executeMemoryTool(args: { category: string; action: "add" | "replace"; content: string }): Promise<string> {
   const validation = validateMemoryContent(args);
   if (!validation.valid) {
@@ -87,6 +166,11 @@ export async function executeMemoryTool(args: { category: string; action: "add" 
     } else {
       await appendToMemoryFile(filePath, entry, `memory: add to ${category}`);
     }
+
+    // Dual-write: also persist as a local topic file for Sonnet recall.
+    // Fire-and-forget — GitHub is the source of truth.
+    writeLocalMemoryFile(category, content).catch(() => {});
+
     return `Memory updated (${category}/${action})`;
   } catch (error: any) {
     return `Failed to update memory: ${error.message}`;

@@ -1,6 +1,9 @@
+import { mkdir, writeFile } from "fs/promises";
+import * as path from "path";
 import { chatService } from "../../agent/chat-service.js";
 import { readMemoryFile, writeMemoryFile } from "../../memory/github.js";
 import { readLocalJournal } from "../../memory/journal.js";
+import { LOCAL_MEMORY_DIR } from "../memory/recall.js";
 import { datestamp, readLocalArchive } from "./archive-service.js";
 import type { ArchiveEntry } from "./types.js";
 
@@ -44,6 +47,38 @@ function formatArchiveForPrompt(entries: ArchiveEntry[]): string {
     .join("\n\n");
 }
 
+/**
+ * Dual-write: persist daily summary as a local recall file so Sonnet can
+ * surface conversation context beyond the 7-day always-loaded window.
+ */
+async function writeLocalSummaryFile(date: string, summary: string): Promise<void> {
+  try {
+    const summariesDir = path.join(LOCAL_MEMORY_DIR, "summaries");
+    await mkdir(summariesDir, { recursive: true });
+    const filename = `${date}.md`;
+    const filePath = path.join(summariesDir, filename);
+
+    // First line of summary as description
+    const firstLine = summary.split("\n").find((l) => l.trim().length > 0) || "";
+    const description = firstLine.length > 120 ? firstLine.slice(0, 117) + "..." : firstLine;
+
+    const fileContent = `---
+name: conversation summary ${date}
+description: ${description}
+type: reference
+---
+
+# Conversation Summary — ${date}
+
+${summary}
+`;
+    await writeFile(filePath, fileContent, "utf-8");
+    console.log("[summary] Local recall file written: summaries/%s", filename);
+  } catch (err: any) {
+    console.warn("[summary] Failed to write local recall file:", err instanceof Error ? err.message : err);
+  }
+}
+
 export async function generateSummary(date: string): Promise<string | null> {
   const entries = readLocalArchive(date);
   if (entries.length === 0) {
@@ -65,6 +100,11 @@ export async function generateSummary(date: string): Promise<string | null> {
 
   await writeMemoryFile(summaryRepoPath(date), `# Conversation Summary — ${date}\n\n${cleaned}`, `chore: daily summary ${date}`);
   console.log("[summary] Wrote summary for %s (%d chars)", date, cleaned.length);
+
+  // Dual-write: local recall file so Sonnet can surface old summaries
+  // beyond the 7-day always-loaded window.
+  writeLocalSummaryFile(date, cleaned).catch(() => {});
+
   return cleaned;
 }
 

@@ -12,6 +12,7 @@ import { startHeartbeat, stopHeartbeat } from "../heartbeat.js";
 import { startDashboard, stopDashboard } from "../dashboard.js";
 import { startWebhook, stopWebhook } from "../webhook.js";
 import { startUsageReport, stopUsageReport } from "../domain/usage/daily-report-service.js";
+import { ensureLocalMemoryDir } from "../domain/memory/recall.js";
 import { setTelegramCommandMenu } from "../channels/telegram/index.js";
 
 export function createPreTelegramRegistry(): ServiceRegistry {
@@ -28,6 +29,7 @@ export function createPreTelegramRegistry(): ServiceRegistry {
 
 export function createPostTelegramRegistry(): ServiceRegistry {
   return new ServiceRegistry([
+    createService("local-memory-dir", () => ensureLocalMemoryDir(), () => {}),
     createService("health-monitor", () => startHealthMonitor(), () => stopHealthMonitor()),
     createService("scheduler", () => startScheduler(), () => stopScheduler()),
     createService("conversation-backup", () => startConversationBackup(), () => stopConversationBackup()),
