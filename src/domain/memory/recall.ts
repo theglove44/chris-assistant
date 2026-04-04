@@ -38,7 +38,15 @@ let client: Anthropic | null = null;
 
 function getClient(): Anthropic {
   if (!client) {
-    client = new Anthropic();
+    // The project uses OAuth (CLAUDE_CODE_OAUTH_TOKEN) for the Agent SDK,
+    // not a standard API key. Pass it as authToken for the Messages API.
+    const oauthToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    if (oauthToken) {
+      client = new Anthropic({ authToken: oauthToken });
+    } else {
+      // Falls back to ANTHROPIC_API_KEY if set
+      client = new Anthropic();
+    }
   }
   return client;
 }
