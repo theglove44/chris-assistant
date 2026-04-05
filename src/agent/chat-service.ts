@@ -15,6 +15,7 @@ export interface ChatRequest {
   onChunk?: (accumulated: string) => void;
   images?: ImageAttachment[];
   allowedTools?: string[];
+  maxTurns?: number;
 }
 
 export class ChatService {
@@ -46,24 +47,18 @@ export class ChatService {
     return this.activeProvider;
   }
 
-  async sendMessage({ chatId, userMessage, onChunk, images, allowedTools }: ChatRequest): Promise<string> {
-    // Reset loop-guard counters at the start of each new user turn so the
-    // frequency limit protects against runaway loops within a single AI
-    // response, not across the entire conversation.
+  async sendMessage({ chatId, userMessage, onChunk, images, allowedTools, maxTurns }: ChatRequest): Promise<string> {
     resetLoopDetection();
 
     if (images && images.length > 0) {
       const imageModel = config.imageModel;
       console.log("[provider] %d image(s) detected — routing to image model: %s", images.length, imageModel);
       const response = await createOpenAiProvider(imageModel).chat(chatId, userMessage, onChunk, images, allowedTools);
-      // Clear the active provider's session so the next text message rebuilds
-      // context from conversation history instead of resuming a stale session
-      // that never saw the image exchange.
       this.clearSession(chatId);
       return response;
     }
 
-    return this.getProvider().chat(chatId, userMessage, onChunk, images, allowedTools);
+    return this.getProvider().chat(chatId, userMessage, onChunk, images, allowedTools, maxTurns);
   }
 
   clearSession(chatId: number): void {

@@ -18,7 +18,7 @@
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
-    "docs:deploy": "vitepress build docs && rsync -avz --delete docs/.vitepress/dist/ christof21@100.76.138.74:~/chris-assistant-docs/"
+    "docs:deploy": "vitepress build docs && rsync -avz --delete docs/.vitepress/dist/ ${DOCS_DEPLOY_HOST:?Set DOCS_DEPLOY_HOST}:~/chris-assistant-docs/"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.0",

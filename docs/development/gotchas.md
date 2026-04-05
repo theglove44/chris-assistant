@@ -61,7 +61,7 @@ The dashboard (`dashboard.ts`) serves all JS inline in a template literal. Backs
 
 ## SSH Config and pm2
 
-The SSH tool uses raw IPs/hostnames from Tailscale. The `~/.ssh/config` `Host` line must include both the alias and the IP (e.g. `Host office 100.99.188.80`) for SSH to resolve the correct user and identity file when the bot connects by IP.
+The SSH tool uses hostnames/aliases from `~/.ssh/config`. The `Host` line must include both the alias and the IP (e.g. `Host office <tailnet-ip>`) for SSH to resolve the correct user and identity file when the bot connects by IP.
 
 ## Telegram HTML Formatting
 

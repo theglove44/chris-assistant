@@ -2,7 +2,7 @@ import { config } from "../../config.js";
 import { chatService } from "../../agent/chat-service.js";
 import { addMessage } from "../../conversation.js";
 import { sendToDiscordChannel } from "../../discord.js";
-import { toMarkdownV2 } from "../../markdown.js";
+import { toMarkdownV2, stripThinking } from "../../markdown.js";
 import { matchesCron } from "./cron.js";
 import { readSchedules, writeSchedules } from "./store.js";
 import type { NewSchedule, Schedule, ScheduleUpdates } from "./types.js";
@@ -65,7 +65,7 @@ async function executeTask(task: Schedule): Promise<void> {
       allowedTools: task.allowedTools,
     });
 
-    const trimmed = response.trim();
+    const trimmed = stripThinking(response);
     if (!trimmed || trimmed.startsWith("NOUPDATE:")) {
       console.log("[scheduler] No update for task: %s — staying quiet", task.name);
     } else {

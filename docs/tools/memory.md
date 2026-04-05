@@ -64,7 +64,7 @@ The tool targets specific memory file categories: `about-chris`, `preferences`, 
 
 1. **Storage**: The AI decides when something is worth remembering and calls `update_memory` automatically
 2. **Recall**: All memory files are loaded into the system prompt at the start of each conversation (cached for 5 minutes)
-3. **Consolidation**: Weekly, a consolidation job curates `memory/SUMMARY.md` from all sources
+3. **Consolidation**: DreamTask runs automatically after conversations when enough time and sessions have elapsed — merges new facts, prunes stale data, and curates `memory/SUMMARY.md`
 4. **Audit**: Every memory write is a git commit in the memory repo — fully auditable and rollback-able
 
 ### What Gets Stored Where
@@ -102,6 +102,43 @@ The tool targets specific memory file categories: `about-chris`, `preferences`, 
 8. Project context (CLAUDE.md / README.md from active workspace)
 
 Results are cached for 5 minutes. Cache invalidates after any conversation (in case memory was updated).
+
+## DreamTask — Automatic Memory Consolidation
+
+DreamTask is a background consolidation service (`src/domain/memory/dream-service.ts`) that runs after conversations to keep memory lean and up-to-date. Inspired by Claude Code's autoDream system.
+
+### How It Works
+
+After each conversation, `tryDream()` checks three gates in order (cheapest first):
+
+1. **Time gate** — at least 12 hours since last consolidation
+2. **Session gate** — at least 3 new archive files since last run
+3. **Lock gate** — no other consolidation currently in progress
+
+If all gates pass, the service:
+1. Reads current memory state (knowledge files, memory files, existing SUMMARY.md)
+2. Collects recent conversation transcripts and journal entries
+3. Sends a single-shot prompt to the AI with `allowedTools: []` (no tool loops)
+4. Parses the JSON response and writes updated files to GitHub
+
+### Outputs
+
+| Field | File written | Purpose |
+|-------|-------------|---------|
+| `summary` | `memory/SUMMARY.md` | Curated index of key facts |
+| `learnings` | `memory/learnings.md` | Updated self-improvement notes |
+| `user` | `USER.md` | Updated user knowledge |
+
+### Circuit Breaker
+
+After 3 consecutive failures, the circuit breaker trips and dream is suspended until the process restarts. Failures are logged to pm2 logs.
+
+### Manual Control
+
+```bash
+chris dream status   # See last run, hours since, failure count
+chris dream run      # Force a run, bypassing all gates
+```
 
 ## Journal
 

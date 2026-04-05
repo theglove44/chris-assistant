@@ -1,7 +1,7 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { writeFileSync, unlinkSync, readFileSync, existsSync } from "fs";
-import { tmpdir } from "os";
+import os, { tmpdir } from "os";
 import { join } from "path";
 import { randomBytes } from "crypto";
 import { z } from "zod";
@@ -13,7 +13,7 @@ const execFileAsync = promisify(execFile);
 // Paths — absolute, pm2 doesn't inherit shell PATH
 // ---------------------------------------------------------------------------
 
-const HOME = process.env.HOME ?? "/Users/christaylor";
+const HOME = process.env.HOME ?? os.homedir();
 const CALENDAR_APP = join(HOME, ".chris-assistant/ChrisCalendar.app");
 const REMINDERS_APP = join(HOME, ".chris-assistant/ChrisReminders.app");
 const OPEN_BIN = "/usr/bin/open";

@@ -25,25 +25,37 @@ export async function readMemoryFile(path: string): Promise<string | null> {
 }
 
 export async function writeMemoryFile(path: string, content: string, commitMessage: string): Promise<void> {
-  let sha: string | undefined;
+  const maxRetries = 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    let sha: string | undefined;
 
-  try {
-    const existing = await octokit.repos.getContent({ owner: repoOwner, repo: repoName, path });
-    if ("sha" in existing.data) {
-      sha = existing.data.sha;
+    try {
+      const existing = await octokit.repos.getContent({ owner: repoOwner, repo: repoName, path });
+      if ("sha" in existing.data) {
+        sha = existing.data.sha;
+      }
+    } catch (error: any) {
+      if (error.status !== 404) throw error;
     }
-  } catch (error: any) {
-    if (error.status !== 404) throw error;
-  }
 
-  await octokit.repos.createOrUpdateFileContents({
-    owner: repoOwner,
-    repo: repoName,
-    path,
-    message: commitMessage,
-    content: Buffer.from(content).toString("base64"),
-    ...(sha ? { sha } : {}),
-  });
+    try {
+      await octokit.repos.createOrUpdateFileContents({
+        owner: repoOwner,
+        repo: repoName,
+        path,
+        message: commitMessage,
+        content: Buffer.from(content).toString("base64"),
+        ...(sha ? { sha } : {}),
+      });
+      return;
+    } catch (error: any) {
+      if (error.status === 409 && attempt < maxRetries) {
+        console.warn("[memory] SHA conflict on %s, retrying (%d/%d)", path, attempt, maxRetries);
+        continue;
+      }
+      throw error;
+    }
+  }
 }
 
 /**

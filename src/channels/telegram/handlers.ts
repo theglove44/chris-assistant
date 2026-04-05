@@ -1,6 +1,6 @@
 import type { Bot, Context } from "grammy";
 import { addMessage } from "../../conversation.js";
-import { toMarkdownV2, stripMarkdown } from "../../markdown.js";
+import { toMarkdownV2, stripMarkdown, stripThinking } from "../../markdown.js";
 import type { ImageAttachment } from "../../providers/types.js";
 import { chatService } from "../../agent/chat-service.js";
 import { downloadTelegramFile } from "./bot.js";
@@ -47,14 +47,7 @@ async function handleAiResponse(
     const now = Date.now();
     if (now - lastEditTime < EDIT_INTERVAL_MS) return;
 
-    const thinkCloseTag = "<" + "/think>";
-    const thinkingCloseTag = "<" + "/thinking>";
-    const cleaned = accumulated
-      .replace(new RegExp("<think>[\\s\\S]*?" + thinkCloseTag, "g"), "")
-      .replace(new RegExp("<thinking>[\\s\\S]*?" + thinkingCloseTag, "g"), "")
-      .replace(/<think>[\s\S]*$/g, "")
-      .replace(/<thinking>[\s\S]*$/g, "")
-      .trim();
+    const cleaned = stripThinking(accumulated);
     if (!cleaned || cleaned === lastEditedText) return;
 
     const preview = cleaned.length > 4000 ? cleaned.slice(0, 4000) + "..." : cleaned;
@@ -72,12 +65,7 @@ async function handleAiResponse(
 
     const rawResponse = await chatWithRetry(chatId, userMessage, onChunk, image);
 
-    const thinkClose = "<" + "/think>";
-    const thinkingClose = "<" + "/thinking>";
-    const response = rawResponse
-      .replace(new RegExp("<think>[\\s\\S]*?" + thinkClose, "g"), "")
-      .replace(new RegExp("<thinking>[\\s\\S]*?" + thinkingClose, "g"), "")
-      .trim();
+    const response = stripThinking(rawResponse);
 
     void addMessage(chatId, "assistant", response, meta);
 

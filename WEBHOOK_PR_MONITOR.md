@@ -113,7 +113,7 @@ cloudflared tunnel create jarvis
 
 # Configure (~/.cloudflared/config.yml)
 tunnel: jarvis
-credentials-file: /Users/christaylor/.cloudflared/<tunnel-id>.json
+credentials-file: ~/.cloudflared/<tunnel-id>.json
 ingress:
   - hostname: webhooks.yourdomain.com
     service: http://localhost:3001

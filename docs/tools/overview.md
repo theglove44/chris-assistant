@@ -39,10 +39,13 @@ The assistant has access to a set of tools that all providers pick up automatica
 | `macos_calendar` | Always | macOS Calendar via native EventKit — list, get, add, update, delete, search events (~300ms) |
 | `macos_mail` | Always | macOS Mail via AppleScript — summary, inbox, search, read, reply, delete, move, mark, list mailboxes |
 | `macos_reminders` | Always | macOS Reminders via native EventKit — list, create, update, complete, search reminders |
+| `macos_notes` | Always | Apple Notes via AppleScript — list, read, create, update, search, delete notes across iCloud and local accounts |
+| `octopus_energy` | Always | Octopus Energy API — consumption, tariffs, balance, bills; GraphQL for advanced queries |
+| `peekaboo` | Always | GUI screenshot and automation on Mac Mini via SSH — capture screen, click, type |
 
 **"Always"** tools are available in every conversation. **"Coding"** tools are only sent when a project workspace is active (set via `/project` command or `WORKSPACE_ROOT` env var).
 
-The `macos_calendar`, `macos_mail`, and `macos_reminders` tools are **macOS-only** — they only register when `process.platform === "darwin"`. See [macOS tools guide](macos.md) for setup and TCC permissions.
+The `macos_calendar`, `macos_mail`, `macos_reminders`, and `macos_notes` tools are **macOS-only** — they only register when `process.platform === "darwin"`. See [macOS tools guide](macos.md) for setup and TCC permissions.
 
 ## Skills vs Tools
 
