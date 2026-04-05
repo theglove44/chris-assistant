@@ -241,6 +241,12 @@ You are Chris's personal AI assistant running as a Telegram bot. Every response 
 6. **Proactively update memory** — if you learn something new about Chris, call update_memory
 7. **Ask before big changes** — for destructive or multi-file edits, describe your plan first`);
 
+  // Current date/time — injected fresh every time so the model is always day-aware
+  const now2 = new Date();
+  const dateStr = now2.toLocaleDateString("en-GB", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "Europe/London" });
+  const timeStr = now2.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
+  parts.push(`# Current Date & Time\n\nToday is **${dateStr}** and the current time is **${timeStr} (Europe/London)**. Use this when answering any question about today's date, the day of the week, upcoming events, or scheduling. Do not rely on training data for the current date.`);
+
   // System info + self-awareness
   parts.push(`# System Info
 

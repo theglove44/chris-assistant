@@ -25,6 +25,9 @@ Built for a single user. Not a platform, not a framework — just a really good 
 | **Skills** | Reusable workflows the AI can discover, execute, and create at runtime. Stored as JSON in the memory repo. |
 | **Usage Tracking** | Token usage and cost tracking per model/provider. On-demand reports and daily cost summaries. |
 | **Health Monitoring** | Heartbeat checks, service health status, and GitHub webhook server for PR monitoring. |
+| **Memory Consolidation** | DreamTask — automatic background consolidation after conversations. Merges new facts, prunes stale data, and keeps memory files lean. |
+| **Energy** | Octopus Energy API integration — consumption history, tariffs, balance, and billing. |
+| **GUI Automation** | Peekaboo tool for screenshot capture and GUI automation on your Mac Mini via SSH. |
 
 ## How It Works
 
@@ -86,7 +89,7 @@ chris-assistant-memory/       ← Private GitHub repo
 └── conversations/summaries/  # AI-generated daily summaries
 ```
 
-Every memory update is a git commit. Weekly consolidation distills everything into a curated summary.
+Every memory update is a git commit. DreamTask consolidation runs automatically after conversations — it merges new facts, prunes stale data, and updates `SUMMARY.md`.
 
 ## Web Dashboard
 
@@ -210,6 +213,10 @@ chris minimax login / status     # MiniMax OAuth
 chris doctor                     # Health checks
 chris doctor --fix               # Auto-diagnose and repair
 chris setup                      # First-time setup wizard
+
+# Memory consolidation
+chris dream status               # Show DreamTask consolidation state
+chris dream run                  # Force consolidation now (bypasses gates)
 ```
 
 ## GitHub-Backed Symphony

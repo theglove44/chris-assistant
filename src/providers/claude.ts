@@ -131,7 +131,7 @@ const MCP_SERVER_NAME = "chris-tools";
 export function createClaudeProvider(model: string): Provider {
   return {
     name: "claude",
-    async chat(chatId, userMessage, onChunk, _images?: ImageAttachment[], allowedTools?: string[]) {
+    async chat(chatId, userMessage, onChunk, _images?: ImageAttachment[], allowedTools?: string[], maxTurns?: number) {
       // Build tool server fresh each call so newly registered tools are always
       // available (avoids stale snapshot when the provider is cached).
       const toolServer = createSdkMcpServer({
@@ -213,7 +213,7 @@ export function createClaudeProvider(model: string): Provider {
               [MCP_SERVER_NAME]: toolServer,
             },
             allowedTools: customMcpAllowed,
-            maxTurns: config.maxToolTurns,
+            maxTurns: maxTurns ?? config.maxToolTurns,
             ...(thinkingTokens && { maxThinkingTokens: thinkingTokens }),
             permissionMode: "bypassPermissions",
             allowDangerouslySkipPermissions: true,

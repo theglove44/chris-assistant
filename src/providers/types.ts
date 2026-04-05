@@ -13,5 +13,6 @@ export interface Provider {
     onChunk?: (accumulated: string) => void,
     images?: ImageAttachment[],
     allowedTools?: string[],
+    maxTurns?: number,
   ): Promise<string>;
 }

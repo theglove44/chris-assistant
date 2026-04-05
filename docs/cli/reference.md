@@ -102,3 +102,36 @@ chris doctor --fix       # Auto-diagnose and repair:
 
 chris setup              # Interactive first-time setup wizard (creates .env)
 ```
+
+## Memory Consolidation (DreamTask)
+
+```bash
+chris dream status       # Show consolidation status:
+                         #   - Last consolidation timestamp
+                         #   - Hours since last run
+                         #   - Sessions since last run
+                         #   - Consecutive failure count
+                         #   - Whether a consolidation is currently running
+
+chris dream run          # Force a consolidation now (bypasses all gates)
+```
+
+DreamTask runs automatically after conversations when three gates pass: 12+ hours since last run, 3+ new conversation sessions, and no other consolidation in progress.
+
+## Symphony (Autonomous Workflow)
+
+```bash
+chris symphony run-once <workflow>   # Pick up one symphony:todo issue and work it
+chris symphony status                # Show active workspaces and issue states
+chris symphony logs <issue>          # Tail logs for a specific issue number
+chris symphony cleanup               # List finished workspaces
+chris symphony cleanup --apply       # Remove finished workspaces
+chris symphony cleanup --delete-remote-branches --apply  # Also prune stale remote branches
+```
+
+## Codex
+
+```bash
+chris codex verify       # Check that the codex CLI is installed and working
+chris codex login        # Authenticate with OpenAI (required for codex-agent-* models)
+```

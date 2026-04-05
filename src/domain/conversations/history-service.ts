@@ -1,6 +1,7 @@
 import { archiveMessage } from "./archive-service.js";
 import { ensureConversationStoreLoaded, saveConversationStore } from "./store.js";
 import type { ConversationMessage, ConversationMeta } from "./types.js";
+import { tryDream } from "../memory/dream-service.js";
 
 const MAX_HISTORY = 20;
 
@@ -26,6 +27,14 @@ export async function addMessage(
   }
 
   await saveConversationStore(store);
+
+  // Fire-and-forget: check if memory consolidation should run
+  // Only trigger after assistant messages (not user messages)
+  if (role === "assistant") {
+    void tryDream().catch((err: any) => {
+      console.error("[dream] tryDream error:", err.message);
+    });
+  }
 }
 
 export async function getHistory(chatId: number): Promise<ConversationMessage[]> {

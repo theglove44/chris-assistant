@@ -123,7 +123,7 @@ Services are split into two registries based on boot timing:
 | `daily-summarizer` | Generates daily conversation summaries |
 | `channel-summarizer` | Weekly per-channel Discord summaries |
 | `journal-uploader` | Uploads the bot's daily journal |
-| `memory-consolidation` | Consolidates memory files periodically |
+| `memory-consolidation` | Legacy periodic consolidation (superseded by DreamTask fire-and-forget after conversations) |
 | `heartbeat` | Writes `HEARTBEAT.md` status to memory repo |
 | `dashboard` | HTTP dashboard server |
 | `discord` | Discord bot client |

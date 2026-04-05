@@ -378,6 +378,7 @@ async function actionScpPull(args: {
 registerTool({
   name: "ssh",
   category: "always",
+  frequencyLimit: 50,
   description:
     "SSH into Tailnet devices to run commands, optionally manage tmux sessions, and transfer files. " +
     "By default exec uses plain ssh (no tmux). " +

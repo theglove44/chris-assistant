@@ -13,6 +13,7 @@ import { registerSetupCommand } from "./commands/setup.js";
 import { registerMinimaxCommand } from "./commands/minimax-login.js";
 import { registerOpenaiCommand } from "./commands/openai-login.js";
 import { registerCodexCommand } from "./commands/codex.js";
+import { registerDreamCommand } from "./commands/dream.js";
 import { registerSymphonyCommand } from "./commands/symphony.js";
 
 const program = new Command();
@@ -40,6 +41,9 @@ registerDoctorCommand(program);
 registerSetupCommand(program);
 registerCodexCommand(program);
 registerSymphonyCommand(program);
+
+// Memory consolidation
+registerDreamCommand(program);
 
 // Provider management
 registerMinimaxCommand(program);

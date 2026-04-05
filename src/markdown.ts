@@ -14,6 +14,21 @@ function escapeHtml(text: string): string {
 }
 
 /**
+ * Strip <think> and <thinking> blocks from AI model output.
+ * Newer models (e.g. claude-sonnet-4-6) output these spontaneously.
+ */
+export function stripThinking(text: string): string {
+  const thinkClose = "<" + "/think>";
+  const thinkingClose = "<" + "/thinking>";
+  return text
+    .replace(new RegExp("<think>[\\s\\S]*?" + thinkClose, "g"), "")
+    .replace(new RegExp("<thinking>[\\s\\S]*?" + thinkingClose, "g"), "")
+    .replace(/<think>[\s\S]*$/g, "")
+    .replace(/<thinking>[\s\S]*$/g, "")
+    .trim();
+}
+
+/**
  * Strip Markdown formatting to produce clean plain text.
  * Used as a fallback when HTML parsing fails in Telegram.
  */

@@ -9,6 +9,7 @@ import { providerDisplayName } from "../../providers/model-routing.js";
 import { getWorkspaceRoot, setWorkspaceRoot, isProjectActive } from "../../tools/files.js";
 import { datestamp, redactArchiveEntries, uploadArchives } from "../../conversation-archive.js";
 import { chatService } from "../../agent/chat-service.js";
+import { dreamStatus, forceDream } from "../../domain/memory/dream-service.js";
 
 export const TELEGRAM_COMMAND_MENU = [
   { command: "start", description: "Greeting" },
@@ -21,6 +22,7 @@ export const TELEGRAM_COMMAND_MENU = [
   { command: "project", description: "Show or set active project directory" },
   { command: "reload", description: "Reload memory from GitHub" },
   { command: "restart", description: "Graceful bot restart" },
+  { command: "dream", description: "Run or check memory consolidation" },
   { command: "help", description: "List available commands" },
 ] as const;
 
@@ -110,6 +112,34 @@ export function registerTelegramCommands(bot: Bot<Context>): void {
     setTimeout(() => process.exit(0), 1500);
   });
 
+  bot.command("dream", async (ctx) => {
+    const arg = ctx.match?.trim();
+
+    if (arg === "run") {
+      await ctx.reply("Starting dream consolidation...");
+      const result = await forceDream();
+      if (result.success) {
+        const changes = result.changes.map((c) => "- " + c).join("\n");
+        await ctx.reply("Dream complete.\n\nChanges:\n" + changes);
+      } else {
+        await ctx.reply("Dream failed: " + result.changes.join(", "));
+      }
+      return;
+    }
+
+    const status = dreamStatus();
+    const lastStr = status.lastConsolidated === "never" ? "never" : new Date(status.lastConsolidated).toLocaleString();
+    await ctx.reply(
+      "Dream status:\n\n" +
+      "Last consolidated: " + lastStr + "\n" +
+      "Hours since: " + (status.hoursSince === Infinity ? "never" : String(status.hoursSince)) + "\n" +
+      "Sessions since: " + status.sessionsSince + "\n" +
+      "Failures: " + status.consecutiveFailures + "\n" +
+      "Running: " + (status.isRunning ? "yes" : "no") + "\n\n" +
+      "Use /dream run to force a consolidation now."
+    );
+  });
+
   bot.command("help", async (ctx) => {
     await ctx.reply(
       "Available commands:\n\n" +
@@ -124,6 +154,8 @@ export function registerTelegramCommands(bot: Bot<Context>): void {
       "/project <path> — Set active workspace\n" +
       "/reload — Reload memory from GitHub\n" +
       "/restart — Graceful bot restart\n" +
+      "/dream — Memory consolidation status\n" +
+      "/dream run — Force consolidation now\n" +
       "/help — This message",
     );
   });
