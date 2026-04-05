@@ -13,8 +13,8 @@ const SSH_OPTS = [
   "-o", "StrictHostKeyChecking=accept-new",
 ];
 
-// Mac Mini IP
-const MAC_MINI_HOST = "100.99.188.80";
+// Mac Mini — resolved from env or SSH config alias
+const MAC_MINI_HOST = process.env.MAC_MINI_HOST ?? "mac-mini";
 const TASTY_COACH_CMD = "cd ~/Projects/tasty-coach && source venv/bin/activate && python main.py --snapshot --json";
 
 const MAX_OUTPUT = 50_000;

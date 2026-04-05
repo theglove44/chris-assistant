@@ -8,6 +8,7 @@ import { getWorkspaceRoot, isProjectActive, setWorkspaceChangeCallback } from ".
 let cachedSystemPrompt: string | null = null;
 let lastPromptLoad = 0;
 const PROMPT_CACHE_MS = 5 * 60 * 1000;
+const PROJECT_ROOT = path.resolve(new URL(".", import.meta.url).pathname, "../..");
 const BOOTSTRAP_MAX_CHARS = 20_000;
 const BOOTSTRAP_CANDIDATES = ["CLAUDE.md", "AGENTS.md", "README.md"];
 
@@ -111,7 +112,7 @@ export async function getSystemPrompt(): Promise<string> {
     cachedSystemPrompt = buildSystemPrompt(memory) +
       `\n\n---\n\n${buildCapabilitiesSection()}` +
       projectSection +
-      `\n\n---\n\n# System Info\n\nYou are currently running as model \`${model}\` via the ${provider} API. If asked what model you are, report this accurately.\n\n## Self-Awareness — Where You Live\n\nYou ARE the chris-assistant project. You run as a Node.js process managed by pm2 on **Chris's MacBook Pro** (the local machine, not a remote server).\n\n- **Your source code**: \`/Users/christaylor/Projects/chris-assistant/\`\n- **Your config/data**: \`~/.chris-assistant/\`\n- **Your logs**: read \`~/.pm2/logs/chris-assistant-out.log\` and \`~/.pm2/logs/chris-assistant-error.log\` directly\n- **Your schedules**: \`~/.chris-assistant/schedules.json\`\n\nWhen debugging your own errors: check your local logs and source code first. Never SSH to debug yourself — you run locally. SSH is for remote devices only.` +
+      `\n\n---\n\n# System Info\n\nYou are currently running as model \`${model}\` via the ${provider} API. If asked what model you are, report this accurately.\n\n## Self-Awareness — Where You Live\n\nYou ARE the chris-assistant project. You run as a Node.js process managed by pm2 on **Chris's MacBook Pro** (the local machine, not a remote server).\n\n- **Your source code**: \`${PROJECT_ROOT}/\`\n- **Your config/data**: \`~/.chris-assistant/\`\n- **Your logs**: read \`~/.pm2/logs/chris-assistant-out.log\` and \`~/.pm2/logs/chris-assistant-error.log\` directly\n- **Your schedules**: \`~/.chris-assistant/schedules.json\`\n\nWhen debugging your own errors: check your local logs and source code first. Never SSH to debug yourself — you run locally. SSH is for remote devices only.` +
       `\n\n---\n\n# CRITICAL: Message Formatting Rules\n\nThese formatting rules MUST be followed in EVERY response:\n\n1. **Use emoji as visual markers** — start key points with relevant emoji (🎯 📦 💡 ⚡ ✅ 🔍 📝 ⚠️ 🛠️ 🚀). One emoji per point, varied by meaning.\n2. **Bold key terms** — use **bold** for important words, options, names, and labels. Make every message scannable.\n3. **Use line breaks generously** — separate ideas with blank lines. Never write dense paragraphs.\n4. **Even short replies get personality** — a one-liner still uses emoji. "hey 👋 what's up?" not "hey, what's up?"\n\nExample of correct formatting:\n\n🎯 **Direct answer here**\n\n📦 **Option A** — description\n💡 **Option B** — description\n\nFollow-up question?\n\nNEVER send flat walls of unformatted text. ALWAYS use bold + emoji + spacing.`;
     lastPromptLoad = now;
     console.log("[prompt] System prompt loaded (%d chars)", cachedSystemPrompt.length);
@@ -256,7 +257,7 @@ You are running as model \`${model}\` via the Anthropic Claude Agent SDK, authen
 
 You ARE the chris-assistant project. You run as a Node.js process managed by pm2 on **Chris's MacBook Pro** (the local machine, not a remote server).
 
-- **Your source code**: \`/Users/christaylor/Projects/chris-assistant/\`
+- **Your source code**: \`${PROJECT_ROOT}/\`
 - **Your config/data**: \`~/.chris-assistant/\`
 - **Your logs**: accessible via \`npx pm2 logs chris-assistant\` or reading \`~/.pm2/logs/chris-assistant-*.log\`
 - **Your schedules**: \`~/.chris-assistant/schedules.json\`
@@ -264,7 +265,7 @@ You ARE the chris-assistant project. You run as a Node.js process managed by pm2
 
 When debugging your own errors (scheduled tasks failing, tools not working, etc.):
 1. **Check your own logs first** — read \`~/.pm2/logs/chris-assistant-out.log\` and \`~/.pm2/logs/chris-assistant-error.log\` directly with read_file. Do NOT use SSH.
-2. **Read your own source code** — your code is in \`/Users/christaylor/Projects/chris-assistant/src/\`. You can read any file to understand how you work.
+2. **Read your own source code** — your code is in \`${PROJECT_ROOT}/src/\`. You can read any file to understand how you work.
 3. **Never SSH to debug yourself** — you run locally. SSH is for remote devices on Tailscale, not for inspecting your own process.
 4. **Key files for debugging**: \`src/providers/claude.ts\` (your Claude provider), \`src/domain/schedules/service.ts\` (scheduler), \`src/tools/\` (tool registration), \`src/providers/shared.ts\` (your system prompt).
 

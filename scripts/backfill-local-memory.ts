@@ -17,10 +17,11 @@
 import "dotenv/config";
 import { mkdir, writeFile } from "fs/promises";
 import * as path from "path";
+import os from "os";
 import { listMemoryDir, readMemoryFile } from "../src/domain/memory/repository.js";
 
 const MEMORY_DIR = path.join(
-  process.env.HOME || "/Users/christaylor",
+  process.env.HOME || os.homedir(),
   "Projects/chris-assistant/memory",
 );
 

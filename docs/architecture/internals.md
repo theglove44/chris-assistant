@@ -168,7 +168,7 @@ Native fetch, 15s timeout. HTML extracted via Readability + linkedom, regex fall
 All providers support `update_memory`. Claude via MCP, OpenAI/MiniMax via function calling. All delegate to `executeMemoryTool()`.
 
 ### Market Snapshot
-SSHes to Mac Mini (`100.99.188.80`) to run `tasty-coach --snapshot`. Parses table output into structured objects. Formats for Telegram with categorized sections (Equities, Commodities, Crypto, Volatility) and auto-generated insights.
+SSHes to Mac Mini (via `MAC_MINI_HOST` env var or SSH config alias) to run `tasty-coach --snapshot --json`. Parses JSON output into structured objects. Formats for Telegram with categorized sections (Futures, ETFs, Commodities, Crypto, Volatility) and auto-generated insights.
 
 ### Journal
 `journal_entry` tool — appends timestamped entries to `~/.chris-assistant/journal/YYYY-MM-DD.md`. Uploads to GitHub every 6 hours. Today's + yesterday's journals loaded into system prompt. 2000 char limit per entry.
