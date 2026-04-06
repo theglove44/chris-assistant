@@ -56,6 +56,7 @@ For full architecture, design decisions, and data flow see `README.md` and proje
 - `resolveSafePath()` canonicalizes via `fs.realpathSync` — symlinks outside workspace rejected
 - Memory guard: 2000 char limit, injection detection, replace throttle, path traversal blocking
 - No `git_push` tool — deliberate safety choice
+- **Never delete or modify files under `~/.chris-assistant/`** — this is live runtime data (schedules, archives, conversation history, dream lock). It is not part of the source tree. Deleting it breaks the running bot.
 
 ## Gotchas
 

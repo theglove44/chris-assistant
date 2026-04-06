@@ -4,7 +4,7 @@ import { addMessage } from "../../conversation.js";
 import { sendToDiscordChannel } from "../../discord.js";
 import { toMarkdownV2, stripThinking } from "../../markdown.js";
 import { matchesCron } from "./cron.js";
-import { readSchedules, writeSchedules } from "./store.js";
+import { readSchedules, readSchedulesWithRecovery, writeSchedules } from "./store.js";
 import type { NewSchedule, Schedule, ScheduleUpdates } from "./types.js";
 
 async function sendTelegramMessage(text: string, title?: string): Promise<void> {
@@ -98,8 +98,12 @@ export class ScheduleService {
   start(): void {
     if (this.tickInterval !== null) return;
 
-    const schedules = readSchedules();
-    console.log("[scheduler] Loaded %d schedule(s)", schedules.length);
+    // Attempt GitHub restore if local file is empty/missing
+    readSchedulesWithRecovery().then((schedules) => {
+      console.log("[scheduler] Loaded %d schedule(s)", schedules.length);
+    }).catch(() => {
+      console.log("[scheduler] Loaded %d schedule(s)", readSchedules().length);
+    });
 
     this.tickInterval = setInterval(() => {
       this.tick().catch((err: any) => {

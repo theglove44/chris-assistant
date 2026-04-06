@@ -11,7 +11,6 @@ import { startMemoryConsolidation, stopMemoryConsolidation } from "../memory-con
 import { startHeartbeat, stopHeartbeat } from "../heartbeat.js";
 import { startDashboard, stopDashboard } from "../dashboard.js";
 import { startWebhook, stopWebhook } from "../webhook.js";
-import { startUsageReport, stopUsageReport } from "../domain/usage/daily-report-service.js";
 import { ensureLocalMemoryDir } from "../domain/memory/recall.js";
 import { setTelegramCommandMenu } from "../channels/telegram/index.js";
 
@@ -45,6 +44,5 @@ export function createPostTelegramRegistry(): ServiceRegistry {
     createService("dashboard", () => startDashboard(), () => stopDashboard()),
     createService("discord", () => startDiscord(), () => stopDiscord()),
     createService("webhook", () => startWebhook(), () => stopWebhook()),
-    createService("usage-report", () => startUsageReport(), () => stopUsageReport()),
   ]);
 }
