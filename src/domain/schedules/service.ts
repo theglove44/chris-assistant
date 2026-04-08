@@ -66,6 +66,14 @@ async function executeTask(task: Schedule): Promise<void> {
     });
 
     const trimmed = stripThinking(response);
+
+    // Detect error fallback strings that indicate the AI call failed.
+    // claude.ts now throws on non-abort errors, but guard here too in case
+    // another provider returns an error string instead of throwing.
+    if (trimmed && (trimmed.startsWith("API Error:") || trimmed.startsWith("I hit an issue:"))) {
+      throw new Error(trimmed.slice(0, 200));
+    }
+
     if (!trimmed || trimmed.startsWith("NOUPDATE:")) {
       console.log("[scheduler] No update for task: %s — staying quiet", task.name);
     } else {

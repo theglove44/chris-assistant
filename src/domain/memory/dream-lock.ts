@@ -40,7 +40,7 @@ export function acquireLock(): boolean {
         return false;
       }
 
-      console.log("[dream] Removing stale lock (%.0f min old)", age / 60000);
+      console.log("[dream] Removing stale lock (%d min old)", Math.round(age / 60000));
     }
 
     fs.mkdirSync(appDataPath(), { recursive: true });

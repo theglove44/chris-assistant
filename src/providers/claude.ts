@@ -189,89 +189,119 @@ export function createClaudeProvider(model: string): Provider {
       let responseText = "";
       let accumulatedText = "";
 
-      try {
-        const conversation = query({
-          prompt: promptWithContext,
-          options: {
-            model,
-            cwd: getWorkspaceRoot(),
-            additionalDirectories: [
-              path.join(os.homedir(), ".chris-assistant"),
-            ],
-            // Scheduled tasks (chatId 0) use a plain string system prompt to
-            // avoid the claude_code preset's "I am Claude Code CLI" identity,
-            // which causes the model to refuse custom MCP tool calls.
-            systemPrompt: chatId === 0
-              ? appendPrompt
-              : {
-                  type: "preset",
-                  preset: "claude_code",
-                  append: appendPrompt,
-                },
-            tools: { type: "preset", preset: "claude_code" },
-            mcpServers: {
-              [MCP_SERVER_NAME]: toolServer,
-            },
-            allowedTools: customMcpAllowed,
-            maxTurns: maxTurns ?? config.maxToolTurns,
-            ...(thinkingTokens && { maxThinkingTokens: thinkingTokens }),
-            permissionMode: "bypassPermissions",
-            allowDangerouslySkipPermissions: true,
-            includePartialMessages: true,
-            hooks: {
-              PreToolUse: [{
-                matcher: "Bash",
-                hooks: [safetyHook],
-              }],
-            },
-            // Session management — chatId 0 is for system/scheduled tasks (no resume)
-            ...(existingSessionId && { resume: existingSessionId }),
-            ...(chatId === 0 && { persistSession: false }),
-            abortController,
-          },
-        });
+      const MAX_RETRIES = 3;
+      const RETRY_DELAYS_MS = [10_000, 30_000, 60_000];
 
-        for await (const message of conversation) {
-          handleStreamEvent(message, onChunk, (text) => {
-            accumulatedText = text;
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        accumulatedText = "";
+        responseText = "";
+
+        try {
+          const conversation = query({
+            prompt: promptWithContext,
+            options: {
+              model,
+              cwd: getWorkspaceRoot(),
+              additionalDirectories: [
+                path.join(os.homedir(), ".chris-assistant"),
+              ],
+              // Scheduled tasks (chatId 0) use a plain string system prompt to
+              // avoid the claude_code preset's "I am Claude Code CLI" identity,
+              // which causes the model to refuse custom MCP tool calls.
+              systemPrompt: chatId === 0
+                ? appendPrompt
+                : {
+                    type: "preset",
+                    preset: "claude_code",
+                    append: appendPrompt,
+                  },
+              tools: { type: "preset", preset: "claude_code" },
+              mcpServers: {
+                [MCP_SERVER_NAME]: toolServer,
+              },
+              allowedTools: customMcpAllowed,
+              maxTurns: maxTurns ?? config.maxToolTurns,
+              ...(thinkingTokens && { maxThinkingTokens: thinkingTokens }),
+              permissionMode: "bypassPermissions",
+              allowDangerouslySkipPermissions: true,
+              includePartialMessages: true,
+              hooks: {
+                PreToolUse: [{
+                  matcher: "Bash",
+                  hooks: [safetyHook],
+                }],
+              },
+              // Session management — chatId 0 is for system/scheduled tasks (no resume)
+              ...(existingSessionId && { resume: existingSessionId }),
+              ...(chatId === 0 && { persistSession: false }),
+              abortController,
+            },
           });
 
-          // Capture session ID from any message that has one
-          if ("session_id" in message && message.session_id && chatId !== 0) {
-            setSessionId(chatId, message.session_id);
-          }
+          for await (const message of conversation) {
+            handleStreamEvent(message, onChunk, (text) => {
+              accumulatedText = text;
+            });
 
-          // Capture final result
-          if (message.type === "result") {
-            if (message.subtype === "success") {
-              responseText = message.result;
-            } else {
-              // Error results — use accumulated text if we have it, otherwise report error
-              const errors = "errors" in message ? message.errors : [];
-              responseText = accumulatedText || `I hit an issue: ${errors.join(", ") || "unknown error"}`;
+            // Capture session ID from any message that has one
+            if ("session_id" in message && message.session_id && chatId !== 0) {
+              setSessionId(chatId, message.session_id);
             }
 
-            // Record token usage if available
-            const usage = "usage" in message ? (message as any).usage : undefined;
-            if (usage && typeof usage.input_tokens === "number") {
-              recordUsage({
-                inputTokens: usage.input_tokens,
-                outputTokens: usage.output_tokens ?? 0,
-                model,
-                provider: "claude",
-              });
+            // Capture final result
+            if (message.type === "result") {
+              if (message.subtype === "success") {
+                responseText = message.result;
+              } else {
+                // Error results — use accumulated text if we have it, otherwise report error
+                const errors = "errors" in message ? message.errors : [];
+                responseText = accumulatedText || `I hit an issue: ${errors.join(", ") || "unknown error"}`;
+              }
+
+              // Record token usage if available
+              const usage = "usage" in message ? (message as any).usage : undefined;
+              if (usage && typeof usage.input_tokens === "number") {
+                recordUsage({
+                  inputTokens: usage.input_tokens,
+                  outputTokens: usage.output_tokens ?? 0,
+                  model,
+                  provider: "claude",
+                });
+              }
             }
           }
-        }
-      } catch (error: any) {
-        if (error.name === "AbortError" || abortController.signal.aborted) {
-          responseText = accumulatedText || "Stopped.";
-        } else {
+
+          // Success — break out of retry loop
+          break;
+        } catch (error: any) {
+          if (error.name === "AbortError" || abortController.signal.aborted) {
+            activeControllers.delete(chatId);
+            invalidatePromptCache();
+            return accumulatedText || "Stopped.";
+          }
+
+          const isOverloaded =
+            error.message?.includes("529") ||
+            error.message?.toLowerCase().includes("overloaded") ||
+            error.message?.includes("exited with code 1");
+
+          if (isOverloaded && attempt < MAX_RETRIES) {
+            const delay = RETRY_DELAYS_MS[attempt];
+            console.warn(
+              "[claude] API overloaded (attempt %d/%d), retrying in %ds — %s",
+              attempt + 1, MAX_RETRIES, delay / 1000, error.message,
+            );
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            continue;
+          }
+
           console.error("[claude] Error:", error.message);
-          responseText = accumulatedText || "Sorry, I hit an error processing that. Try again in a moment.";
+          activeControllers.delete(chatId);
+          invalidatePromptCache();
+          throw error;
+        } finally {
+          activeControllers.delete(chatId);
         }
-      } finally {
-        activeControllers.delete(chatId);
       }
 
       invalidatePromptCache();
