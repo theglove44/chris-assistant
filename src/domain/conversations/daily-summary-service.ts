@@ -95,7 +95,7 @@ export async function generateSummary(date: string): Promise<string | null> {
     context += "\n\n---\n\nThe assistant also wrote these journal notes during the day:\n\n" + journal;
   }
 
-  const summary = await chatService.sendMessage({ chatId: 0, userMessage: context });
+  const summary = await chatService.sendMessage({ chatId: 0, userMessage: context, allowedTools: [] });
   const cleaned = summary.replace(new RegExp("<" + "think>[\\s\\S]*?<" + "/think>", "g"), "").trim();
 
   await writeMemoryFile(summaryRepoPath(date), `# Conversation Summary — ${date}\n\n${cleaned}`, `chore: daily summary ${date}`);

@@ -74,7 +74,7 @@ Here are this week's conversations in #${channelName}:
 
 ${formatArchiveForPrompt(entries)}`;
 
-  const raw = await chatService.sendMessage({ chatId: 0, userMessage: prompt });
+  const raw = await chatService.sendMessage({ chatId: 0, userMessage: prompt, allowedTools: [] });
   return raw.replace(new RegExp("<" + "think>[\\s\\S]*?<" + "/think>", "g"), "").trim();
 }
 

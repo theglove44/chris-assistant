@@ -96,7 +96,7 @@ export async function runConsolidation(): Promise<void> {
   const prompt = parts.join("\n\n---\n\n");
   console.log("[consolidation] Prompt assembled (%d chars). Calling chat()...", prompt.length);
 
-  const raw = await chatService.sendMessage({ chatId: 0, userMessage: prompt });
+  const raw = await chatService.sendMessage({ chatId: 0, userMessage: prompt, allowedTools: [] });
   const cleaned = raw.replace(new RegExp("<" + "think>[\\s\\S]*?<" + "/think>", "g"), "").trim();
   const truncated = cleaned.length > MAX_OUTPUT_CHARS ? cleaned.slice(0, MAX_OUTPUT_CHARS) + "\n\n<!-- truncated -->" : cleaned;
 

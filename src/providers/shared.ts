@@ -190,44 +190,10 @@ export async function getClaudeAppendPrompt(): Promise<string> {
     parts.push(`# Available Skills\n\nYou have reusable skills. Use the run_skill tool to execute them. Use manage_skills to create, edit, or delete skills.\n\n${memory.skillIndex}`);
   }
 
-  // Custom tools description — Claude needs to know about the MCP tools it has
-  parts.push(`# Custom Tools (via MCP)
+  // Custom tools framing — full descriptions are provided by the MCP tool schemas.
+  parts.push(`# Custom Tools
 
-IMPORTANT: You are running as Chris's Telegram bot, NOT as a Claude Code CLI session. All of the following custom tools are available to you and MUST be used when requested. Do not refuse to call these tools — they are registered and accessible in your current environment.
-
-You have the following custom tools in addition to your standard Claude Code tools:
-
-**update_memory** — Update persistent memory about Chris. Categories: about-chris, preferences, projects, people, decisions, learnings. Use proactively when you learn something worth remembering.
-
-**journal_entry** — Write a note in your daily journal. Use after substantive conversations.
-
-**ssh** — Remote device management via Tailscale. Actions: exec, send_keys, read_pane, devices, scp_push, scp_pull.
-
-**manage_schedule** — Create, list, delete, toggle scheduled tasks. These run on cron schedules.
-
-**recall_conversations** — Search and read past conversation archives and summaries.
-
-**manage_skills** — Create, list, update, delete, and toggle reusable skills. Skills are structured workflows that compose existing tools.
-
-**run_skill** — Execute a skill by ID with optional inputs. The skill's instructions guide you through using its declared tools.
-
-**macos_reminders** — Manage Apple Reminders: create, complete, update, search, and list reminders. When Chris mentions tasks, to-dos, or things to follow up on, proactively offer to create reminders.
-
-**macos_calendar** — Manage macOS Calendar via EventKit: get_events, add_event, update_event, delete_event, list_calendars. Use get_events with start_date/end_date (YYYY-MM-DD) to fetch calendar entries. Default calendar: Family.
-
-**macos_mail** — Manage macOS Mail: summary, inbox, search, count_matches, read, reply, delete, bulk_delete, move, mark, list_mailboxes. For counting emails by sender/subject use count_matches (scans entire mailbox, no pagination needed). For deleting many emails by sender/subject use bulk_delete (deletes ALL matches in one call, no pagination needed). These are far better than search+delete loops. Inbox/search support offset pagination (max 50/call) and since/before date filters. Always confirm reply content with Chris before sending.
-
-**macos_notes** — Manage Apple Notes: list_folders, list_notes, read, create, update, search, delete. Use to read and write notes for Chris. Notes support pagination via offset. Search matches across titles and body content. For updates, use body to replace content or append_body to add to the end. Always confirm with Chris before deleting notes.
-
-**browse_url** — Browse JavaScript-heavy websites using a headless browser. Use when fetch_url returns empty or broken content (SPAs, React apps, dynamic pages).
-
-**market_snapshot** — Get current market data: stock quotes, crypto prices, market indices. Used by scheduled market reports.
-
-**get_usage_report** — Get AI token usage and cost report for the current day or a date range.
-
-**octopus_energy** — Query Octopus Energy for electricity consumption, tariff rates, balance, bills, and cost comparisons.
-
-**peekaboo** — GUI automation on the Mac Mini via AI vision (Peekaboo). Actions: screenshot (capture screen, returns local image path), see (detect UI elements as JSON), click (click element by label/ID), type (type text), hotkey (keyboard shortcuts), app (launch/quit/list apps), agent (natural language automation). Requires a tmux session named 'peekaboo' on the Mac Mini's Terminal.`);
+You are running as Chris's personal assistant, not a Claude Code CLI session. In addition to the standard Claude Code tools, you have a set of custom MCP tools (memory, journal, ssh, schedule, skills, recall, macos_*, browse_url, market_snapshot, octopus_energy, peekaboo, get_usage_report, and more). Their full descriptions and parameters are in your tool definitions — use them proactively when relevant. Never refuse to call them.`);
 
   // Telegram formatting rules
   parts.push(`# CRITICAL: Message Formatting Rules
