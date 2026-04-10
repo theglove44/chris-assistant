@@ -4,6 +4,15 @@ import type { ConversationMessage, ConversationMeta } from "./types.js";
 import { tryDream } from "../memory/dream-service.js";
 
 const MAX_HISTORY = 20;
+// Token budget for history injected into new Claude sessions.
+// System prompt + memory recall already consume ~15-20k tokens;
+// keep injected history well under that to avoid crowding the context.
+const MAX_HISTORY_TOKENS = 8_000;
+
+/** Conservative token estimate: ~3.5 characters per token. */
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 3.5);
+}
 
 export async function addMessage(
   chatId: number,
@@ -52,9 +61,20 @@ export async function formatHistoryForPrompt(chatId: number): Promise<string> {
   const history = await getHistory(chatId);
   if (history.length === 0) return "";
 
-  const formatted = history
-    .map((msg) => `${msg.role === "user" ? "Chris" : "Assistant"}: ${msg.content}`)
-    .join("\n\n");
+  // Build formatted lines newest-first, then reverse, to fit within token budget.
+  // This ensures we always keep the most recent exchanges when history is long.
+  const lines: string[] = [];
+  let totalTokens = 0;
+  for (let i = history.length - 1; i >= 0; i--) {
+    const msg = history[i]!;
+    const line = `${msg.role === "user" ? "Chris" : "Assistant"}: ${msg.content}`;
+    const tokens = estimateTokens(line);
+    if (totalTokens + tokens > MAX_HISTORY_TOKENS) break;
+    lines.unshift(line);
+    totalTokens += tokens;
+  }
 
-  return `# Recent Conversation\n\n${formatted}\n\n---\n\nChris's latest message follows:`;
+  if (lines.length === 0) return "";
+
+  return `# Recent Conversation\n\n${lines.join("\n\n")}\n\n---\n\nChris's latest message follows:`;
 }
