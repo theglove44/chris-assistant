@@ -6,7 +6,7 @@ import { appDataPath } from "../../infra/storage/paths.js";
 import type { ArchiveEntry, ConversationMeta } from "./types.js";
 
 const ARCHIVE_DIR = appDataPath("archive");
-const UPLOAD_INTERVAL_MS = 30 * 60 * 1000;
+const UPLOAD_INTERVAL_MS = 5 * 60 * 1000;
 const uploadedHashes = new Map<string, string>();
 let uploadTimer: ReturnType<typeof setInterval> | null = null;
 
