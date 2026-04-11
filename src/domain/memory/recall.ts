@@ -2,11 +2,14 @@
  * Memory recall — selects relevant memory files per user query.
  *
  * On every user message, scans the local memory/ directory for .md files
- * with YAML frontmatter, scores them against the query using keyword
- * matching, and returns the top 5 most relevant files for context injection.
+ * with YAML frontmatter, scores them against the query and returns the top 5
+ * most relevant files for context injection.
  *
- * Uses local keyword scoring (zero latency, zero cost, no auth needed).
- * Can be upgraded to a Sonnet side-call when an ANTHROPIC_API_KEY is available.
+ * Primary path: Voyage AI semantic embeddings (voyage-3-lite) — requires
+ * VOYAGE_API_KEY. Understands meaning, not just word overlap.
+ *
+ * Fallback path: Local keyword scoring — zero latency, zero cost, no auth.
+ * Used automatically when Voyage is unavailable or returns no results.
  */
 
 import { mkdir, readFile } from "fs/promises";
@@ -16,6 +19,12 @@ import {
   type MemoryHeader,
   scanMemoryFiles,
 } from "./memory-scan.js";
+import {
+  buildVoyageIndex,
+  initVoyageKey,
+  isVoyageReady,
+  semanticRecall,
+} from "./voyage-index.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -36,10 +45,25 @@ export const LOCAL_MEMORY_DIR = path.join(
   "Projects/chris-assistant/memory",
 );
 
-/** Ensure the local memory directory exists. Called once on boot. */
+/**
+ * Ensure the local memory directory exists and initialise the Voyage index.
+ * Called once on boot. Voyage index build is fire-and-forget — any failure
+ * is logged and the system falls back to keyword scoring automatically.
+ */
 export async function ensureLocalMemoryDir(): Promise<void> {
   await mkdir(LOCAL_MEMORY_DIR, { recursive: true });
   console.log("[recall] Local memory dir ready: %s", LOCAL_MEMORY_DIR);
+
+  const voyageKey = process.env.VOYAGE_API_KEY;
+  if (voyageKey) {
+    initVoyageKey(voyageKey);
+    // Build index in background — don't block boot
+    scanMemoryFiles(LOCAL_MEMORY_DIR)
+      .then((headers) => buildVoyageIndex(headers))
+      .catch((e) => console.warn("[recall] Voyage index build failed:", e instanceof Error ? e.message : e));
+  } else {
+    console.log("[recall] No VOYAGE_API_KEY — using keyword scoring");
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -47,8 +71,11 @@ export async function ensureLocalMemoryDir(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 /**
- * Find memory files relevant to a query by scanning headers and scoring
- * them against the query using keyword matching.
+ * Find memory files relevant to a query.
+ *
+ * Uses Voyage AI semantic embeddings when available (VOYAGE_API_KEY set and
+ * index built). Falls back to keyword scoring if Voyage is not ready or
+ * returns no results above threshold.
  *
  * Returns up to 5 relevant memories with their content read from disk.
  * Gracefully returns [] on any failure — never blocks the conversation.
@@ -62,7 +89,19 @@ export async function findRelevantMemories(
     return [];
   }
 
-  const selected = selectRelevantMemories(query, memories);
+  // Try semantic recall first; fall back to keyword scoring if unavailable
+  let selected: MemoryHeader[];
+  if (isVoyageReady()) {
+    selected = await semanticRecall(query);
+    if (selected.length === 0) {
+      // Voyage returned nothing — fall back to keyword scorer
+      console.log("[recall] Voyage returned 0 results, falling back to keyword scoring");
+      selected = selectRelevantMemories(query, memories);
+    }
+  } else {
+    selected = selectRelevantMemories(query, memories);
+  }
+
   if (selected.length === 0) {
     return [];
   }

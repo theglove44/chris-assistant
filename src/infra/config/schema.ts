@@ -23,6 +23,7 @@ export const envSchema = z.object({
   SYMPHONY_STATUS_URL: z.string().url().optional(),
   OCTOPUS_API_KEY: z.string().optional(),
   OCTOPUS_ACCOUNT_NUMBER: z.string().optional(),
+  VOYAGE_API_KEY: z.string().optional(),
 });
 
 export function normalizeOptional(value?: string): string | null {

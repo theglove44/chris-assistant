@@ -9,7 +9,7 @@ docs/.vitepress/cache
 docs/.vitepress/dist
 
 # Local memory cache (personal data — synced via GitHub memory repo, not this repo)
-memory/
+/memory/
 
 # Reference blueprints (external code snippets, not part of this project)
 src/blueprints/
