@@ -60,6 +60,10 @@ The assistant has its own identity, personality, and evolving memory. Everything
 - **Weekly channel summaries** — Per-Discord-channel conversation summaries generated every Sunday.
 - **Heartbeat** — Writes `HEARTBEAT.md` to memory repo every 3 hours with bot status snapshot.
 - **Prompt injection defense** — Memory writes are validated for size, rate, and suspicious content.
+- **Semantic memory recall** — Optional Voyage AI integration replaces keyword scoring with embedding-based retrieval. The bot finds relevant memory files by meaning, not just word overlap. Falls back to keyword scoring when unavailable. See [Memory](/tools/memory) for setup.
+- **Token usage tracking** — Per-provider, per-model token usage captured after every API call. On-demand cost reports via `get_usage_report`. Daily JSONL snapshots stored in `~/.chris-assistant/usage/`.
+- **Energy monitoring** — Octopus Energy integration via `octopus_energy` tool — consumption, tariffs, balance, and billing data on demand.
+- **GUI automation** — `peekaboo` tool provides screenshot capture and UI automation on remote Mac Mini via SSH.
 
 ## Tech Stack
 

@@ -38,4 +38,10 @@ features:
   - title: Symphony Delivery Flow
     details: Turn GitHub issues into supervised AI work runs that end in draft pull requests for human review.
     icon: 🎼
+  - title: Semantic Memory Recall
+    details: Voyage AI embeddings power contextual memory retrieval — the bot understands meaning, not just keyword matches. Falls back to keyword scoring when unavailable.
+    icon: 🔍
+  - title: macOS Native Integration
+    details: Calendar, Mail, Reminders, and Notes — all accessible via native EventKit and AppleScript. Ask the bot to check your schedule, read emails, or create reminders.
+    icon: 🍎
 ---

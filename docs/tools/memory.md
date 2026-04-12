@@ -144,6 +144,67 @@ chris dream run      # Force a run, bypassing all gates
 
 The bot writes structured notes throughout the day via the `journal_entry` tool (`src/tools/journal.ts`). Entries are appended to `~/.chris-assistant/journal/YYYY-MM-DD.md` as timestamped markdown (`**HH:MM AM/PM** — text`). A periodic uploader (every 6 hours) pushes changed journals to the memory repo. 2000 char limit per entry.
 
+## Semantic Memory Recall (Voyage AI)
+
+When a `VOYAGE_API_KEY` is set, memory file recall upgrades from keyword scoring to full semantic embeddings using Voyage AI.
+
+### How It Works
+
+At startup, `buildVoyageIndex()` reads all memory `.md` files and batch-embeds them using `voyage-3-lite`. The resulting vectors are stored in an in-memory index. On each query, the user's message is embedded as a query vector and compared to all stored vectors using cosine similarity. The top 5 most semantically relevant files are injected into the system prompt.
+
+```
+User sends message
+  │
+  ├── embed query via Voyage API (voyage-3-lite, inputType: "query")
+  │
+  ├── cosine similarity against all indexed memory file vectors
+  │
+  ├── top 5 results above threshold 0.5 → injected into system prompt
+  │
+  └── fallback: keyword scoring if Voyage returns 0 results
+```
+
+### Keyword Fallback
+
+If Voyage returns no results (or `VOYAGE_API_KEY` is absent), the system falls back to keyword overlap + recency weighting. The two systems are complementary — Voyage handles semantic matches ("what's my trading setup" → `projects.md`), keyword handles exact-word queries.
+
+### Index Updates
+
+When `update_memory` writes a new file, `updateVoyageEntry()` re-embeds just that file and updates the in-memory index. No restart required.
+
+### Activation
+
+```bash
+# Add to .env
+VOYAGE_API_KEY=pa-xxxxxxxxx
+
+# Restart — index builds at boot
+chris restart
+
+# Confirm in logs
+npx pm2 logs chris-assistant | grep voyage
+# → [voyage] Index built: 39 documents
+```
+
+Sign up at [dash.voyageai.com](https://dash.voyageai.com). The free tier includes 200M tokens/month — sufficient for typical memory volumes indefinitely. **Note:** Adding billing details is required to unlock standard rate limits before the initial index build (free tier without billing is throttled to 3 RPM).
+
+### Pricing
+
+| Model | Rate | Free Tier |
+|-------|------|-----------|
+| `voyage-3-lite` | $0.02/million tokens | 200M tokens/month |
+
+At a typical memory size (40 files, ~1K tokens each) the index build costs ~$0.0008 and runs once per restart.
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `src/domain/memory/voyage-index.ts` | In-memory vector index, batch embed, cosine similarity, `updateVoyageEntry` |
+| `src/domain/memory/recall.ts` | Tries semantic recall first, keyword fallback if 0 results |
+
+---
+
 ## Conversation Recall
 
 The `recall_conversations` tool (`src/tools/recall.ts`) provides 4 actions:

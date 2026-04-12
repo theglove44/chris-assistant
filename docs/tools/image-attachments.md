@@ -1,3 +1,8 @@
+---
+title: Image Attachments
+description: How Telegram and Discord image and document attachments are handled
+---
+
 # Image Attachments
 
 Both Telegram and Discord support sending images directly to Jarvis. Images are processed by an OpenAI vision model regardless of the active text provider.

@@ -60,9 +60,10 @@ export default defineConfig({
             { text: 'Files & Git', link: '/tools/files-and-git' },
             { text: 'Web & Fetch', link: '/tools/web-and-fetch' },
             { text: 'Code Execution', link: '/tools/code-execution' },
-            { text: 'Memory', link: '/tools/memory' },
+            { text: 'Memory & Recall', link: '/tools/memory' },
             { text: 'Scheduler', link: '/tools/scheduler' },
             { text: 'macOS (Calendar, Mail, Reminders, Notes)', link: '/tools/macos' },
+            { text: 'Image Attachments', link: '/tools/image-attachments' },
           ],
         },
         {
@@ -76,6 +77,12 @@ export default defineConfig({
           text: 'Skills',
           items: [
             { text: 'Skills Guide', link: '/skills-guide' },
+          ],
+        },
+        {
+          text: 'Monitoring',
+          items: [
+            { text: 'Token Usage', link: '/token-usage-tracking' },
           ],
         },
         {

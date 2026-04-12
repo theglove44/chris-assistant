@@ -27,6 +27,10 @@ description: Environment variables, file paths, and configuration
 | `DOCS_URL` | No | URL for "Knowledge Base" link in dashboard header. If unset, no link shown |
 | `GITHUB_WEBHOOK_SECRET` | No | HMAC secret for GitHub webhook signature verification |
 | `WEBHOOK_PORT` | No | Webhook server port. Default: `3001` |
+| `VOYAGE_API_KEY` | No | Voyage AI API key — enables semantic embedding-based memory recall (`voyage-3-lite`). When absent, falls back to keyword scoring. Get one at [dash.voyageai.com](https://dash.voyageai.com). |
+| `OCTOPUS_API_KEY` | No | Octopus Energy API key — required for the `octopus_energy` tool |
+| `OCTOPUS_ACCOUNT_NUMBER` | No | Octopus Energy account number (e.g. `A-XXXXXXXX`) |
+| `SYMPHONY_STATUS_URL` | No | Symphony sidecar status endpoint. Default: `http://127.0.0.1:3010` |
 
 OpenAI authenticates via browser OAuth + PKCE (`chris openai login`). MiniMax uses OAuth device flow (`chris minimax login`). Tokens stored in `~/.chris-assistant/`.
 

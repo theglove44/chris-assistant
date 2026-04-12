@@ -38,7 +38,7 @@ Message your bot on Telegram or Discord. That's it. On first contact, the assist
 
 ## Conversation Archive & Recall
 
-Every message (user and assistant) is archived as JSONL to `~/.chris-assistant/archive/YYYY-MM-DD.jsonl`. These archives are uploaded to the GitHub memory repo every 30 minutes.
+Every message (user and assistant) is archived as JSONL to `~/.chris-assistant/archive/YYYY-MM-DD.jsonl`. These archives are uploaded to the GitHub memory repo every 5 minutes.
 
 At 23:55 each day, an AI-generated summary of the day's conversations is created and stored in the memory repo. The last 7 days of summaries are automatically loaded into the system prompt, giving the bot natural recall of recent conversations.
 

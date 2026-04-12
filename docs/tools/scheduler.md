@@ -80,6 +80,6 @@ Some scheduled behavior is built into the bot and cannot be accidentally deleted
 - **Weekly memory consolidation** — `memory-consolidation.ts` fires Sunday at 23:00, curates `memory/SUMMARY.md` from all sources
 - **Heartbeat** — `heartbeat.ts` writes `HEARTBEAT.md` to the memory repo every 3 hours (+ startup)
 - **Conversation backup** — `conversation-backup.ts` backs up conversation history every 6 hours
-- **Archive upload** — `conversation-archive.ts` uploads daily JSONL archives every 30 minutes
+- **Archive upload** — `conversation-archive.ts` uploads daily JSONL archives every 5 minutes (SHA-256 dedup avoids redundant commits when content is unchanged)
 - **Journal upload** — `memory/journal.ts` uploads daily journal entries every 6 hours
 - **Health checks** — `health.ts` runs every 5 minutes (GitHub access, token expiry)

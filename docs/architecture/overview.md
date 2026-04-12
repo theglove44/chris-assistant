@@ -59,7 +59,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 │   ├── learnings.md          # Self-improvement notes
 │   └── SUMMARY.md            # Weekly-consolidated curated summary (read-only)
 ├── HEARTBEAT.md              # Bot self-reported status snapshot (updated every 3h)
-├── archive/                  # Daily JSONL message logs (uploaded every 30 min)
+├── archive/                  # Daily JSONL message logs (uploaded every 5 min)
 ├── journal/                  # Bot's daily journal notes (uploaded every 6 hours)
 ├── skills/                   # Reusable skill definitions (JSON)
 │   ├── _index.json           # Lightweight skill index for system prompt discovery

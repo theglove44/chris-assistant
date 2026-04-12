@@ -23,6 +23,20 @@ The `npm run typecheck` command includes an automated check (`scripts/check-esbu
 
 pm2 spawns processes in its own daemon. It doesn't inherit your shell PATH. That's why `pm2-helper.ts` exports `TSX_BIN` as an absolute path to `node_modules/.bin/tsx`.
 
+## pm2 Runs tsx, Not Compiled dist/
+
+The bot runs via `tsx src/index.ts` directly — **not** from the compiled `dist/` directory. `npm run build` is irrelevant to the running process. Changes to source files take effect on the next `chris restart` without any build step.
+
+```bash
+# This is what pm2 actually runs:
+exec_interpreter: tsx
+pm_exec_path: src/index.ts
+
+# dist/ is never used by pm2 — you can ignore it
+```
+
+This is visible in `~/.pm2/dump.pm2`.
+
 ## Telegram Message Formatting
 
 See "Telegram HTML Formatting" section below — the bot now uses HTML mode, not MarkdownV2.
