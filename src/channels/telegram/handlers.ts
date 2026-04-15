@@ -4,10 +4,14 @@ import { toMarkdownV2, stripMarkdown, stripThinking } from "../../markdown.js";
 import type { ImageAttachment } from "../../providers/types.js";
 import { chatService } from "../../agent/chat-service.js";
 import { downloadTelegramFile } from "./bot.js";
+import { config } from "../../config.js";
+import { BotMessageGuard } from "./bot-message-guard.js";
 
 const RETRY_DELAY_MS = 2000;
 const MAX_TEXT_BYTES = 50_000;
 const EDIT_INTERVAL_MS = 1500;
+
+const botGuard = new BotMessageGuard();
 
 async function chatWithRetry(
   chatId: number,
@@ -107,7 +111,43 @@ async function handleAiResponse(
   }
 }
 
+function countReplyDepth(ctx: Context): number {
+  let depth = 0;
+  let current: any = ctx.message;
+  while (current?.reply_to_message) {
+    depth++;
+    current = current.reply_to_message;
+  }
+  return depth;
+}
+
 export function registerTelegramMessageHandlers(bot: Bot<Context>): void {
+  // Bot-to-bot communication (Telegram Bot API 9.6).
+  // Only active when TELEGRAM_ALLOW_BOT_MESSAGES=true and the sender is a bot.
+  // Requires Bot-to-Bot Communication Mode enabled in @BotFather.
+  bot.on("message:text", async (ctx, next) => {
+    if (!ctx.message.via_bot && ctx.message.from?.is_bot) {
+      if (!config.telegram.allowBotMessages) return;
+
+      const depth = countReplyDepth(ctx);
+      const result = botGuard.check({
+        messageId: ctx.message.message_id,
+        botId: ctx.message.from.id,
+        depth,
+      });
+
+      if (!result.allowed) {
+        console.warn("[telegram] bot-to-bot message blocked: %s (bot_id=%d)", result.reason, ctx.message.from.id);
+        return;
+      }
+
+      const userMessage = `[Bot message from @${ctx.message.from.username ?? ctx.message.from.id}]: ${ctx.message.text}`;
+      await handleAiResponse(ctx, userMessage);
+      return;
+    }
+    await next();
+  });
+
   bot.on("message:text", async (ctx) => {
     if (ctx.message.text.startsWith("/")) return;
     await handleAiResponse(ctx, ctx.message.text);

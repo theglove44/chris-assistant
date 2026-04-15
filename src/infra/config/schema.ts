@@ -9,6 +9,7 @@ export const envSchema = z.object({
   IMAGE_MODEL: z.string().optional(),
   TELEGRAM_BOT_TOKEN: envString,
   TELEGRAM_ALLOWED_USER_ID: z.coerce.number().int(),
+  TELEGRAM_ALLOW_BOT_MESSAGES: z.coerce.boolean().optional(),
   GITHUB_TOKEN: envString,
   GITHUB_MEMORY_REPO: envString.regex(/^[^/]+\/[^/]+$/, "Expected owner/repo format"),
   DISCORD_BOT_TOKEN: z.string().optional(),

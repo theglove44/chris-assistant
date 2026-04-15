@@ -33,6 +33,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): { config: AppC
       telegram: {
         botToken: values.TELEGRAM_BOT_TOKEN,
         allowedUserId: values.TELEGRAM_ALLOWED_USER_ID,
+        allowBotMessages: values.TELEGRAM_ALLOW_BOT_MESSAGES ?? false,
       },
       github: {
         token: values.GITHUB_TOKEN,
