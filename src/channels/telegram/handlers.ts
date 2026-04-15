@@ -31,11 +31,21 @@ async function chatWithRetry(
   }
 }
 
+async function reactTo(ctx: Context, emoji: string): Promise<void> {
+  await ctx.api
+    .setMessageReaction(ctx.chat!.id, ctx.message!.message_id, [
+      { type: "emoji", emoji: emoji as any },
+    ])
+    .catch(() => {});
+}
+
 async function handleAiResponse(
   ctx: Context,
   userMessage: string,
   image?: ImageAttachment,
 ): Promise<void> {
+  void reactTo(ctx, "👀");
+
   const sentMsg = await ctx.reply("...");
   const chatId = ctx.chat!.id;
   const messageId = sentMsg.message_id;
@@ -86,11 +96,14 @@ async function handleAiResponse(
         () => ctx.reply(stripMarkdown(chunk)),
       );
     }
+
+    void reactTo(ctx, "✅");
   } catch (error: any) {
     console.error("[telegram] Both chat() attempts failed:", error);
     await ctx.api
       .editMessageText(chatId, messageId, "Something went wrong. Check the logs.")
       .catch(() => {});
+    void reactTo(ctx, "🚫");
   }
 }
 
