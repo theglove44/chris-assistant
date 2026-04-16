@@ -4,6 +4,7 @@ export interface AppConfig {
   telegram: {
     botToken: string;
     allowedUserId: number;
+    allowBotMessages: boolean;
   };
   github: {
     token: string;
