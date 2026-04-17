@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { envSchema, normalizeOptional } from "./schema.js";
 import type { AppConfig } from "./types.js";
+import { strictProviderForModel } from "../../providers/model-routing.js";
 
 export interface RepoRef {
   owner: string;
@@ -26,9 +27,16 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): { config: AppC
   const memoryRepo = values.GITHUB_MEMORY_REPO;
   const [owner, name] = memoryRepo.split("/");
 
+  const model = values.AI_MODEL || values.CLAUDE_MODEL || "gpt-4o";
+  try {
+    strictProviderForModel(model);
+  } catch (err) {
+    throw new Error(`Invalid configuration: AI_MODEL — ${(err as Error).message}`);
+  }
+
   return {
     config: {
-      model: values.AI_MODEL || values.CLAUDE_MODEL || "gpt-4o",
+      model,
       imageModel: values.IMAGE_MODEL || "gpt-5.2",
       telegram: {
         botToken: values.TELEGRAM_BOT_TOKEN,
