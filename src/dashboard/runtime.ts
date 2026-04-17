@@ -34,25 +34,28 @@ const MEMORY_FILES = [
 let server: Server | null = null;
 let pm2Cache: { data: any; ts: number } | null = null;
 
-function isAuthorized(req: IncomingMessage, url: URL): boolean {
+function isAuthorized(req: IncomingMessage): boolean {
   const token = config.dashboard.token;
 
   if (token) {
     const authHeader = req.headers.authorization;
-    if (authHeader === `Bearer ${token}`) return true;
-    if (url.searchParams.get("token") === token) return true;
-    return false;
+    return authHeader === `Bearer ${token}`;
   }
 
   const remoteAddr = req.socket.remoteAddress || "";
   return remoteAddr === "127.0.0.1" || remoteAddr === "::1" || remoteAddr === "::ffff:127.0.0.1";
 }
 
+function getAllowedOrigin(req: IncomingMessage): string | null {
+  const origin = req.headers.origin || "";
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+    return origin;
+  }
+  return null;
+}
+
 function json(res: ServerResponse, data: any, status = 200): void {
-  res.writeHead(status, {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-  });
+  res.writeHead(status, { "Content-Type": "application/json" });
   res.end(JSON.stringify(data));
 }
 
@@ -305,16 +308,18 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, getHtml:
   const pathname = url.pathname;
 
   if (req.method === "OPTIONS") {
-    res.writeHead(204, {
-      "Access-Control-Allow-Origin": "*",
+    const allowedOrigin = getAllowedOrigin(req);
+    const headers: Record<string, string> = {
       "Access-Control-Allow-Methods": "GET, PUT, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Authorization, Content-Type",
-    });
+    };
+    if (allowedOrigin) headers["Access-Control-Allow-Origin"] = allowedOrigin;
+    res.writeHead(204, headers);
     res.end();
     return;
   }
 
-  if (pathname !== "/favicon.ico" && !isAuthorized(req, url)) {
+  if (pathname !== "/favicon.ico" && !isAuthorized(req)) {
     res.writeHead(401, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Unauthorized" }));
     return;
