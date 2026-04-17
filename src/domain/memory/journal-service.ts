@@ -2,6 +2,8 @@ import { createHash } from "crypto";
 import * as fs from "fs";
 import { appDataPath } from "../../infra/storage/paths.js";
 import { writeMemoryFile } from "./repository.js";
+import { withRetry } from "./retry.js";
+import { recordUploadSuccess, recordUploadFailure } from "./upload-tracker.js";
 
 const JOURNAL_DIR = appDataPath("journal");
 const UPLOAD_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -68,17 +70,29 @@ async function uploadJournals(): Promise<void> {
 
   for (const file of files) {
     const filePath = appDataPath("journal", file);
+    let content: string;
     try {
-      const content = fs.readFileSync(filePath, "utf-8");
-      const hash = hashContent(content);
-      if (uploadedHashes.get(file) === hash) continue;
-
-      const date = file.replace(".md", "");
-      await writeMemoryFile(journalRepoPath(date), content, `chore: journal ${date}`);
-      uploadedHashes.set(file, hash);
-      console.log("[journal] Uploaded %s to GitHub", file);
+      content = fs.readFileSync(filePath, "utf-8");
     } catch (err: any) {
-      console.error("[journal] Failed to upload %s:", file, err.message);
+      console.error("[journal] Failed to read %s:", file, err.message);
+      continue;
+    }
+
+    const hash = hashContent(content);
+    if (uploadedHashes.get(file) === hash) continue;
+
+    const date = file.replace(".md", "");
+    const repoPath = journalRepoPath(date);
+    try {
+      await withRetry(
+        () => writeMemoryFile(repoPath, content, `chore: journal ${date}`),
+        { label: repoPath },
+      );
+      uploadedHashes.set(file, hash);
+      recordUploadSuccess("journal-uploader", repoPath);
+      console.log("[journal] Uploaded %s to GitHub", file);
+    } catch (err: unknown) {
+      recordUploadFailure("journal-uploader", repoPath, err);
     }
   }
 }

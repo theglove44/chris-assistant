@@ -2,6 +2,7 @@ import { Octokit } from "@octokit/rest";
 import { config, repoOwner, repoName } from "./config.js";
 import { loadTokens as loadMinimaxTokens } from "./providers/minimax-oauth.js";
 import { loadTokens as loadOpenaiTokens } from "./providers/openai-oauth.js";
+import { getUploadHealthStatus } from "./domain/memory/upload-tracker.js";
 
 const CHECK_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const REALERT_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
@@ -21,7 +22,7 @@ const alertState = new Map<string, AlertState>();
 const lastResults = new Map<string, { ok: boolean; detail?: string; checkedAt: number }>();
 
 export function getHealthStatus(): Array<{ name: string; ok: boolean; detail?: string; checkedAt: number }> {
-  return checks.map((check) => {
+  const systemChecks = checks.map((check) => {
     const cached = lastResults.get(check.name);
     return {
       name: check.name,
@@ -30,6 +31,8 @@ export function getHealthStatus(): Array<{ name: string; ok: boolean; detail?: s
       checkedAt: cached?.checkedAt ?? 0,
     };
   });
+
+  return [...systemChecks, ...getUploadHealthStatus()];
 }
 
 // --- Provider name helper ---
