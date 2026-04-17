@@ -5,7 +5,7 @@
  * - Native Claude Code tools (Bash, Read, Write, Edit, Glob, Grep, WebSearch, etc.)
  * - Custom tools via in-process MCP server (memory, SSH, scheduler, recall, journal)
  * - Streaming via includePartialMessages for real-time Telegram updates
- * - Session persistence via resume for multi-turn conversations
+ * - Multi-turn context via history injected from our conversation store
  * - Extended thinking triggered by keywords
  * - Abort support for /stop command
  */
@@ -16,7 +16,6 @@ import { config } from "../config.js";
 import { getCustomMcpTools, getCustomMcpAllowedToolNames } from "../tools/index.js";
 import { getClaudeAppendPrompt, invalidatePromptCache } from "./shared.js";
 import { getWorkspaceRoot } from "../tools/files.js";
-import { getSessionId, setSessionId } from "../claude-sessions.js";
 import { formatHistoryForPrompt } from "../conversation.js";
 import type { Provider, ImageAttachment } from "./types.js";
 import { recordUsage } from "../usage-tracker.js";
@@ -165,9 +164,6 @@ export function createClaudeProvider(model: string): Provider {
       const customMcpAllowed = getCustomMcpAllowedToolNames(MCP_SERVER_NAME, allowedTools);
       console.log("[claude] chatId=%d tools=%d allowed=%d", chatId, getCustomMcpTools().length, customMcpAllowed.length);
 
-      // Session resume — continue existing conversation if we have one
-      const existingSessionId = chatId !== 0 ? getSessionId(chatId) : null;
-
       const abortController = new AbortController();
       activeControllers.set(chatId, abortController);
 
@@ -176,10 +172,12 @@ export function createClaudeProvider(model: string): Provider {
         ? `[${_images.length} image(s) attached but the Claude Agent SDK can't process images directly in this mode. The user's caption follows.]\n\n${userMessage}`
         : userMessage;
 
-      // When no session exists (fresh start or cleared after image routing),
-      // prepend conversation history so Claude has context from prior exchanges.
+      // Always inject conversation history from our store. We don't rely on
+      // the Agent SDK's server-side session resume because stored sessions
+      // can silently lose context (SDK-side compaction, expiry, or restart)
+      // and there's no local signal when that happens.
       let promptWithContext = messageWithImageNote;
-      if (!existingSessionId && chatId !== 0) {
+      if (chatId !== 0) {
         const history = await formatHistoryForPrompt(chatId);
         if (history) {
           promptWithContext = `${history}\n\n${messageWithImageNote}`;
@@ -231,8 +229,7 @@ export function createClaudeProvider(model: string): Provider {
                   hooks: [safetyHook],
                 }],
               },
-              // Session management — chatId 0 is for system/scheduled tasks (no resume)
-              ...(existingSessionId && { resume: existingSessionId }),
+              // chatId 0 is for system/scheduled tasks — no persisted session
               ...(chatId === 0 && { persistSession: false }),
               abortController,
             },
@@ -242,11 +239,6 @@ export function createClaudeProvider(model: string): Provider {
             handleStreamEvent(message, onChunk, (text) => {
               accumulatedText = text;
             });
-
-            // Capture session ID from any message that has one
-            if ("session_id" in message && message.session_id && chatId !== 0) {
-              setSessionId(chatId, message.session_id);
-            }
 
             // Capture final result
             if (message.type === "result") {
@@ -285,10 +277,17 @@ export function createClaudeProvider(model: string): Provider {
             error.message?.toLowerCase().includes("overloaded") ||
             error.message?.includes("exited with code 1");
 
-          if (isOverloaded && attempt < MAX_RETRIES) {
-            const delay = RETRY_DELAYS_MS[attempt];
+          // Transient stream errors: truncated SSE chunks from the API produce
+          // SyntaxError("Unterminated string in JSON ..."). Retry immediately.
+          const isTransientStreamError =
+            error instanceof SyntaxError &&
+            error.message?.toLowerCase().includes("unterminated string");
+
+          if ((isOverloaded || isTransientStreamError) && attempt < MAX_RETRIES) {
+            const delay = isTransientStreamError ? 2_000 : RETRY_DELAYS_MS[attempt];
             console.warn(
-              "[claude] API overloaded (attempt %d/%d), retrying in %ds — %s",
+              "[claude] %s (attempt %d/%d), retrying in %ds — %s",
+              isTransientStreamError ? "Transient stream error" : "API overloaded",
               attempt + 1, MAX_RETRIES, delay / 1000, error.message,
             );
             await new Promise((resolve) => setTimeout(resolve, delay));

@@ -1,5 +1,4 @@
 import { config } from "../config.js";
-import { clearSession, getSessionId } from "../claude-sessions.js";
 import { clearThread, getThreadId } from "../codex-sessions.js";
 import { createClaudeProvider, abortClaudeQuery } from "../providers/claude.js";
 import { createCodexAgentProvider, abortCodexQuery } from "../providers/codex-agent.js";
@@ -62,11 +61,6 @@ export class ChatService {
   }
 
   clearSession(chatId: number): void {
-    if (isClaudeModel(config.model)) {
-      clearSession(chatId);
-      return;
-    }
-
     if (isCodexAgentModel(config.model)) {
       clearThread(chatId);
     }
@@ -85,12 +79,6 @@ export class ChatService {
   }
 
   getSessionInfo(chatId: number): string | null {
-    if (isClaudeModel(config.model)) {
-      const sessionId = getSessionId(chatId);
-      if (!sessionId) return null;
-      return `Claude session: ${sessionId.slice(0, 12)}...`;
-    }
-
     if (isCodexAgentModel(config.model)) {
       const threadId = getThreadId(chatId);
       if (!threadId) return null;
