@@ -2,6 +2,8 @@ import { createHash } from "crypto";
 import * as fs from "fs";
 import { writeMemoryFile } from "../../memory/github.js";
 import { CONVERSATIONS_FILE } from "./store.js";
+import { withRetry } from "../memory/retry.js";
+import { recordUploadSuccess, recordUploadFailure } from "../memory/upload-tracker.js";
 
 const BACKUP_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const BACKUP_REPO_PATH = "backups/conversations.json";
@@ -33,13 +35,17 @@ async function runBackup(): Promise<void> {
     return;
   }
 
+  const timestamp = new Date().toISOString();
   try {
-    const timestamp = new Date().toISOString();
-    await writeMemoryFile(BACKUP_REPO_PATH, raw, `chore: backup conversations ${timestamp}`);
+    await withRetry(
+      () => writeMemoryFile(BACKUP_REPO_PATH, raw, `chore: backup conversations ${timestamp}`),
+      { label: BACKUP_REPO_PATH },
+    );
     lastBackedUpHash = currentHash;
+    recordUploadSuccess("conversation-backup", BACKUP_REPO_PATH);
     console.log("[backup] Conversation history backed up to GitHub");
-  } catch (err: any) {
-    console.error("[backup] Failed to write backup to GitHub:", err.message);
+  } catch (err: unknown) {
+    recordUploadFailure("conversation-backup", BACKUP_REPO_PATH, err);
   }
 }
 

@@ -3,6 +3,8 @@ import * as fs from "fs";
 import * as path from "path";
 import { writeMemoryFile } from "../../memory/github.js";
 import { appDataPath } from "../../infra/storage/paths.js";
+import { withRetry } from "../memory/retry.js";
+import { recordUploadSuccess, recordUploadFailure } from "../memory/upload-tracker.js";
 import type { ArchiveEntry, ConversationMeta } from "./types.js";
 
 const ARCHIVE_DIR = appDataPath("archive");
@@ -103,11 +105,20 @@ export async function uploadArchives(): Promise<void> {
       const hash = hashContent(content);
       if (uploadedHashes.get(file) === hash) continue;
 
-      await writeMemoryFile(`archive/${file}`, content, `chore: archive ${file}`);
-      uploadedHashes.set(file, hash);
-      console.log("[archive] Uploaded %s to GitHub", file);
+      const repoPath = `archive/${file}`;
+      try {
+        await withRetry(
+          () => writeMemoryFile(repoPath, content, `chore: archive ${file}`),
+          { label: repoPath },
+        );
+        uploadedHashes.set(file, hash);
+        recordUploadSuccess("archive-uploader", repoPath);
+        console.log("[archive] Uploaded %s to GitHub", file);
+      } catch (err: unknown) {
+        recordUploadFailure("archive-uploader", repoPath, err);
+      }
     } catch (err: any) {
-      console.error("[archive] Failed to upload %s:", file, err.message);
+      console.error("[archive] Failed to read %s:", file, err.message);
     }
   }
 }
