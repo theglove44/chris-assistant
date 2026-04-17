@@ -8,11 +8,86 @@ const CONTENT_MAX_CHARS = 2000;
 const REPLACE_THROTTLE_MS = 5 * 60 * 1000;
 const lastReplaceTime = new Map<string, number>();
 
+// ---------------------------------------------------------------------------
+// Global token bucket — guards against bursts across many distinct categories.
+//
+// Design: capacity=10, refill=1 token per 6 minutes → ~10 updates/hour max.
+// Burst of 10 lets a normal session write several categories at conversation
+// end without penalty; the 6-min refill rate prevents runaway accumulation.
+//
+// State is intentionally in-memory only (not persisted). A process restart
+// clears the bucket — this is acceptable because the DoS scenario we're
+// guarding against is within a single process lifetime.
+// ---------------------------------------------------------------------------
+
+const BUCKET_CAPACITY = 10;
+// Exposed as a getter/setter for test time-mocking
+let _bucketNow: () => number = () => Date.now();
+let _bucketTokens = BUCKET_CAPACITY;
+let _bucketLastRefill = _bucketNow();
+
+/** Milliseconds per token refill (1 token per 6 minutes). */
+const TOKEN_REFILL_INTERVAL_MS = 6 * 60 * 1000;
+
+/**
+ * Attempt to consume one token from the global bucket.
+ * Returns `{ allowed: true }` or `{ allowed: false, retryInMs: number }`.
+ */
+function consumeGlobalToken(): { allowed: true } | { allowed: false; retryInMs: number } {
+  const now = _bucketNow();
+  const elapsed = now - _bucketLastRefill;
+  const tokensToAdd = Math.floor(elapsed / TOKEN_REFILL_INTERVAL_MS);
+  if (tokensToAdd > 0) {
+    _bucketTokens = Math.min(BUCKET_CAPACITY, _bucketTokens + tokensToAdd);
+    _bucketLastRefill = now - (elapsed % TOKEN_REFILL_INTERVAL_MS);
+  }
+
+  if (_bucketTokens >= 1) {
+    _bucketTokens -= 1;
+    return { allowed: true };
+  }
+
+  const retryInMs = TOKEN_REFILL_INTERVAL_MS - (now - _bucketLastRefill);
+  return { allowed: false, retryInMs: Math.max(0, retryInMs) };
+}
+
+/** Count of updates since last reset (approximate — tracks tokens consumed from full bucket). */
+function updatesInLastHour(): number {
+  return BUCKET_CAPACITY - _bucketTokens;
+}
+
+/**
+ * Reset the global bucket. Exposed for tests — do not call in production code.
+ */
+export function resetGlobalBucket(): void {
+  _bucketTokens = BUCKET_CAPACITY;
+  _bucketLastRefill = _bucketNow();
+}
+
+/**
+ * Override the clock used by the bucket. Exposed for tests only.
+ */
+export function setGlobalBucketClock(fn: () => number): void {
+  _bucketNow = fn;
+  // Re-anchor last-refill so elapsed calculation starts from fake "now"
+  _bucketLastRefill = fn();
+}
+
 type ValidationResult = { valid: true } | { valid: false; reason: string };
 
 function validateMemoryContent(args: { category: string; action: "add" | "replace"; content: string }): ValidationResult {
   const { category, action, content } = args;
   const preview = content.slice(0, 100).replace(/\n/g, " ");
+
+  // Global token bucket check — fast-fail before per-category checks.
+  const bucketResult = consumeGlobalToken();
+  if (!bucketResult.allowed) {
+    const retryMins = Math.ceil(bucketResult.retryInMs / 60_000);
+    const n = updatesInLastHour();
+    const reason = `memory update rate limit exceeded (global) — ${n} updates in the last hour, try again in ${retryMins} minute${retryMins !== 1 ? "s" : ""}`;
+    console.warn(`[memory-guard] WARN global-throttle — category="${category}" | preview: "${preview}"`);
+    return { valid: false, reason };
+  }
 
   if (content.length > CONTENT_MAX_CHARS) {
     const reason = `Content exceeds ${CONTENT_MAX_CHARS} character limit (got ${content.length})`;
