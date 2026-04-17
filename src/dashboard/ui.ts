@@ -389,8 +389,11 @@ tr.clickable:hover { background: var(--bg3); }
 </div>
 
 <script>
-const TOKEN = new URLSearchParams(location.search).get("token") || localStorage.getItem("dashboard_token") || "";
-if (TOKEN) localStorage.setItem("dashboard_token", TOKEN);
+var TOKEN = localStorage.getItem("dashboard_token") || "";
+
+function authHeaders() {
+  return TOKEN ? { "Authorization": "Bearer " + TOKEN } : {};
+}
 
 function showToast(message, type) {
   var container = document.getElementById("toast-container");
@@ -428,14 +431,10 @@ function finishProgress() {
   }
 }
 
-function apiUrl(path) {
-  return path + (TOKEN ? (path.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(TOKEN) : "");
-}
-
 async function api(path) {
   startProgress();
   try {
-    var res = await fetch(apiUrl(path));
+    var res = await fetch(path, { headers: authHeaders() });
     if (!res.ok) throw new Error(res.statusText);
     return res.json();
   } finally {
@@ -763,9 +762,9 @@ async function saveSchedule() {
   startProgress();
 
   try {
-    const res = await fetch(apiUrl("/api/schedules/" + id), {
+    const res = await fetch("/api/schedules/" + id, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
       body: JSON.stringify(updates),
     });
     if (!res.ok) throw new Error((await res.json()).error || res.statusText);
@@ -788,8 +787,9 @@ async function deleteSchedule() {
   startProgress();
 
   try {
-    const res = await fetch(apiUrl("/api/schedules/" + id), {
+    const res = await fetch("/api/schedules/" + id, {
       method: "DELETE",
+      headers: authHeaders(),
     });
     if (!res.ok) throw new Error((await res.json()).error || res.statusText);
     showToast("Schedule deleted", "success");
@@ -897,9 +897,9 @@ async function saveMemory() {
   startProgress();
 
   try {
-    const res = await fetch(apiUrl("/api/memory/" + encodeURIComponent(activeMemoryFile)), {
+    const res = await fetch("/api/memory/" + encodeURIComponent(activeMemoryFile), {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
       body: JSON.stringify({ content: textarea.value }),
     });
     if (!res.ok) throw new Error((await res.json()).error || res.statusText);
@@ -956,8 +956,17 @@ function startLogStream() {
     return;
   }
 
+  // EventSource cannot send custom headers, so SSE live streaming is only
+  // available when no token is configured (localhost-only mode). When a token
+  // is required, fall back to the snapshot endpoint fetched via api() which
+  // sends the Authorization header correctly.
+  if (TOKEN) {
+    loadLogSnapshot();
+    return;
+  }
+
   el.innerHTML = "";
-  logSource = new EventSource(apiUrl("/api/logs/stream"));
+  logSource = new EventSource("/api/logs/stream");
 
   logSource.onmessage = (event) => {
     const data = JSON.parse(event.data);
