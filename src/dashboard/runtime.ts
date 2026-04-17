@@ -11,12 +11,13 @@ import { readMemoryFile, writeMemoryFile } from "../memory/github.js";
 import { getHistory } from "../conversation.js";
 import { getBotProcess } from "../cli/pm2-helper.js";
 import { loadSkillIndex, loadSkill } from "../skills/loader.js";
+import { LIMITS } from "../infra/config/limits.js";
 
 const BOT_STARTED_AT = new Date().toISOString();
 const PM2_LOG_DIR = path.join(os.homedir(), ".pm2", "logs");
 const OUT_LOG = path.join(PM2_LOG_DIR, "chris-assistant-out.log");
 const ERR_LOG = path.join(PM2_LOG_DIR, "chris-assistant-error.log");
-const PM2_CACHE_TTL = 30_000;
+const PM2_CACHE_TTL = LIMITS.pm2CacheTtlMs;
 
 const MEMORY_FILES = [
   "SOUL.md",

@@ -5,6 +5,7 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import { z } from "zod";
 import { registerTool } from "./registry.js";
+import { LIMITS } from "../infra/config/limits.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -34,7 +35,7 @@ export function setWorkspaceRoot(newRoot: string): void {
   onWorkspaceChange?.();
 }
 
-const MAX_OUTPUT = 50_000;
+const MAX_OUTPUT = LIMITS.maxToolOutput;
 
 // ---------------------------------------------------------------------------
 // Helpers

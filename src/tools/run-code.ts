@@ -5,13 +5,14 @@ import { dirname, resolve } from "path";
 import { z } from "zod";
 import { registerTool } from "./registry.js";
 import { getWorkspaceRoot } from "./files.js";
+import { LIMITS } from "../infra/config/limits.js";
 
 const execFileAsync = promisify(execFile);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TSX_BIN = resolve(__dirname, "../../node_modules/.bin/tsx");
 
-const MAX_OUTPUT = 50_000;
+const MAX_OUTPUT = LIMITS.maxToolOutput;
 
 // Allowlist of safe environment variables to pass to user-executed code.
 // Using an allowlist rather than a blocklist ensures new secrets added to

@@ -3,10 +3,11 @@ import { promisify } from "util";
 import { z } from "zod";
 import { registerTool } from "./registry.js";
 import { getWorkspaceRoot } from "./files.js";
+import { LIMITS } from "../infra/config/limits.js";
 
 const execFileAsync = promisify(execFile);
 
-const MAX_OUTPUT = 50_000;
+const MAX_OUTPUT = LIMITS.maxToolOutput;
 
 function truncate(s: string): string {
   if (s.length > MAX_OUTPUT) {

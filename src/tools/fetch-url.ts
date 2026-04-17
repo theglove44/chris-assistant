@@ -3,8 +3,9 @@ import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import { registerTool } from "./registry.js";
 import { checkSsrf } from "./ssrf.js";
+import { LIMITS } from "../infra/config/limits.js";
 
-const MAX_CONTENT_LENGTH = 50_000;
+const MAX_CONTENT_LENGTH = LIMITS.maxToolOutput;
 const FETCH_TIMEOUT_MS = 15_000;
 
 function stripHtml(html: string): string {

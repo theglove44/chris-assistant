@@ -2,8 +2,9 @@ import { archiveMessage } from "./archive-service.js";
 import { ensureConversationStoreLoaded, saveConversationStore } from "./store.js";
 import type { ConversationMessage, ConversationMeta } from "./types.js";
 import { tryDream } from "../memory/dream-service.js";
+import { LIMITS } from "../../infra/config/limits.js";
 
-const MAX_HISTORY = 20;
+const MAX_HISTORY = LIMITS.historyWindow;
 // Token budget for history injected into new Claude sessions.
 // System prompt + memory recall already consume ~15-20k tokens;
 // keep injected history well under that to avoid crowding the context.

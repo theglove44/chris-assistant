@@ -4,10 +4,11 @@ import { loadMemory, buildSystemPrompt } from "../memory/loader.js";
 import { config } from "../config.js";
 import { resetLoopDetection } from "../tools/index.js";
 import { getWorkspaceRoot, isProjectActive, setWorkspaceChangeCallback } from "../tools/files.js";
+import { LIMITS } from "../infra/config/limits.js";
 
 let cachedSystemPrompt: string | null = null;
 let lastPromptLoad = 0;
-const PROMPT_CACHE_MS = 5 * 60 * 1000;
+const PROMPT_CACHE_MS = LIMITS.promptCacheMs;
 const PROJECT_ROOT = path.resolve(new URL(".", import.meta.url).pathname, "../..");
 const BOOTSTRAP_MAX_CHARS = 20_000;
 const BOOTSTRAP_CANDIDATES = ["CLAUDE.md", "AGENTS.md", "README.md"];

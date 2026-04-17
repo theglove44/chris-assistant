@@ -1,5 +1,7 @@
-const LOOP_THRESHOLD = 3;
-const DEFAULT_FREQUENCY_LIMIT = 20;
+import { LIMITS } from "../infra/config/limits.js";
+
+const LOOP_THRESHOLD = LIMITS.loopThreshold;
+const DEFAULT_FREQUENCY_LIMIT = LIMITS.toolFrequencyLimit;
 
 let recentFingerprints: string[] = [];
 const toolCallCounts = new Map<string, number>();
