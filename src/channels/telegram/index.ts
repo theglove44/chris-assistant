@@ -17,25 +17,36 @@ export async function setTelegramCommandMenu(): Promise<void> {
 const POLL_CONFLICT_BACKOFF_MS = 35_000;
 
 export function startTelegram(onStart: (botInfo: any) => void): void {
+  // Downstream services (health monitor, timers, alert on startup) are not
+  // all idempotent, so only fire onStart for the first successful poll.
+  let onStartFired = false;
+  const fireOnStartOnce = (info: Parameters<typeof onStart>[0]): void => {
+    if (onStartFired) return;
+    onStartFired = true;
+    onStart(info);
+  };
+
+  const onFatal = (err: any): void => {
+    console.error("[telegram] fatal polling error:", err?.message ?? err);
+    process.exit(1);
+  };
+
   const run = async (): Promise<void> => {
     try {
-      await bot.start({ onStart });
+      await bot.start({ onStart: fireOnStartOnce });
     } catch (err) {
       if (err instanceof GrammyError && err.error_code === 409) {
         console.warn(
           `[telegram] getUpdates 409 — another poller is active; retrying in ${POLL_CONFLICT_BACKOFF_MS / 1000}s`,
         );
-        setTimeout(() => { void run(); }, POLL_CONFLICT_BACKOFF_MS);
+        setTimeout(() => { run().catch(onFatal); }, POLL_CONFLICT_BACKOFF_MS);
         return;
       }
       throw err;
     }
   };
 
-  void run().catch((err: any) => {
-    console.error("[telegram] fatal polling error:", err?.message ?? err);
-    process.exit(1);
-  });
+  run().catch(onFatal);
 }
 
 export function stopTelegram(): void {
