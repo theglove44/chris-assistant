@@ -9,6 +9,8 @@ import { listLocalArchiveDates, readLocalArchive } from "../conversation-archive
 import { listLocalJournalDates, readLocalJournal } from "../memory/journal.js";
 import { readMemoryFile, writeMemoryFile } from "../memory/github.js";
 import { getHistory } from "../conversation.js";
+import { conversationEvents, type ConversationEvent } from "../domain/conversations/events.js";
+import { handleWebMessage, parseDataUrlImages } from "../channels/web/handlers.js";
 import { getBotProcess } from "../cli/pm2-helper.js";
 import { loadSkillIndex, loadSkill } from "../skills/loader.js";
 import { LIMITS } from "../infra/config/limits.js";
@@ -294,6 +296,67 @@ async function handleConversationHistory(res: ServerResponse): Promise<void> {
   json(res, { messages: await getHistory(config.telegram.allowedUserId) });
 }
 
+function sseHeaders(res: ServerResponse): void {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
+}
+
+function handleConversationStream(req: IncomingMessage, res: ServerResponse): void {
+  sseHeaders(res);
+  res.write(`: connected\n\n`);
+
+  const userId = config.telegram.allowedUserId;
+  const handler = (event: ConversationEvent) => {
+    if (event.chatId !== userId) return;
+    res.write(`event: message\ndata: ${JSON.stringify(event)}\n\n`);
+  };
+
+  conversationEvents.on("message", handler);
+  req.on("close", () => {
+    conversationEvents.off("message", handler);
+  });
+}
+
+async function handleChatPost(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  let body: any;
+  try {
+    body = JSON.parse(await readBody(req));
+  } catch {
+    json(res, { error: "Invalid JSON" }, 400);
+    return;
+  }
+
+  const text = typeof body?.text === "string" ? body.text.trim() : "";
+  if (!text) {
+    json(res, { error: "text is required" }, 400);
+    return;
+  }
+  const images = parseDataUrlImages(body?.images);
+
+  sseHeaders(res);
+  res.write(`: open\n\n`);
+
+  const ac = new AbortController();
+  req.on("close", () => ac.abort());
+
+  const onChunk = (accumulated: string) => {
+    res.write(`event: chunk\ndata: ${JSON.stringify({ text: accumulated })}\n\n`);
+  };
+
+  try {
+    await handleWebMessage({ text, images, onChunk, signal: ac.signal });
+    res.write(`event: done\ndata: {}\n\n`);
+  } catch (err: any) {
+    const message = err?.message ?? String(err);
+    res.write(`event: error\ndata: ${JSON.stringify({ message })}\n\n`);
+  } finally {
+    res.end();
+  }
+}
+
 async function handleSkills(res: ServerResponse): Promise<void> {
   try {
     const index = await loadSkillIndex();
@@ -311,7 +374,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, getHtml:
   if (req.method === "OPTIONS") {
     const allowedOrigin = getAllowedOrigin(req);
     const headers: Record<string, string> = {
-      "Access-Control-Allow-Methods": "GET, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Authorization, Content-Type",
     };
     if (allowedOrigin) headers["Access-Control-Allow-Origin"] = allowedOrigin;
@@ -343,6 +406,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, getHtml:
     if (req.method === "DELETE" && scheduleIdMatch) return handleScheduleDelete(res, scheduleIdMatch[1]);
 
     if (req.method === "GET" && pathname === "/api/conversation") return await handleConversationHistory(res);
+    if (req.method === "GET" && pathname === "/api/conversation/stream") return handleConversationStream(req, res);
+    if (req.method === "POST" && pathname === "/api/chat") return await handleChatPost(req, res);
     if (req.method === "GET" && pathname === "/api/archives") return handleArchives(res);
 
     const archiveDateMatch = pathname.match(/^\/api\/archives\/(\d{4}-\d{2}-\d{2})$/);

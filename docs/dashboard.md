@@ -23,6 +23,15 @@ http://localhost:3100
 
 Bot uptime, active model and provider, image model, pm2 process info, and health check indicators (GitHub, Telegram, token expiry).
 
+### Chat
+
+A browser-based chat UI backed by the same conversation thread used by Telegram. Messages sent from the dashboard, replies produced by the assistant, and messages that arrive via Telegram all land in one shared history (keyed by `TELEGRAM_ALLOWED_USER_ID`) and mirror live across every open surface.
+
+- Composer supports Enter to send, Shift+Enter for newline. The Send button becomes Stop mid-generation and cancels the in-flight response (server-side abort triggers on client disconnect).
+- Replies stream in token-by-token via SSE.
+- A live/reconnecting/offline indicator reports the state of the cross-channel mirror stream. On drop the client auto-reconnects with backoff and re-hydrates the thread so no messages are missed.
+- Each message carries a source badge (`web`, `telegram`, `discord`, `scheduled`) so it is clear which channel a turn originated from when switching mid-conversation.
+
 ### Schedules
 
 Lists all cron-scheduled tasks with their expression, prompt, enabled state, and next-run info. Supports editing, toggling, and deleting schedules directly from the UI.
@@ -60,6 +69,8 @@ All endpoints return JSON and support CORS.
 | `PUT` | `/api/schedules/:id` | Update a schedule |
 | `DELETE` | `/api/schedules/:id` | Delete a schedule |
 | `GET` | `/api/conversation` | Current conversation history |
+| `GET` | `/api/conversation/stream` | SSE stream of new messages across all channels (live mirror) |
+| `POST` | `/api/chat` | Send a chat message; replies stream back as SSE (`chunk` / `done` / `error`) |
 | `GET` | `/api/archives` | List archive dates |
 | `GET` | `/api/archives/:date` | Read archive for a date |
 | `GET` | `/api/archives/:date/summary` | Read AI summary for a date |
