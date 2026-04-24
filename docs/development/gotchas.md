@@ -19,6 +19,36 @@ const re = new RegExp("<" + "/think>", "g")
 
 The `npm run typecheck` command includes an automated check (`scripts/check-esbuild-compat.js`) that catches this.
 
+## Escape Sequences in Inline Dashboard JS
+
+The dashboard HTML in `src/dashboard/ui.ts` is built from a TypeScript template literal (`` ` ... ` ``). Inline `<script>` contents live inside that template, so every `\n`, `\t`, `\\` etc. inside the inline JS is consumed by TypeScript before the string is served — a `"\n"` in the source becomes a real newline embedded in the quoted JS string, which blows up parsing in the browser.
+
+```typescript
+// BAD — TS eats the \n; the browser sees an unterminated string.
+return `<script>
+  while ((idx = buf.indexOf("\n\n")) !== -1) { ... }
+</script>`
+
+// GOOD — double the backslashes so the served JS gets "\n\n".
+return `<script>
+  while ((idx = buf.indexOf("\\n\\n")) !== -1) { ... }
+</script>`
+```
+
+Symptom: the dashboard loads blank, all skeletons shimmer forever, the "loading..." badge never resolves — because a `SyntaxError` at page parse kills every inline handler (not just the new code). When touching inline script in `ui.ts`, any JS-level escape sequence needs its backslash doubled.
+
+Quick check before restarting the bot:
+
+```bash
+npx tsx -e "
+import { getDashboardHtml } from './src/dashboard/ui.ts';
+import vm from 'node:vm';
+const m = getDashboardHtml().match(/<script>([\s\S]*?)<\/script>/);
+try { new vm.Script(m[1]); console.log('OK'); }
+catch(e) { console.log('ERR:', e.message); }
+"
+```
+
 ## pm2 PATH Isolation
 
 pm2 spawns processes in its own daemon. It doesn't inherit your shell PATH. That's why `pm2-helper.ts` exports `TSX_BIN` as an absolute path to `node_modules/.bin/tsx`.

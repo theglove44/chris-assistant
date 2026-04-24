@@ -1,4 +1,5 @@
 import { archiveMessage } from "./archive-service.js";
+import { conversationEvents } from "./events.js";
 import { ensureConversationStoreLoaded, saveConversationStore } from "./store.js";
 import type { ConversationMessage, ConversationMeta } from "./types.js";
 import { tryDream } from "../memory/dream-service.js";
@@ -31,6 +32,7 @@ export async function addMessage(
   const now = Date.now();
   history.push({ role, content, timestamp: now });
   archiveMessage(chatId, role, content, now, meta);
+  conversationEvents.emit("message", { chatId, role, content, timestamp: now, meta });
 
   if (history.length > MAX_HISTORY) {
     history.splice(0, history.length - MAX_HISTORY);
