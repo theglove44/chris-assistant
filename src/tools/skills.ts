@@ -55,14 +55,14 @@ registerTool({
     triggers: z.array(z.string()).optional().describe(
       "Phrases that should trigger this skill (optional). Used for discovery in the system prompt.",
     ),
-    inputs: z.record(z.object({
+    inputs: z.record(z.string(), z.object({
       type: z.enum(["string", "number", "boolean"]),
       description: z.string(),
       required: z.boolean().optional(),
       default: z.any().optional(),
     })).optional().describe("Typed input parameters with optional defaults"),
     output_format: z.string().optional().describe("Output format hint (default: 'telegram')"),
-    state: z.record(z.any()).optional().describe("Persistent state object (for update_state action)"),
+    state: z.record(z.string(), z.any()).optional().describe("Persistent state object (for update_state action)"),
   },
   jsonSchemaParameters: {
     type: "object",
@@ -275,7 +275,7 @@ registerTool({
   category: "always",
   zodSchema: {
     id: z.string().describe("The skill ID to execute"),
-    inputs: z.record(z.any()).optional().describe(
+    inputs: z.record(z.string(), z.any()).optional().describe(
       "Input values for the skill. Keys must match the skill's defined inputs.",
     ),
   },

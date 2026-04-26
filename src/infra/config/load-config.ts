@@ -8,10 +8,10 @@ export interface RepoRef {
   name: string;
 }
 
-function formatZodError(error: { issues: Array<{ path: Array<string | number>; message: string }> }): string {
+function formatZodError(error: { issues: Array<{ path: PropertyKey[]; message: string }> }): string {
   return error.issues
     .map((issue) => {
-      const key = issue.path.length > 0 ? issue.path.join(".") : "config";
+      const key = issue.path.length > 0 ? issue.path.map(String).join(".") : "config";
       return `${key}: ${issue.message}`;
     })
     .join("; ");

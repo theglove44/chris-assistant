@@ -17,6 +17,7 @@ import "./skills.js";
 import "./usage.js";
 import "./octopus-energy.js";
 import "./peekaboo.js";
+import "./x-api.js";
 // macOS-only tools — Calendar (EventKit) and Mail (AppleScript)
 if (process.platform === "darwin") {
   await import("./macos.js");

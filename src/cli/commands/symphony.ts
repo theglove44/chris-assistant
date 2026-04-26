@@ -3,7 +3,6 @@ import { execFileSync, execSync, spawn } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { config as appConfig } from "../../config.js";
 import { getCodexStatus } from "../../codex.js";
 import { buildSymphonyConfig } from "../../symphony/config.js";
 import { readIssueLog, readSnapshot, sanitizeIssueKey } from "../../symphony/paths.js";
@@ -114,6 +113,7 @@ export function registerSymphonyCommand(program: Command) {
           {
             name: "GitHub API token configured",
             run: async () => {
+              const { config: appConfig } = await import("../../config.js");
               if (appConfig.github.token?.trim()) {
                 return "pass";
               }
