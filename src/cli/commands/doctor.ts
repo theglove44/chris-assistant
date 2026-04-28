@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, chmodSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { execFileSync } from "child_process";
@@ -274,6 +274,40 @@ export function registerDoctorCommand(program: Command) {
             return proc.status === "errored" ? "fail" : "warn";
           },
         },
+        {
+          // pm2 save snapshots the runtime env of running processes — including
+          // secrets loaded by dotenv at startup, not just vars explicitly passed
+          // to pm2 start. Anyone with read access to dump.pm2 (default mode 0644)
+          // can read those secrets.
+          name: "pm2 dump file (~/.pm2/dump.pm2) hygiene",
+          run: async () => {
+            const dumpPath = resolve(process.env.HOME || "~", ".pm2/dump.pm2");
+            if (!existsSync(dumpPath)) {
+              return "pass";
+            }
+            try {
+              const contents = readFileSync(dumpPath, "utf-8");
+              const secretPattern = /TOKEN|KEY|SECRET|AUTH|SESSION|WEBHOOK/i;
+              if (secretPattern.test(contents)) {
+                console.log(
+                  "    %s may contain plaintext secrets (dotenv-loaded env vars are snapshotted by `pm2 save`).",
+                  dumpPath,
+                );
+                console.log(
+                  "    Recommend rotating affected secrets, then re-running `pm2 save` after secret hygiene.",
+                );
+                console.log(
+                  "    Run `chris doctor --fix` to chmod 600 the dump file.",
+                );
+                return "warn";
+              }
+              return "pass";
+            } catch (err: any) {
+              console.log("    Could not read dump file: %s", err.message);
+              return "warn";
+            }
+          },
+        },
       ];
 
       let passes = 0;
@@ -294,6 +328,19 @@ export function registerDoctorCommand(program: Command) {
       // --fix: attempt to diagnose and repair
       if (opts.fix) {
         console.log("\n--- Auto-fix ---\n");
+
+        // Tighten perms on ~/.pm2/dump.pm2 if present. Idempotent — safe to run
+        // every --fix invocation. See note on the dump.pm2 check above for why
+        // this matters (pm2 save snapshots dotenv-loaded secrets at mode 0644).
+        try {
+          const dumpPath = resolve(process.env.HOME || "~", ".pm2/dump.pm2");
+          if (existsSync(dumpPath)) {
+            chmodSync(dumpPath, 0o600);
+            console.log("  %s Set %s to mode 0600", PASS, dumpPath);
+          }
+        } catch (err: any) {
+          console.log("  %s Could not chmod ~/.pm2/dump.pm2: %s", WARN, err.message);
+        }
 
         const proc = await getBotProcess();
         const botErrored = proc && (proc.status === "errored" || proc.status === "stopped");
