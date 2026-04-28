@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chris Assistant</title>
+<style>
+__DASHBOARD_CSS__
+</style>
+</head>
+<body>
+<div class="progress-bar" id="progress-bar"></div>
+<div class="container">
+  <header>
+    <h1>Chris Assistant</h1>
+    <span class="badge" id="provider-badge">loading...</span>
+__DASHBOARD_DOCS_LINK__  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="status">Status</button>
+    <button class="tab" data-tab="chat">Chat</button>
+    <button class="tab" data-tab="schedules">Schedules</button>
+    <button class="tab" data-tab="conversations">Conversations</button>
+    <button class="tab" data-tab="memory">Memory</button>
+    <button class="tab" data-tab="logs">Logs</button>
+    <button class="tab" data-tab="calendar">Calendar</button>
+    <button class="tab" data-tab="skills">Skills</button>
+  </div>
+
+  <!-- Status -->
+  <div class="section active" id="sec-status">
+    <div class="card">
+      <h3>System</h3>
+      <div class="stat-grid" id="status-stats"><div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-stat"></div></div>
+    </div>
+    <div class="card">
+      <h3>Symphony</h3>
+      <div id="symphony-stats"><span class="loading">Loading Symphony status...</span></div>
+    </div>
+    <div class="card">
+      <h3>Health Checks</h3>
+      <div id="health-checks"><div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row short"></div><div class="skeleton skeleton-row medium"></div></div></div>
+    </div>
+  </div>
+
+  <!-- Chat -->
+  <div class="section" id="sec-chat">
+    <div class="card">
+      <div class="chat-header">
+        <h3>Live Chat</h3>
+        <div class="chat-status">
+          <span class="live-dot" id="chat-live-dot"></span>
+          <span id="chat-live-label">connecting</span>
+        </div>
+      </div>
+      <div class="chat-thread empty" id="chat-thread">
+        <div class="empty-state"><div class="empty-state-icon">💬</div><div class="empty-state-heading">Loading thread</div><div class="empty-state-description">Hydrating shared history with Telegram</div></div>
+      </div>
+      <div class="chat-composer">
+        <textarea class="chat-input" id="chat-input" rows="1" placeholder="Message Chris Assistant..."></textarea>
+        <button class="chat-send" id="chat-send">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Schedules -->
+  <div class="section" id="sec-schedules">
+    <div class="card">
+      <h3>Scheduled Tasks</h3>
+      <div id="schedules-table"><div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row medium"></div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row short"></div><div class="skeleton skeleton-row medium"></div></div></div>
+    </div>
+  </div>
+
+  <!-- Conversations -->
+  <div class="section" id="sec-conversations">
+    <div class="card">
+      <h3>Archive Dates</h3>
+      <div id="archive-dates" class="date-list"><div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div></div></div>
+    </div>
+    <div id="conversation-view"></div>
+  </div>
+
+  <!-- Memory -->
+  <div class="section" id="sec-memory">
+    <div class="card">
+      <h3>Memory Files</h3>
+      <div id="memory-files" class="file-list"><div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div></div></div>
+    </div>
+    <div id="memory-editor"><div class="empty-state"><div class="empty-state-icon">🗂</div><div class="empty-state-heading">Select a file</div><div class="empty-state-description">Choose a memory file from the list to view or edit it</div></div></div>
+  </div>
+
+  <!-- Schedule Editor Modal (hidden by default) -->
+  <div class="modal-overlay" id="schedule-modal" style="display:none" onclick="if(event.target===this)closeScheduleModal()">
+    <div class="modal-card">
+      <h2 id="modal-title">Edit Schedule</h2>
+      <input type="hidden" id="sched-id">
+
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="sched-name">
+      </div>
+
+      <div class="form-group">
+        <label>Schedule Type</label>
+        <select id="sched-type" onchange="onSchedTypeChange()">
+          <option value="interval">Every N minutes</option>
+          <option value="hourly">Every hour</option>
+          <option value="daily">Daily at specific time(s)</option>
+          <option value="weekdays">Weekdays at specific time(s)</option>
+          <option value="custom">Custom cron</option>
+        </select>
+      </div>
+
+      <div id="sched-interval-row" class="form-group" style="display:none">
+        <label>Interval (minutes)</label>
+        <input type="text" id="sched-interval" value="30" oninput="updateCronPreview()">
+      </div>
+
+      <div id="sched-times-row" class="form-group" style="display:none">
+        <label>Time(s) — comma-separated, e.g. 8:00 AM, 2:30 PM</label>
+        <input type="text" id="sched-times" placeholder="8:00 AM" oninput="updateCronPreview()">
+      </div>
+
+      <div id="sched-custom-row" class="form-group" style="display:none">
+        <label>Cron Expression (min hour dom month dow)</label>
+        <input type="text" id="sched-cron-input" placeholder="0 8 * * *" oninput="updateCronPreview()">
+      </div>
+
+      <div class="cron-preview" id="cron-preview"></div>
+
+      <div class="form-group">
+        <label>Enabled</label>
+        <div class="toggle-wrap">
+          <label class="toggle"><input type="checkbox" id="sched-enabled" checked><span class="slider"></span></label>
+          <span id="sched-enabled-label">Enabled</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Prompt</label>
+        <textarea id="sched-prompt"></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Allowed Tools (comma-separated, or leave blank for all)</label>
+          <input type="text" id="sched-tools" placeholder="all">
+        </div>
+        <div class="form-group">
+          <label>Discord Channel (optional)</label>
+          <input type="text" id="sched-discord" placeholder="">
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-cancel" onclick="closeScheduleModal()">Cancel</button>
+        <button class="btn btn-danger" onclick="deleteSchedule()">Delete</button>
+        <button class="btn" id="sched-save-btn" onclick="saveSchedule()">Save</button>
+      </div>
+      <div class="modal-status" id="sched-status"></div>
+    </div>
+  </div>
+
+  <!-- Logs -->
+  <div class="section" id="sec-logs">
+    <div class="log-controls">
+      <label><input type="checkbox" id="log-autoscroll" checked> Auto-scroll</label>
+      <div class="segmented" id="log-mode"><button class="active" data-mode="live">Live</button><button data-mode="snapshot">Snapshot</button></div>
+    </div>
+    <div class="log-container" id="log-output"><span class="loading">Connecting...</span></div>
+  </div>
+
+  <!-- Skills -->
+  <div class="section" id="sec-skills">
+    <div class="card">
+      <h3>Installed Skills</h3>
+      <div id="skills-list"><div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row medium"></div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row short"></div></div></div>
+    </div>
+  </div>
+
+  <!-- Calendar -->
+  <div class="section" id="sec-calendar">
+    <div class="card">
+      <div class="cal-toolbar">
+        <div class="cal-nav">
+          <button class="btn btn-cancel" id="cal-prev">◀</button>
+          <button class="btn btn-cancel" id="cal-today">Today</button>
+          <button class="btn btn-cancel" id="cal-next">▶</button>
+        </div>
+        <span class="cal-title" id="cal-title"></span>
+        <div class="segmented" id="cal-view-toggle">
+          <button class="active" data-view="week">Week</button>
+          <button data-view="month">Month</button>
+        </div>
+      </div>
+      <div id="cal-grid"><div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row medium"></div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row short"></div></div></div>
+    </div>
+    <div class="card">
+      <h3>Legend</h3>
+      <div class="cal-legend" id="cal-legend-items"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+var TOKEN = localStorage.getItem("dashboard_token") || "";
+
+function authHeaders() {
+  return TOKEN ? { "Authorization": "Bearer " + TOKEN } : {};
+}
+
+function showToast(message, type) {
+  var container = document.getElementById("toast-container");
+  var toast = document.createElement("div");
+  toast.className = "toast " + (type || "info");
+  toast.textContent = message;
+  container.appendChild(toast);
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() { toast.classList.add("show"); });
+  });
+  setTimeout(function() {
+    toast.classList.remove("show");
+    setTimeout(function() { toast.remove(); }, 300);
+  }, 3000);
+}
+
+var progressCount = 0;
+function startProgress() {
+  progressCount++;
+  var bar = document.getElementById("progress-bar");
+  if (progressCount === 1) {
+    bar.className = "progress-bar";
+    bar.offsetWidth;
+    bar.classList.add("active");
+  }
+}
+
+function finishProgress() {
+  progressCount--;
+  if (progressCount <= 0) {
+    progressCount = 0;
+    var bar = document.getElementById("progress-bar");
+    bar.className = "progress-bar done";
+    setTimeout(function() { bar.className = "progress-bar"; }, 500);
+  }
+}
+
+async function api(path) {
+  startProgress();
+  try {
+    var res = await fetch(path, { headers: authHeaders() });
+    if (!res.ok) throw new Error(res.statusText);
+    return res.json();
+  } finally {
+    finishProgress();
+  }
+}
+
+// --- Tabs ---
+const tabs = document.querySelectorAll(".tab");
+const sections = document.querySelectorAll(".section");
+let activeTab = "status";
+
+tabs.forEach(t => t.addEventListener("click", () => {
+  activeTab = t.dataset.tab;
+  tabs.forEach(b => b.classList.toggle("active", b === t));
+  sections.forEach(s => s.classList.toggle("active", s.id === "sec-" + activeTab));
+  activateTab(activeTab);
+}));
+
+function activateTab(tab) {
+  if (tab === "status") loadStatus();
+  if (tab === "chat") startChat();
+  if (tab === "schedules") loadSchedules();
+  if (tab === "conversations") loadArchiveDates();
+  if (tab === "memory") loadMemoryFiles();
+  if (tab === "logs") startLogStream();
+  if (tab === "calendar") loadCalendar();
+  if (tab === "skills") loadSkills();
+}
+
+// --- Status ---
+async function loadStatus() {
+  try {
+    const [status, health, symphony] = await Promise.all([
+      api("/api/status"),
+      api("/api/health"),
+      api("/api/symphony/state").catch(function() { return null; }),
+    ]);
+
+    document.getElementById("provider-badge").textContent = status.provider + " / " + status.model;
+
+    const pm2 = status.pm2 || {};
+    const mem = pm2.memory ? (pm2.memory / 1024 / 1024).toFixed(1) + " MB" : "N/A";
+
+    document.getElementById("status-stats").innerHTML = [
+      stat("Uptime", status.uptimeFormatted),
+      stat("Model", status.model),
+      stat("Provider", status.provider),
+      stat("Image Model", status.imageModel),
+      stat("PID", pm2.pid ?? "N/A"),
+      stat("Memory", mem),
+      stat("Restarts", pm2.restarts ?? "N/A"),
+      stat("Started", new Date(status.startedAt).toLocaleString()),
+    ].join("");
+
+    var failedChecks = health.filter(function(h) { return h.checkedAt > 0 && !h.ok; });
+    var alertHtml = "";
+    if (failedChecks.length > 0) {
+      var names = failedChecks.map(function(h) { return h.name; }).join(", ");
+      alertHtml = '<div class="alert alert-error"><span class="alert-icon">⚠</span><div class="alert-message"><strong>' + esc(names) + '</strong> ' + (failedChecks.length === 1 ? 'has' : 'have') + ' a problem — hover for details</div></div>';
+    }
+
+    var healthDotsHtml = health.length === 0
+      ? '<div class="empty-state"><div class="empty-state-icon">✓</div><div class="empty-state-heading">All clear</div><div class="empty-state-description">Health checks will appear here once the bot runs</div></div>'
+      : health.map(h => {
+          const cls = h.checkedAt === 0 ? "unknown" : h.ok ? "ok" : "fail";
+          const ago = h.checkedAt ? timeAgo(h.checkedAt) : "not yet";
+          var detailAttr = h.detail ? ' data-tooltip="' + esc(h.detail).replace(/"/g, '&quot;') + '"' : '';
+          return '<div class="health-row"' + detailAttr + '><span class="health-dot ' + cls + '"></span><span>' +
+            esc(h.name) + '</span><span style="color:var(--text2);font-size:12px;margin-left:auto">' +
+            ago + '</span></div>';
+        }).join("");
+    document.getElementById("health-checks").innerHTML = alertHtml + healthDotsHtml;
+
+    if (!symphony) {
+      document.getElementById("symphony-stats").innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎼</div><div class="empty-state-heading">Symphony unavailable</div><div class="empty-state-description">Start the Symphony sidecar to populate orchestrator status</div></div>';
+      return;
+    }
+
+    document.getElementById("symphony-stats").innerHTML = [
+      '<div class="stat-grid">',
+      stat("Workflow", symphony.workflowPath ? symphony.workflowPath.split("/").slice(-2).join("/") : "N/A"),
+      stat("Tracker", symphony.tracker ? symphony.tracker.kind : "N/A"),
+      stat("Target", symphony.tracker && symphony.tracker.target ? symphony.tracker.target : "N/A"),
+      stat("Running", symphony.running ? symphony.running.length : 0),
+      stat("Retry Queue", symphony.retryQueue ? symphony.retryQueue.length : 0),
+      stat("Claimed", symphony.claimedIssueIds ? symphony.claimedIssueIds.length : 0),
+      stat("Last Poll", symphony.lastPollAt ? timeAgo(symphony.lastPollAt) : "never"),
+      stat("Server Port", symphony.config && symphony.config.serverPort !== null ? symphony.config.serverPort : "N/A"),
+      '</div>',
+      renderSymphonyRecent(symphony.completed || []),
+    ].join("");
+  } catch (e) {
+    document.getElementById("status-stats").innerHTML = '<span class="loading">Error: ' + esc(e.message) + '</span>';
+    document.getElementById("symphony-stats").innerHTML = '<span class="loading">Error: ' + esc(e.message) + '</span>';
+  }
+}
+
+function stat(label, value) {
+  return '<div class="stat"><div class="label">' + esc(label) + '</div><div class="value">' + esc(String(value)) + '</div></div>';
+}
+
+function renderSymphonyRecent(completed) {
+  if (!completed.length) return '<div class="empty" style="margin-top:12px">No completed Symphony runs yet.</div>';
+  var rows = completed.slice(0, 5).map(function(entry) {
+    var landing = entry.landing || null;
+    var detail = landing && landing.pullRequest
+      ? '<a href="' + esc(landing.pullRequest.url) + '" target="_blank" rel="noopener noreferrer">' + esc(landing.pullRequest.url) + '</a>'
+      : landing && landing.branchName
+        ? '<span class="mono">' + esc(landing.branchName) + '</span>'
+        : '<span style="color:var(--text2)">No PR</span>';
+    var summary = entry.lastMessage
+      ? '<div style="font-size:12px;color:var(--text2);margin-top:4px">' + esc(entry.lastMessage.slice(0, 180)) + (entry.lastMessage.length > 180 ? '…' : '') + '</div>'
+      : '';
+    return '<tr><td><strong>' + esc(entry.identifier) + '</strong><div style="font-size:12px;color:var(--text2)">' + esc(entry.title) + '</div>' + summary + '</td><td>' + esc(entry.state) + '</td><td>' + detail + '</td><td>' + timeAgo(entry.finishedAt) + '</td></tr>';
+  }).join("");
+
+  return [
+    '<div style="margin-top:16px">',
+    '<h3 style="margin-bottom:8px">Recent Landings</h3>',
+    '<table><thead><tr><th>Issue</th><th>State</th><th>PR / Branch</th><th>Finished</th></tr></thead><tbody>',
+    rows,
+    '</tbody></table>',
+    '</div>',
+  ].join("");
+}
+
+// --- Schedules ---
+let schedulesData = [];
+async function loadSchedules() {
+  try {
+    schedulesData = await api("/api/schedules");
+    if (schedulesData.length === 0) {
+      document.getElementById("schedules-table").innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏱</div><div class="empty-state-heading">No scheduled tasks</div><div class="empty-state-description">Tasks you create will appear here</div></div>';
+      return;
+    }
+    let html = '<table><thead><tr><th>Name</th><th>Schedule</th><th>Status</th><th>Last Run</th><th>Tools</th><th>Prompt</th></tr></thead><tbody>';
+    for (const s of schedulesData) {
+      const lastRun = s.lastRun ? timeAgo(s.lastRun) : "never";
+      const status = s.enabled ? '<span class="badge-pill badge-success">enabled</span>' : '<span class="badge-pill badge-error">disabled</span>';
+      const tools = s.allowedTools ? '<span class="badge-pill badge-neutral">' + s.allowedTools.length + ' tools</span>' : '<span class="badge-pill badge-accent">all</span>';
+      var promptText = esc(s.prompt.length > 80 ? s.prompt.slice(0, 80) + "..." : s.prompt);
+      var promptTooltip = s.prompt.length > 80 ? ' data-tooltip="' + esc(s.prompt).replace(/"/g, '&quot;') + '"' : '';
+      var cronDesc = cronToHuman(s.schedule);
+      html += '<tr class="clickable" data-id="' + s.id + '"><td><strong>' + esc(s.name) + '</strong></td><td class="mono" data-tooltip="' + esc(cronDesc).replace(/"/g, '&quot;') + '">' + esc(s.schedule) + '</td><td>' + status + '</td><td>' + lastRun + '</td><td style="font-size:12px">' + tools + '</td><td style="font-size:12px;color:var(--text2)"' + promptTooltip + '>' + promptText + '</td></tr>';
+    }
+    html += '</tbody></table>';
+    document.getElementById("schedules-table").innerHTML = html;
+    document.querySelectorAll("tr.clickable").forEach(function(row) {
+      row.addEventListener("click", function() { openScheduleModal(row.dataset.id); });
+    });
+  } catch (e) {
+    document.getElementById("schedules-table").innerHTML = '<span class="loading">Error: ' + esc(e.message) + '</span>';
+  }
+}
+
+// --- Cron conversion ---
+function cronToHuman(expr) {
+  const f = expr.trim().split(/\s+/);
+  if (f.length !== 5) return expr;
+  const [min, hour, dom, mon, dow] = f;
+
+  // */N * * * *
+  if (min.startsWith("*/") && hour === "*" && dom === "*" && mon === "*" && dow === "*") {
+    return "Every " + min.slice(2) + " minutes";
+  }
+  // 0 * * * *
+  if (min === "0" && hour === "*" && dom === "*" && mon === "*" && dow === "*") {
+    return "Every hour";
+  }
+  // min hour(s) * * dow
+  if (dom === "*" && mon === "*") {
+    const hours = hour.split(",");
+    const times = hours.map(function(h) { return fmtTime(parseInt(h,10), parseInt(min,10)); }).join(", ");
+    if (dow === "*") return "Daily at " + times;
+    if (dow === "1-5") return "Weekdays at " + times;
+    return times + " (dow: " + dow + ")";
+  }
+  return expr;
+}
+
+function fmtTime(h, m) {
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return h12 + ":" + String(m).padStart(2, "0") + " " + ampm;
+}
+
+function parseTimes(str) {
+  // Parse "8:00 AM, 2:30 PM" into [{h:8,m:0},{h:14,m:30}]
+  const results = [];
+  const parts = str.split(",");
+  for (const p of parts) {
+    const match = p.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+    if (!match) continue;
+    let h = parseInt(match[1], 10);
+    const m = parseInt(match[2], 10);
+    const ampm = (match[3] || "").toUpperCase();
+    if (ampm === "PM" && h < 12) h += 12;
+    if (ampm === "AM" && h === 12) h = 0;
+    results.push({ h, m });
+  }
+  return results;
+}
+
+function buildCron() {
+  const type = document.getElementById("sched-type").value;
+  if (type === "custom") return document.getElementById("sched-cron-input").value.trim();
+  if (type === "interval") {
+    const n = parseInt(document.getElementById("sched-interval").value, 10);
+    if (!n || n <= 0) return "*/5 * * * *";
+    return "*/" + n + " * * * *";
+  }
+  if (type === "hourly") return "0 * * * *";
+
+  // daily or weekdays
+  const times = parseTimes(document.getElementById("sched-times").value);
+  if (times.length === 0) return "0 8 * * *";
+  const dow = type === "weekdays" ? "1-5" : "*";
+  // If all times share the same minute
+  const mins = [...new Set(times.map(t => t.m))];
+  const hours = times.map(t => t.h).join(",");
+  const minute = mins.length === 1 ? String(mins[0]) : "0";
+  return minute + " " + hours + " * * " + dow;
+}
+
+function updateCronPreview() {
+  const cron = buildCron();
+  document.getElementById("cron-preview").textContent = "Cron: " + cron + "  —  " + cronToHuman(cron);
+}
+
+function onSchedTypeChange() {
+  const type = document.getElementById("sched-type").value;
+  document.getElementById("sched-interval-row").style.display = type === "interval" ? "block" : "none";
+  document.getElementById("sched-times-row").style.display = (type === "daily" || type === "weekdays") ? "block" : "none";
+  document.getElementById("sched-custom-row").style.display = type === "custom" ? "block" : "none";
+  updateCronPreview();
+}
+
+function cronToType(expr) {
+  const f = expr.trim().split(/\s+/);
+  if (f.length !== 5) return { type: "custom" };
+  const [min, hour, dom, mon, dow] = f;
+  if (min.startsWith("*/") && hour === "*" && dom === "*" && mon === "*" && dow === "*") {
+    return { type: "interval", interval: min.slice(2) };
+  }
+  if (min === "0" && hour === "*" && dom === "*" && mon === "*" && dow === "*") {
+    return { type: "hourly" };
+  }
+  if (dom === "*" && mon === "*" && (dow === "*" || dow === "1-5")) {
+    const hours = hour.split(",").map(Number);
+    const m = parseInt(min, 10);
+    const timesStr = hours.map(function(h) { return fmtTime(h, m); }).join(", ");
+    return { type: dow === "1-5" ? "weekdays" : "daily", times: timesStr };
+  }
+  return { type: "custom" };
+}
+
+// --- Schedule modal ---
+var drawerCloseTimer = null;
+function openScheduleModal(id) {
+  const s = schedulesData.find(function(x) { return x.id === id; });
+  if (!s) return;
+
+  if (drawerCloseTimer) { clearTimeout(drawerCloseTimer); drawerCloseTimer = null; }
+
+  document.getElementById("sched-id").value = s.id;
+  document.getElementById("modal-title").textContent = "Edit: " + s.name;
+  document.getElementById("sched-name").value = s.name;
+  document.getElementById("sched-enabled").checked = s.enabled;
+  document.getElementById("sched-enabled-label").textContent = s.enabled ? "Enabled" : "Disabled";
+  document.getElementById("sched-prompt").value = s.prompt;
+  document.getElementById("sched-tools").value = s.allowedTools ? s.allowedTools.join(", ") : "";
+  document.getElementById("sched-discord").value = s.discordChannel || "";
+  document.getElementById("sched-status").textContent = "";
+
+  // Parse cron into UI type
+  const parsed = cronToType(s.schedule);
+  document.getElementById("sched-type").value = parsed.type;
+  if (parsed.type === "interval") {
+    document.getElementById("sched-interval").value = parsed.interval;
+  } else if (parsed.type === "daily" || parsed.type === "weekdays") {
+    document.getElementById("sched-times").value = parsed.times;
+  } else if (parsed.type === "custom") {
+    document.getElementById("sched-cron-input").value = s.schedule;
+  }
+
+  onSchedTypeChange();
+  var overlay = document.getElementById("schedule-modal");
+  overlay.style.display = "block";
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() { overlay.classList.add("open"); });
+  });
+}
+
+function closeScheduleModal() {
+  var overlay = document.getElementById("schedule-modal");
+  overlay.classList.remove("open");
+  drawerCloseTimer = setTimeout(function() { overlay.style.display = "none"; drawerCloseTimer = null; }, 300);
+}
+
+document.getElementById("sched-enabled").addEventListener("change", function() {
+  document.getElementById("sched-enabled-label").textContent = this.checked ? "Enabled" : "Disabled";
+});
+
+async function saveSchedule() {
+  const id = document.getElementById("sched-id").value;
+  const statusEl = document.getElementById("sched-status");
+  const btn = document.getElementById("sched-save-btn");
+
+  const toolsRaw = document.getElementById("sched-tools").value.trim();
+  const allowedTools = toolsRaw && toolsRaw.toLowerCase() !== "all"
+    ? toolsRaw.split(",").map(function(t) { return t.trim(); }).filter(Boolean)
+    : [];
+
+  const updates = {
+    name: document.getElementById("sched-name").value.trim(),
+    schedule: buildCron(),
+    enabled: document.getElementById("sched-enabled").checked,
+    prompt: document.getElementById("sched-prompt").value,
+    allowedTools: allowedTools,
+    discordChannel: document.getElementById("sched-discord").value.trim(),
+  };
+
+  btn.disabled = true;
+  showToast("Saving...", "info");
+  startProgress();
+
+  try {
+    const res = await fetch("/api/schedules/" + id, {
+      method: "PUT",
+      headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || res.statusText);
+    showToast("Schedule saved", "success");
+    setTimeout(function() { closeScheduleModal(); loadSchedules(); }, 800);
+  } catch (e) {
+    showToast("Error: " + e.message, "error");
+  } finally {
+    btn.disabled = false;
+    finishProgress();
+  }
+}
+
+async function deleteSchedule() {
+  const id = document.getElementById("sched-id").value;
+  const name = document.getElementById("sched-name").value;
+  if (!confirm("Delete schedule: " + name + "? This cannot be undone.")) return;
+
+  showToast("Deleting...", "info");
+  startProgress();
+
+  try {
+    const res = await fetch("/api/schedules/" + id, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || res.statusText);
+    showToast("Schedule deleted", "success");
+    setTimeout(function() { closeScheduleModal(); loadSchedules(); }, 500);
+  } catch (e) {
+    showToast("Error: " + e.message, "error");
+  } finally {
+    finishProgress();
+  }
+}
+
+// --- Conversations ---
+let archiveDates = [];
+async function loadArchiveDates() {
+  try {
+    const data = await api("/api/archives");
+    archiveDates = data.dates.reverse(); // newest first
+    const el = document.getElementById("archive-dates");
+    if (archiveDates.length === 0) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💬</div><div class="empty-state-heading">No conversation archives</div><div class="empty-state-description">Archives are created automatically each day</div></div>';
+      return;
+    }
+    el.innerHTML = archiveDates.map(d =>
+      '<button class="date-btn" data-date="' + d + '">' + d + '</button>'
+    ).join("");
+    el.querySelectorAll(".date-btn").forEach(b => b.addEventListener("click", () => {
+      el.querySelectorAll(".date-btn").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+      loadConversation(b.dataset.date);
+    }));
+  } catch (e) {
+    document.getElementById("archive-dates").innerHTML = '<span class="loading">Error: ' + esc(e.message) + '</span>';
+  }
+}
+
+async function loadConversation(date) {
+  const view = document.getElementById("conversation-view");
+  view.innerHTML = '<div class="card"><div><div class="skeleton skeleton-msg"></div><div class="skeleton skeleton-msg"></div><div class="skeleton skeleton-msg"></div><div class="skeleton skeleton-msg"></div></div></div>';
+  try {
+    const [archive, summary] = await Promise.all([
+      api("/api/archives/" + date),
+      api("/api/archives/" + date + "/summary").catch(() => ({ content: null })),
+    ]);
+
+    let html = "";
+    if (summary.content) {
+      html += '<div class="card"><h3>Daily Summary</h3><div class="msg assistant" style="border-left-color:var(--yellow)">' + esc(summary.content) + '</div></div>';
+    }
+
+    html += '<div class="card"><h3>Messages (' + archive.entries.length + ')</h3>';
+    if (archive.entries.length === 0) {
+      html += '<div class="empty-state"><div class="empty-state-icon">💬</div><div class="empty-state-heading">No messages</div><div class="empty-state-description">Select a date to view conversations</div></div>';
+    } else {
+      for (const e of archive.entries) {
+        const time = new Date(e.ts).toLocaleTimeString();
+        html += '<div class="msg ' + e.role + '"><div class="meta">' + e.role + ' &middot; ' + time + '</div>' + esc(e.content.slice(0, 2000)) + (e.content.length > 2000 ? "..." : "") + '</div>';
+      }
+    }
+    html += '</div>';
+    view.innerHTML = html;
+  } catch (e) {
+    view.innerHTML = '<div class="card"><span class="loading">Error: ' + esc(e.message) + '</span></div>';
+  }
+}
+
+// --- Memory ---
+let activeMemoryFile = null;
+async function loadMemoryFiles() {
+  try {
+    const data = await api("/api/memory");
+    const el = document.getElementById("memory-files");
+    el.innerHTML = data.files.map(f =>
+      '<button class="file-btn" data-file="' + esc(f) + '">' + esc(f) + '</button>'
+    ).join("");
+    el.querySelectorAll(".file-btn").forEach(b => b.addEventListener("click", () => {
+      el.querySelectorAll(".file-btn").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+      loadMemoryFile(b.dataset.file);
+    }));
+  } catch (e) {
+    document.getElementById("memory-files").innerHTML = '<span class="loading">Error: ' + esc(e.message) + '</span>';
+  }
+}
+
+async function loadMemoryFile(filePath) {
+  activeMemoryFile = filePath;
+  const el = document.getElementById("memory-editor");
+  el.innerHTML = '<div class="card"><div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row medium"></div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row short"></div><div class="skeleton skeleton-row medium"></div><div class="skeleton skeleton-row"></div></div></div>';
+  try {
+    const data = await api("/api/memory/" + encodeURIComponent(filePath));
+    el.innerHTML = '<div class="card"><div class="flex-between"><h3>' + esc(filePath) + '</h3><div><button class="btn" id="save-btn" onclick="saveMemory()">Save</button><span class="save-status" id="save-status"></span></div></div><textarea class="editor" id="memory-textarea">' + esc(data.content) + '</textarea></div>';
+  } catch (e) {
+    el.innerHTML = '<div class="card"><span class="loading">Error: ' + esc(e.message) + '</span></div>';
+  }
+}
+
+async function saveMemory() {
+  const btn = document.getElementById("save-btn");
+  const status = document.getElementById("save-status");
+  const textarea = document.getElementById("memory-textarea");
+  if (!activeMemoryFile || !textarea) return;
+
+  btn.disabled = true;
+  showToast("Saving...", "info");
+  startProgress();
+
+  try {
+    const res = await fetch("/api/memory/" + encodeURIComponent(activeMemoryFile), {
+      method: "PUT",
+      headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+      body: JSON.stringify({ content: textarea.value }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || res.statusText);
+    showToast("Memory file saved", "success");
+  } catch (e) {
+    showToast("Error: " + e.message, "error");
+  } finally {
+    btn.disabled = false;
+    finishProgress();
+  }
+}
+
+// --- Skills ---
+async function loadSkills() {
+  try {
+    var skills = await api("/api/skills");
+    var el = document.getElementById("skills-list");
+    if (skills.length === 0) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚡</div><div class="empty-state-heading">No skills installed</div><div class="empty-state-description">Skills can be created via the manage_skills tool</div></div>';
+      return;
+    }
+    var html = '<table><thead><tr><th>Name</th><th>Description</th><th>Status</th><th>Version</th><th>Triggers</th><th>Tools</th><th>Updated</th></tr></thead><tbody>';
+    for (var i = 0; i < skills.length; i++) {
+      var s = skills[i];
+      var status = s.enabled ? '<span class="badge-pill badge-success">enabled</span>' : '<span class="badge-pill badge-neutral">disabled</span>';
+      var triggers = s.triggers && s.triggers.length > 0 ? esc(s.triggers.join(", ")) : '<span style="color:var(--text2)">none</span>';
+      var tools = s.tools && s.tools.length > 0 ? '<span class="badge-pill badge-neutral">' + s.tools.length + ' tools</span>' : '<span class="badge-pill badge-accent">all</span>';
+      var updated = s.updatedAt ? new Date(s.updatedAt).toLocaleDateString() : "—";
+      html += '<tr><td><strong>' + esc(s.name) + '</strong></td><td style="font-size:13px;color:var(--text2)">' + esc(s.description || "") + '</td><td>' + status + '</td><td class="mono">' + esc(String(s.version || 1)) + '</td><td style="font-size:12px">' + triggers + '</td><td style="font-size:12px">' + tools + '</td><td style="font-size:12px;color:var(--text2)">' + esc(updated) + '</td></tr>';
+    }
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  } catch (e) {
+    document.getElementById("skills-list").innerHTML = '<span class="loading">Error: ' + esc(e.message) + '</span>';
+  }
+}
+
+// --- Logs ---
+let logSource = null;
+function getLogMode() {
+  var active = document.querySelector("#log-mode button.active");
+  return active ? active.dataset.mode : "live";
+}
+
+function startLogStream() {
+  const el = document.getElementById("log-output");
+
+  // Close existing stream
+  if (logSource) { logSource.close(); logSource = null; }
+
+  if (getLogMode() !== "live") {
+    // Snapshot mode
+    loadLogSnapshot();
+    return;
+  }
+
+  // EventSource cannot send custom headers, so SSE live streaming is only
+  // available when no token is configured (localhost-only mode). When a token
+  // is required, fall back to the snapshot endpoint fetched via api() which
+  // sends the Authorization header correctly.
+  if (TOKEN) {
+    loadLogSnapshot();
+    return;
+  }
+
+  el.innerHTML = "";
+  logSource = new EventSource("/api/logs/stream");
+
+  logSource.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    appendLogLines(data.lines);
+  };
+
+  logSource.onerror = () => {
+    appendLogLines(["[dashboard] SSE connection lost, retrying..."]);
+  };
+}
+
+async function loadLogSnapshot() {
+  const el = document.getElementById("log-output");
+  try {
+    const data = await api("/api/logs");
+    el.innerHTML = "";
+    appendLogLines(data.lines);
+  } catch (e) {
+    el.innerHTML = '<span class="loading">Error: ' + esc(e.message) + '</span>';
+  }
+}
+
+function appendLogLines(lines) {
+  const el = document.getElementById("log-output");
+  const autoScroll = document.getElementById("log-autoscroll").checked;
+
+  for (const line of lines) {
+    const div = document.createElement("div");
+    div.className = "log-line" + (line.startsWith("[ERR]") ? " err" : "");
+    div.textContent = line;
+    el.appendChild(div);
+  }
+
+  // Keep at most 1000 lines
+  while (el.children.length > 1000) el.removeChild(el.firstChild);
+
+  if (autoScroll) el.scrollTop = el.scrollHeight;
+}
+
+document.querySelectorAll("#log-mode button").forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    document.querySelectorAll("#log-mode button").forEach(function(b) { b.classList.remove("active"); });
+    btn.classList.add("active");
+    if (activeTab === "logs") startLogStream();
+  });
+});
+
+// --- Chat ---
+var chatStarted = false;
+var chatStreamController = null;
+var chatSendController = null;
+var chatSeen = new Set();
+var chatReconnectTimer = null;
+var chatStreamBackoff = 1000;
+var chatPendingAssistantRow = null;
+var chatPendingUserRow = null;
+
+function chatUpdateRowTimestamp(row, ts) {
+  if (!row || !row.row) return;
+  var timeEl = row.row.querySelector(".chat-meta span:first-child");
+  if (timeEl && ts) timeEl.textContent = new Date(ts).toLocaleTimeString();
+}
+
+function chatSetLive(state) {
+  var dot = document.getElementById("chat-live-dot");
+  var label = document.getElementById("chat-live-label");
+  if (!dot || !label) return;
+  dot.classList.remove("live", "reconnecting");
+  if (state === "live") { dot.classList.add("live"); label.textContent = "live"; }
+  else if (state === "reconnecting") { dot.classList.add("reconnecting"); label.textContent = "reconnecting"; }
+  else { label.textContent = "offline"; }
+}
+
+function chatSourceLabel(source) {
+  if (!source) return "";
+  return source;
+}
+
+function chatRenderMessage(msg, opts) {
+  opts = opts || {};
+  var thread = document.getElementById("chat-thread");
+  if (!thread) return null;
+  if (thread.classList.contains("empty")) {
+    thread.classList.remove("empty");
+    thread.innerHTML = "";
+  }
+
+  var row = document.createElement("div");
+  row.className = "chat-row " + msg.role;
+
+  var bubble = document.createElement("div");
+  bubble.className = "chat-bubble";
+  bubble.textContent = msg.content || "";
+  row.appendChild(bubble);
+
+  var meta = document.createElement("div");
+  meta.className = "chat-meta";
+  var time = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : "";
+  var timeEl = document.createElement("span");
+  timeEl.textContent = time;
+  meta.appendChild(timeEl);
+  var source = msg.meta && msg.meta.source ? msg.meta.source : null;
+  if (source) {
+    var badge = document.createElement("span");
+    badge.className = "chat-source " + source;
+    badge.textContent = chatSourceLabel(source);
+    meta.appendChild(badge);
+  }
+  row.appendChild(meta);
+
+  thread.appendChild(row);
+  if (!opts.noScroll) chatScrollToBottom();
+  return { row: row, bubble: bubble };
+}
+
+function chatScrollToBottom() {
+  var thread = document.getElementById("chat-thread");
+  if (thread) thread.scrollTop = thread.scrollHeight;
+}
+
+function chatKey(msg) {
+  var ts = msg.timestamp || 0;
+  return ts + "|" + msg.role;
+}
+
+function chatAppendIfNew(msg) {
+  var key = chatKey(msg);
+  if (chatSeen.has(key)) return false;
+  chatSeen.add(key);
+
+  if (msg.role === "user" && chatPendingUserRow) {
+    chatUpdateRowTimestamp(chatPendingUserRow, msg.timestamp);
+    chatPendingUserRow = null;
+    return false;
+  }
+  if (msg.role === "assistant" && chatPendingAssistantRow) {
+    var pending = chatPendingAssistantRow;
+    if (pending.bubble) pending.bubble.textContent = msg.content || "";
+    chatUpdateRowTimestamp(pending, msg.timestamp);
+    chatPendingAssistantRow = null;
+    chatScrollToBottom();
+    return false;
+  }
+
+  chatRenderMessage(msg);
+  return true;
+}
+
+async function chatHydrate() {
+  try {
+    var data = await api("/api/conversation");
+    var thread = document.getElementById("chat-thread");
+    if (!thread) return;
+    thread.classList.remove("empty");
+    thread.innerHTML = "";
+    chatSeen = new Set();
+    var msgs = data.messages || [];
+    for (var i = 0; i < msgs.length; i++) {
+      var m = msgs[i];
+      chatSeen.add(chatKey(m));
+      chatRenderMessage(m, { noScroll: true });
+    }
+    if (msgs.length === 0) {
+      thread.classList.add("empty");
+      thread.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💬</div><div class="empty-state-heading">No messages yet</div><div class="empty-state-description">Say hello — Telegram and this tab share the same thread</div></div>';
+    }
+    chatScrollToBottom();
+  } catch (e) {
+    showToast("Failed to load history: " + e.message, "error");
+  }
+}
+
+async function chatConsumeSse(response, onEvent) {
+  var reader = response.body.getReader();
+  var decoder = new TextDecoder();
+  var buf = "";
+  while (true) {
+    var chunk = await reader.read();
+    if (chunk.done) break;
+    buf += decoder.decode(chunk.value, { stream: true });
+    var idx;
+    while ((idx = buf.indexOf("\n\n")) !== -1) {
+      var frame = buf.slice(0, idx);
+      buf = buf.slice(idx + 2);
+      var lines = frame.split("\n");
+      var eventName = "message";
+      var dataLines = [];
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        if (line.startsWith(":")) continue;
+        if (line.startsWith("event:")) eventName = line.slice(6).trim();
+        else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+      }
+      if (dataLines.length === 0) continue;
+      var dataStr = dataLines.join("\n");
+      var parsed = null;
+      try { parsed = JSON.parse(dataStr); } catch (_) {}
+      onEvent(eventName, parsed, dataStr);
+    }
+  }
+}
+
+async function chatOpenStream() {
+  if (chatStreamController) {
+    try { chatStreamController.abort(); } catch (_) {}
+  }
+  var ctrl = new AbortController();
+  chatStreamController = ctrl;
+  chatSetLive("reconnecting");
+
+  try {
+    var res = await fetch("/api/conversation/stream", {
+      headers: authHeaders(),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) throw new Error("stream " + res.status);
+    chatSetLive("live");
+    chatStreamBackoff = 1000;
+
+    await chatConsumeSse(res, function(eventName, data) {
+      if (eventName === "message" && data) {
+        chatAppendIfNew(data);
+      }
+    });
+    // Stream ended cleanly
+    if (chatStreamController === ctrl) chatScheduleReconnect();
+  } catch (e) {
+    if (ctrl.signal.aborted) return;
+    if (chatStreamController === ctrl) chatScheduleReconnect();
+  }
+}
+
+function chatScheduleReconnect() {
+  chatSetLive("reconnecting");
+  if (chatReconnectTimer) clearTimeout(chatReconnectTimer);
+  var delay = Math.min(chatStreamBackoff, 15000);
+  chatStreamBackoff = Math.min(chatStreamBackoff * 2, 15000);
+  chatReconnectTimer = setTimeout(function() {
+    chatReconnectTimer = null;
+    chatHydrate().finally(chatOpenStream);
+  }, delay);
+}
+
+function chatSetSending(sending) {
+  var btn = document.getElementById("chat-send");
+  var input = document.getElementById("chat-input");
+  if (!btn || !input) return;
+  if (sending) {
+    btn.textContent = "Stop";
+    btn.classList.add("stop");
+    input.disabled = false;
+  } else {
+    btn.textContent = "Send";
+    btn.classList.remove("stop");
+    input.disabled = false;
+    btn.disabled = false;
+  }
+}
+
+async function chatSend() {
+  var input = document.getElementById("chat-input");
+  if (!input) return;
+  var text = input.value.trim();
+  if (!text) return;
+
+  input.value = "";
+  chatAutoResize(input);
+
+  var ctrl = new AbortController();
+  chatSendController = ctrl;
+  chatSetSending(true);
+
+  var now = Date.now();
+  chatPendingUserRow = chatRenderMessage({
+    role: "user",
+    content: text,
+    timestamp: now,
+    meta: { source: "web" },
+  });
+  chatPendingAssistantRow = chatRenderMessage({
+    role: "assistant",
+    content: "",
+    timestamp: now,
+    meta: { source: "web" },
+  });
+  var bubble = chatPendingAssistantRow ? chatPendingAssistantRow.bubble : null;
+  if (bubble) bubble.innerHTML = '<span class="chat-cursor"></span>';
+
+  try {
+    var res = await fetch("/api/chat", {
+      method: "POST",
+      headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+      body: JSON.stringify({ text: text }),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) throw new Error("chat " + res.status);
+
+    await chatConsumeSse(res, function(eventName, data) {
+      if (eventName === "chunk" && data && typeof data.text === "string") {
+        if (bubble) {
+          bubble.textContent = data.text;
+          var cursor = document.createElement("span");
+          cursor.className = "chat-cursor";
+          bubble.appendChild(cursor);
+          chatScrollToBottom();
+        }
+      } else if (eventName === "error" && data) {
+        if (bubble) bubble.textContent = "⚠️ " + (data.message || "error");
+      }
+      // on "done" the stream mirror will deliver the final authoritative turn;
+      // the placeholder stays visible until then.
+    });
+  } catch (e) {
+    if (!ctrl.signal.aborted && bubble) {
+      bubble.textContent = "⚠️ " + e.message;
+    }
+  } finally {
+    if (bubble) {
+      var cursor = bubble.querySelector(".chat-cursor");
+      if (cursor) cursor.remove();
+    }
+    chatSendController = null;
+    chatSetSending(false);
+  }
+}
+
+function chatStop() {
+  if (chatSendController) {
+    try { chatSendController.abort(); } catch (_) {}
+  }
+}
+
+function chatAutoResize(el) {
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 200) + "px";
+}
+
+function startChat() {
+  if (chatStarted) {
+    chatScrollToBottom();
+    return;
+  }
+  chatStarted = true;
+
+  var input = document.getElementById("chat-input");
+  var sendBtn = document.getElementById("chat-send");
+
+  if (input) {
+    input.addEventListener("input", function() { chatAutoResize(input); });
+    input.addEventListener("keydown", function(e) {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        if (chatSendController) chatStop();
+        else chatSend();
+      }
+    });
+  }
+  if (sendBtn) {
+    sendBtn.addEventListener("click", function() {
+      if (chatSendController) chatStop();
+      else chatSend();
+    });
+  }
+
+  chatHydrate().finally(chatOpenStream);
+}
+
+// --- Utilities ---
+function esc(s) {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function timeAgo(ts) {
+  const diff = Date.now() - ts;
+  if (diff < 60000) return "just now";
+  if (diff < 3600000) return Math.floor(diff / 60000) + "m ago";
+  if (diff < 86400000) return Math.floor(diff / 3600000) + "h ago";
+  return Math.floor(diff / 86400000) + "d ago";
+}
+
+// --- Calendar ---
+var calView = "week";
+var calDate = new Date();
+var calSchedules = [];
+
+function cronFieldMatches(field, value, isDow) {
+  if (field.includes(",")) {
+    return field.split(",").some(function(p) { return cronFieldMatches(p.trim(), value, isDow); });
+  }
+  if (field.startsWith("*/")) {
+    var step = parseInt(field.slice(2), 10);
+    return !isNaN(step) && step > 0 && value % step === 0;
+  }
+  if (field === "*") return true;
+  if (field.includes("-")) {
+    var parts = field.split("-");
+    var lo = parseInt(parts[0], 10);
+    var hi = parseInt(parts[1], 10);
+    if (isNaN(lo) || isNaN(hi)) return false;
+    if (isDow) { lo = lo === 7 ? 0 : lo; hi = hi === 7 ? 0 : hi; }
+    return lo <= hi ? (value >= lo && value <= hi) : (value >= lo || value <= hi);
+  }
+  var num = parseInt(field, 10);
+  if (isNaN(num)) return false;
+  if (isDow && num === 7) return value === 0;
+  return value === num;
+}
+
+function getOccurrences(cronStr, start, end) {
+  var fields = cronStr.trim().split(" ");
+  if (fields.length !== 5) return [];
+  var results = [];
+  var cur = new Date(start);
+  cur.setSeconds(0, 0);
+  var endTs = end.getTime();
+  while (cur.getTime() <= endTs) {
+    var m = cur.getMinutes(), h = cur.getHours(), dom = cur.getDate(), mon = cur.getMonth() + 1, dow = cur.getDay();
+    if (cronFieldMatches(fields[0], m, false) && cronFieldMatches(fields[1], h, false) && cronFieldMatches(fields[2], dom, false) && cronFieldMatches(fields[3], mon, false) && cronFieldMatches(fields[4], dow, true)) {
+      results.push(new Date(cur));
+    }
+    cur = new Date(cur.getTime() + 60000);
+  }
+  return results;
+}
+
+function groupByDay(occurrences) {
+  var groups = {};
+  occurrences.forEach(function(d) {
+    var key = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(d);
+  });
+  return groups;
+}
+
+function getWeekStart(d) {
+  var date = new Date(d);
+  var day = date.getDay();
+  var diff = day === 0 ? -6 : 1 - day;
+  date.setDate(date.getDate() + diff);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function todayStr() {
+  var d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+function dateKey(d) {
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+var CAL_COLORS = ["#60a5fa", "#4ade80", "#fbbf24", "#c084fc", "#fb923c", "#22d3ee", "#f87171", "#c4b5fd"];
+
+function renderWeekView() {
+  var grid = document.getElementById("cal-grid");
+  var ws = getWeekStart(calDate);
+  var we = new Date(ws);
+  we.setDate(we.getDate() + 6);
+  we.setHours(23, 59, 59, 999);
+  var today = todayStr();
+  var dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  var schedData = calSchedules.map(function(s, i) {
+    return { sched: s, color: i % 8, occs: getOccurrences(s.schedule, ws, we) };
+  });
+
+  var hoursWithEvents = {};
+  schedData.forEach(function(sd) {
+    sd.occs.forEach(function(o) { hoursWithEvents[o.getHours()] = true; });
+  });
+  var hours = [];
+  for (var h = 6; h <= 22; h++) hours.push(h);
+  Object.keys(hoursWithEvents).forEach(function(hk) {
+    var hn = parseInt(hk, 10);
+    if (hours.indexOf(hn) === -1) hours.push(hn);
+  });
+  hours.sort(function(a, b) { return a - b; });
+
+  var html = '<div class="cal-week">';
+  html += '<div class="cal-week-header"></div>';
+  for (var d = 0; d < 7; d++) {
+    var dayDate = new Date(ws);
+    dayDate.setDate(dayDate.getDate() + d);
+    var dayK = dateKey(dayDate);
+    var isToday = dayK === today;
+    html += '<div class="cal-week-header' + (isToday ? " today" : "") + '">' + dayNames[d] + " " + dayDate.getDate() + '</div>';
+  }
+
+  hours.forEach(function(hr) {
+    html += '<div class="cal-time-label">' + fmtTime(hr, 0) + '</div>';
+    for (var d = 0; d < 7; d++) {
+      html += '<div class="cal-week-cell">';
+      var dayDate = new Date(ws);
+      dayDate.setDate(dayDate.getDate() + d);
+      schedData.forEach(function(sd) {
+        sd.occs.forEach(function(o) {
+          if (o.getHours() === hr && o.getDate() === dayDate.getDate() && o.getMonth() === dayDate.getMonth()) {
+            var label = esc(sd.sched.name) + " " + fmtTime(o.getHours(), o.getMinutes());
+            var disabledCls = sd.sched.enabled ? "" : " disabled";
+            html += '<div class="cal-event cal-color-' + sd.color + disabledCls + '" data-tooltip="' + label.replace(/"/g, "&quot;") + '">' + esc(sd.sched.name) + '</div>';
+          }
+        });
+      });
+      html += '</div>';
+    }
+  });
+  html += '</div>';
+
+  if (schedData.length === 0) {
+    html = '<div class="empty-state"><div class="empty-state-icon">📅</div><div class="empty-state-heading">No schedules</div><div class="empty-state-description">Create scheduled tasks to see them here</div></div>';
+  }
+  grid.innerHTML = html;
+}
+
+function renderMonthView() {
+  var grid = document.getElementById("cal-grid");
+  var year = calDate.getFullYear();
+  var month = calDate.getMonth();
+  var firstDay = new Date(year, month, 1);
+  var lastDay = new Date(year, month + 1, 0);
+  var today = todayStr();
+  var dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  // Get start of calendar grid (Monday before or on first day)
+  var startOffset = firstDay.getDay() === 0 ? -6 : 1 - firstDay.getDay();
+  var gridStart = new Date(year, month, 1 + startOffset);
+  gridStart.setHours(0, 0, 0, 0);
+
+  // Get end of calendar grid (fill to complete week)
+  var totalDays = lastDay.getDate() - startOffset;
+  var gridWeeks = Math.ceil(totalDays / 7);
+  var gridEnd = new Date(gridStart);
+  gridEnd.setDate(gridEnd.getDate() + gridWeeks * 7 - 1);
+  gridEnd.setHours(23, 59, 59, 999);
+
+  var schedData = calSchedules.map(function(s, i) {
+    return { sched: s, color: i % 8, occs: getOccurrences(s.schedule, gridStart, gridEnd), byDay: {} };
+  });
+
+  // Group occurrences by day for each schedule
+  schedData.forEach(function(sd) {
+    sd.byDay = groupByDay(sd.occs);
+  });
+
+  var html = '<div class="cal-month">';
+  dayNames.forEach(function(dn) {
+    html += '<div class="cal-month-header">' + dn + '</div>';
+  });
+
+  var cur = new Date(gridStart);
+  for (var i = 0; i < gridWeeks * 7; i++) {
+    var dk = dateKey(cur);
+    var isOutside = cur.getMonth() !== month;
+    var isToday = dk === today;
+    var cls = "cal-month-cell" + (isOutside ? " outside" : "") + (isToday ? " today" : "");
+    html += '<div class="' + cls + '">';
+    html += '<div class="day-num">' + cur.getDate() + '</div>';
+
+    // Collect schedules that fire on this day
+    var daySchedules = [];
+    schedData.forEach(function(sd) {
+      if (sd.byDay[dk] && sd.byDay[dk].length > 0) {
+        daySchedules.push(sd);
+      }
+    });
+
+    if (daySchedules.length <= 4) {
+      daySchedules.forEach(function(sd) {
+        var disabledCls = sd.sched.enabled ? "" : " disabled";
+        var count = sd.byDay[dk].length;
+        var times = sd.byDay[dk].map(function(o) { return fmtTime(o.getHours(), o.getMinutes()); }).join(", ");
+        var tip = esc(sd.sched.name) + " (" + times + ")";
+        html += '<div class="cal-month-event cal-color-' + sd.color + disabledCls + '" data-tooltip="' + tip.replace(/"/g, "&quot;") + '">' + esc(sd.sched.name) + (count > 1 ? " ×" + count : "") + '</div>';
+      });
+    } else {
+      html += '<div class="cal-dot-row">';
+      daySchedules.forEach(function(sd) {
+        var times = sd.byDay[dk].map(function(o) { return fmtTime(o.getHours(), o.getMinutes()); }).join(", ");
+        var tip = esc(sd.sched.name) + " (" + times + ")";
+        html += '<div class="cal-dot" style="background:' + CAL_COLORS[sd.color] + '" data-tooltip="' + tip.replace(/"/g, "&quot;") + '"></div>';
+      });
+      html += '</div>';
+    }
+
+    html += '</div>';
+    cur = new Date(cur);
+    cur.setDate(cur.getDate() + 1);
+  }
+  html += '</div>';
+
+  if (calSchedules.length === 0) {
+    html = '<div class="empty-state"><div class="empty-state-icon">📅</div><div class="empty-state-heading">No schedules</div><div class="empty-state-description">Create scheduled tasks to see them here</div></div>';
+  }
+  grid.innerHTML = html;
+}
+
+function updateCalTitle() {
+  var el = document.getElementById("cal-title");
+  if (calView === "week") {
+    var ws = getWeekStart(calDate);
+    var we = new Date(ws);
+    we.setDate(we.getDate() + 6);
+    var opts = { month: "short", day: "numeric" };
+    el.textContent = ws.toLocaleDateString(undefined, opts) + " – " + we.toLocaleDateString(undefined, opts) + ", " + ws.getFullYear();
+  } else {
+    el.textContent = calDate.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  }
+}
+
+function renderCalendarLegend() {
+  var el = document.getElementById("cal-legend-items");
+  if (calSchedules.length === 0) { el.innerHTML = ""; return; }
+  var html = "";
+  calSchedules.forEach(function(s, i) {
+    html += '<div class="cal-legend-item"><div class="cal-legend-swatch" style="background:' + CAL_COLORS[i % 8] + '"></div>' + esc(s.name) + '</div>';
+  });
+  el.innerHTML = html;
+}
+
+function renderCalendar() {
+  if (calView === "week") renderWeekView();
+  else renderMonthView();
+  updateCalTitle();
+  renderCalendarLegend();
+}
+
+async function loadCalendar() {
+  try {
+    calSchedules = await api("/api/schedules");
+    renderCalendar();
+  } catch (e) {
+    document.getElementById("cal-grid").innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠</div><div class="empty-state-heading">Failed to load</div><div class="empty-state-description">' + esc(e.message) + '</div></div>';
+  }
+}
+
+document.getElementById("cal-prev").addEventListener("click", function() {
+  if (calView === "week") { calDate.setDate(calDate.getDate() - 7); }
+  else { calDate.setMonth(calDate.getMonth() - 1); }
+  renderCalendar();
+});
+document.getElementById("cal-next").addEventListener("click", function() {
+  if (calView === "week") { calDate.setDate(calDate.getDate() + 7); }
+  else { calDate.setMonth(calDate.getMonth() + 1); }
+  renderCalendar();
+});
+document.getElementById("cal-today").addEventListener("click", function() {
+  calDate = new Date();
+  renderCalendar();
+});
+document.querySelectorAll("#cal-view-toggle button").forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    calView = btn.dataset.view;
+    document.querySelectorAll("#cal-view-toggle button").forEach(function(b) { b.classList.remove("active"); });
+    btn.classList.add("active");
+    renderCalendar();
+  });
+});
+
+// --- Auto-refresh ---
+let refreshInterval = null;
+function startAutoRefresh() {
+  refreshInterval = setInterval(() => {
+    if (activeTab === "status") loadStatus();
+    if (activeTab === "schedules") loadSchedules();
+    if (activeTab === "calendar") loadCalendar();
+  }, 30000);
+}
+
+// --- Init ---
+loadStatus();
+startAutoRefresh();
+
+// Clean up on tab close
+window.addEventListener("beforeunload", () => {
+  if (logSource) logSource.close();
+  if (refreshInterval) clearInterval(refreshInterval);
+});
+</script>
+<div class="toast-container" id="toast-container"></div>
+</body>
+</html>
