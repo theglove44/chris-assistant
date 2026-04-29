@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { existsSync, readFileSync, chmodSync } from "fs";
+import { existsSync, readFileSync, chmodSync, statSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { execFileSync } from "child_process";
@@ -285,27 +285,55 @@ export function registerDoctorCommand(program: Command) {
             if (!existsSync(dumpPath)) {
               return "pass";
             }
+            // Mode is the primary defense. The regex is a soft signal — variable
+            // names like DATABASE_URL or PASSWORD slip past it, so a loose mode
+            // is unsafe regardless of regex. Anything readable by group or other
+            // (any of the low 6 bits set) means another local user can read the
+            // plaintext env snapshot.
+            let modeBits: number | null = null;
+            try {
+              modeBits = statSync(dumpPath).mode & 0o077;
+            } catch (err: any) {
+              console.log("    Could not stat dump file: %s", err.message);
+              return "warn";
+            }
+            const looseMode = modeBits !== 0;
+
+            let regexHit = false;
             try {
               const contents = readFileSync(dumpPath, "utf-8");
               const secretPattern = /TOKEN|KEY|SECRET|AUTH|SESSION|WEBHOOK/i;
-              if (secretPattern.test(contents)) {
-                console.log(
-                  "    %s may contain plaintext secrets (dotenv-loaded env vars are snapshotted by `pm2 save`).",
-                  dumpPath,
-                );
-                console.log(
-                  "    Recommend rotating affected secrets, then re-running `pm2 save` after secret hygiene.",
-                );
-                console.log(
-                  "    Run `chris doctor --fix` to chmod 600 the dump file.",
-                );
-                return "warn";
-              }
-              return "pass";
+              regexHit = secretPattern.test(contents);
             } catch (err: any) {
               console.log("    Could not read dump file: %s", err.message);
               return "warn";
             }
+
+            if (!looseMode && !regexHit) {
+              return "pass";
+            }
+
+            if (looseMode) {
+              const octal = (statSync(dumpPath).mode & 0o777).toString(8).padStart(3, "0");
+              console.log(
+                "    %s is mode %s — readable by group/other (plaintext env snapshot exposed to local users).",
+                dumpPath,
+                octal,
+              );
+            }
+            if (regexHit) {
+              console.log(
+                "    %s contents match common secret-name patterns (TOKEN|KEY|SECRET|AUTH|SESSION|WEBHOOK).",
+                dumpPath,
+              );
+            }
+            console.log(
+              "    pm2 save snapshots dotenv-loaded env, not just vars passed to `pm2 start` — non-matching names (DATABASE_URL, PASSWORD, etc.) are still exposed.",
+            );
+            console.log(
+              "    Run `chris doctor --fix` to chmod 600 the dump file. Rotate any secrets that sat at a loose mode.",
+            );
+            return "warn";
           },
         },
       ];
