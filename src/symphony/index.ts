@@ -16,24 +16,34 @@ async function main(): Promise<void> {
   const { once, workflowPath } = parseArgs(process.argv.slice(2));
   const runtime = createSymphonyRuntime(workflowPath);
 
-  const shutdown = async () => {
-    await runtime.stop();
-    process.exit(0);
+  let shuttingDown = false;
+  const shutdown = async (code = 0) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    try {
+      await runtime.stop();
+    } catch (err) {
+      console.error("[symphony] shutdown error:", err);
+    }
+    process.exit(code);
   };
 
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", () => void shutdown(0));
+  process.on("SIGTERM", () => void shutdown(0));
+  process.on("SIGHUP", () => void shutdown(0));
 
   if (once) {
     await runtime.runOnce();
-    await runtime.stop();
+    // run-once was leaking child processes; force-exit guarantees codex
+    // children are torn down even if a handle keeps the loop alive.
+    await shutdown(0);
     return;
   }
 
   await runtime.start();
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
   console.error("[symphony] Fatal error:", err);
   process.exit(1);
 });
