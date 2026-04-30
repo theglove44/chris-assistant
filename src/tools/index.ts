@@ -18,9 +18,12 @@ import "./usage.js";
 import "./octopus-energy.js";
 import "./peekaboo.js";
 import "./x-api.js";
-// macOS-only tools — Calendar (EventKit) and Mail (AppleScript)
+// macOS-only tools — Calendar/Reminders (Swift EventKit) + Mail/Notes (AppleScript)
 if (process.platform === "darwin") {
-  await import("./macos.js");
+  await import("./macos-calendar.js");
+  await import("./macos-mail.js");
+  await import("./macos-reminders.js");
+  await import("./macos-notes.js");
 }
 
 // Re-export registry functions so providers only need to import from one place.
