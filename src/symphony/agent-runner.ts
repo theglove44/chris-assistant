@@ -24,7 +24,7 @@ export class AgentRunner {
   ) {}
 
   run(issue: Issue, attempt: number, onUpdate?: (update: AppServerUpdate) => void): RunnerHandle {
-    const sessionHolder: { stop?: () => void } = {};
+    const sessionHolder: { stop?: () => void; forceKill?: () => void } = {};
 
     const promise = (async (): Promise<IssueRunResult> => {
       const workspace = await this.workspaceManager.createForIssue(issue);
@@ -51,6 +51,7 @@ export class AgentRunner {
         );
 
         sessionHolder.stop = () => session.stop();
+        sessionHolder.forceKill = () => session.forceKill();
         const meta = await session.start();
         threadId = meta.threadId;
 
@@ -106,6 +107,10 @@ export class AgentRunner {
       stop(reason?: string) {
         appendIssueLog(issue.identifier, `[runner-stop] ${reason || "stop requested"}`);
         sessionHolder.stop?.();
+      },
+      forceKill(reason?: string) {
+        appendIssueLog(issue.identifier, `[runner-force-kill] ${reason || "force kill requested"}`);
+        sessionHolder.forceKill?.();
       },
     };
   }
