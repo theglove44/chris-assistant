@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, chmodSync, statSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { execFileSync } from "child_process";
@@ -294,6 +294,34 @@ export function registerDoctorCommand(program: Command) {
       // --fix: attempt to diagnose and repair
       if (opts.fix) {
         console.log("\n--- Auto-fix ---\n");
+
+        const dumpPath = resolve(process.env.HOME || "~", ".pm2/dump.pm2");
+        if (existsSync(dumpPath)) {
+          // pm2 save snapshots dotenv-loaded runtime env (not just --env vars) into dump.pm2.
+          const before = statSync(dumpPath).mode & 0o777;
+          chmodSync(dumpPath, 0o600);
+          if (before !== 0o600) {
+            console.log("  %s Tightened ~/.pm2/dump.pm2 to mode 0600 (was 0%s)", PASS, before.toString(8));
+          } else {
+            console.log("  %s ~/.pm2/dump.pm2 already mode 0600", PASS);
+          }
+          console.log("    Note: pm2 save snapshots the running process env (including dotenv-loaded secrets) into this file as plaintext.");
+
+          try {
+            const dumpText = readFileSync(dumpPath, "utf-8");
+            const secretRe = /"([A-Z0-9_]*(TOKEN|KEY|SECRET|AUTH|SESSION|WEBHOOK)[A-Z0-9_]*)"\s*:/gi;
+            const matches = new Set<string>();
+            for (const m of dumpText.matchAll(secretRe)) matches.add(m[1]);
+            if (matches.size > 0) {
+              console.log("  %s dump.pm2 contains %d secret-like env var(s):", WARN, matches.size);
+              for (const name of [...matches].sort()) console.log("      - %s", name);
+              console.log("    Verify these have been rotated. Values are not printed.");
+            }
+          } catch (err: any) {
+            console.log("  %s Could not scan dump.pm2: %s", WARN, err.message);
+          }
+          console.log("");
+        }
 
         const proc = await getBotProcess();
         const botErrored = proc && (proc.status === "errored" || proc.status === "stopped");
