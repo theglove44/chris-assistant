@@ -27,6 +27,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): { config: AppC
   const memoryRepo = values.GITHUB_MEMORY_REPO;
   const [owner, name] = memoryRepo.split("/");
 
+  const transport = values.TELEGRAM_TRANSPORT ?? "polling";
+  if (transport === "webhook" && (!values.TELEGRAM_WEBHOOK_URL || !values.TELEGRAM_WEBHOOK_SECRET)) {
+    throw new Error(
+      "Invalid configuration: TELEGRAM_TRANSPORT=webhook requires both TELEGRAM_WEBHOOK_URL and TELEGRAM_WEBHOOK_SECRET",
+    );
+  }
+
   const model = values.AI_MODEL || values.CLAUDE_MODEL || "gpt-4o";
   try {
     strictProviderForModel(model);
@@ -42,6 +49,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): { config: AppC
         botToken: values.TELEGRAM_BOT_TOKEN,
         allowedUserId: values.TELEGRAM_ALLOWED_USER_ID,
         allowBotMessages: values.TELEGRAM_ALLOW_BOT_MESSAGES ?? false,
+        transport,
+        webhookUrl: normalizeOptional(values.TELEGRAM_WEBHOOK_URL),
+        webhookSecret: normalizeOptional(values.TELEGRAM_WEBHOOK_SECRET),
+        webhookPort: values.TELEGRAM_WEBHOOK_PORT ?? 8443,
       },
       github: {
         token: values.GITHUB_TOKEN,

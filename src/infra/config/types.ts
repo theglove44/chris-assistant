@@ -5,6 +5,10 @@ export interface AppConfig {
     botToken: string;
     allowedUserId: number;
     allowBotMessages: boolean;
+    transport: "polling" | "webhook";
+    webhookUrl: string | null;
+    webhookSecret: string | null;
+    webhookPort: number;
   };
   github: {
     token: string;
