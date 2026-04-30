@@ -7,9 +7,9 @@ import { readMemoryFile } from "../../memory/github.js";
 import { invalidatePromptCache } from "../../providers/shared.js";
 import { providerDisplayName } from "../../providers/model-routing.js";
 import { getWorkspaceRoot, setWorkspaceRoot, isProjectActive } from "../../tools/files.js";
-import { datestamp, redactArchiveEntries, uploadArchives } from "../../conversation-archive.js";
 import { chatService } from "../../agent/chat-service.js";
 import { dreamStatus, forceDream } from "../../domain/memory/dream-service.js";
+import { purgeConfirmKeyboard, restartConfirmKeyboard } from "./callbacks.js";
 
 export const TELEGRAM_COMMAND_MENU = [
   { command: "start", description: "Greeting" },
@@ -38,24 +38,9 @@ export function registerTelegramCommands(bot: Bot<Context>): void {
   });
 
   bot.command("purge", async (ctx) => {
-    const chatId = ctx.chat.id;
-
-    await clearHistory(chatId);
-    chatService.clearSession(chatId);
-
-    const today = datestamp();
-    const removed = redactArchiveEntries(chatId, today);
-
-    if (removed > 0) {
-      uploadArchives().catch((err: any) => {
-        console.error("[telegram] Failed to upload redacted archive:", err.message);
-      });
-    }
-
     await ctx.reply(
-      removed > 0
-        ? `Conversation purged. ${removed} archive entries removed from today's log.`
-        : "Conversation cleared. No archive entries found for today.",
+      "Purge will clear this conversation AND remove today's archive entries. Continue?",
+      { reply_markup: purgeConfirmKeyboard() },
     );
   });
 
@@ -108,8 +93,10 @@ export function registerTelegramCommands(bot: Bot<Context>): void {
   });
 
   bot.command("restart", async (ctx) => {
-    await ctx.reply("Restarting... back in a few seconds.");
-    setTimeout(() => process.exit(0), 1500);
+    await ctx.reply(
+      "Restart the bot now?",
+      { reply_markup: restartConfirmKeyboard() },
+    );
   });
 
   bot.command("dream", async (ctx) => {

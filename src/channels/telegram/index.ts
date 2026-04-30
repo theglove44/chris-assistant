@@ -4,6 +4,7 @@ import { bot } from "./bot.js";
 import { TELEGRAM_COMMAND_MENU, registerTelegramCommands } from "./commands.js";
 import { registerTelegramMessageHandlers } from "./handlers.js";
 import { startWebhook, type WebhookRuntime } from "./webhook.js";
+import { registerTelegramCallbackHandlers } from "./callbacks.js";
 
 // Transport selection (env vars):
 //   TELEGRAM_TRANSPORT       = "polling" (default) | "webhook"
@@ -16,6 +17,7 @@ import { startWebhook, type WebhookRuntime } from "./webhook.js";
 
 registerTelegramCommands(bot);
 registerTelegramMessageHandlers(bot);
+registerTelegramCallbackHandlers(bot);
 
 export { bot };
 
