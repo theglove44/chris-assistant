@@ -1,8 +1,14 @@
 import { GrammyError } from "grammy";
 import { config } from "../../config.js";
+import { onSkillIndexChange } from "../../skills/loader.js";
 import { bot } from "./bot.js";
 import { TELEGRAM_COMMAND_MENU, registerTelegramCommands } from "./commands.js";
 import { registerTelegramMessageHandlers } from "./handlers.js";
+import {
+  loadSkillCommandPlan,
+  registerSkillCommandRouter,
+  setActiveSkillRoutes,
+} from "./skill-commands-runtime.js";
 import { startWebhook, type WebhookRuntime } from "./webhook.js";
 import { registerTelegramCallbackHandlers } from "./callbacks.js";
 
@@ -16,13 +22,43 @@ import { registerTelegramCallbackHandlers } from "./callbacks.js";
 // module listens plain HTTP on the loopback port the tunnel forwards to.
 
 registerTelegramCommands(bot);
+registerSkillCommandRouter(bot);
 registerTelegramMessageHandlers(bot);
 registerTelegramCallbackHandlers(bot);
+
+// Refresh the autocomplete menu whenever skills are created/updated/deleted.
+// First call happens later via the telegram-command-menu service; this only
+// debounces follow-up changes during runtime.
+onSkillIndexChange(() => {
+  setTelegramCommandMenu().catch((err) =>
+    console.warn("[telegram] skill-change menu refresh failed:", err?.message ?? err),
+  );
+});
 
 export { bot };
 
 export async function setTelegramCommandMenu(): Promise<void> {
-  await bot.api.setMyCommands([...TELEGRAM_COMMAND_MENU]);
+  // Skill list is dynamic, so refresh it each call. Falls back to static-only
+  // if the GitHub-backed skill index is unreachable — autocomplete still works.
+  let entries: { command: string; description: string }[] = [...TELEGRAM_COMMAND_MENU];
+  try {
+    const plan = await loadSkillCommandPlan(TELEGRAM_COMMAND_MENU);
+    entries = plan.entries;
+    setActiveSkillRoutes(plan.skillIdByCommand);
+    if (plan.skipped.length > 0) {
+      for (const s of plan.skipped) {
+        console.warn(`[telegram] skill command skipped: ${s.id} (${s.name}) — ${s.reason}`);
+      }
+    }
+    const skillCount = plan.skillIdByCommand.size;
+    if (skillCount > 0) {
+      console.log(`[telegram] registered ${skillCount} skill command(s) with autocomplete`);
+    }
+  } catch (err: any) {
+    console.warn("[telegram] failed to load skill command plan:", err?.message ?? err);
+    setActiveSkillRoutes(new Map());
+  }
+  await bot.api.setMyCommands(entries);
 }
 
 // Retry on 409 instead of crashing — another poller occasionally steals the
