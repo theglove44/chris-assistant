@@ -126,6 +126,7 @@ export async function saveSkill(skill: Skill): Promise<void> {
   // Update cache
   cachedIndex = index;
   lastIndexLoad = Date.now();
+  notifySkillIndexChanged();
 }
 
 /**
@@ -157,10 +158,32 @@ export async function deleteSkill(id: string): Promise<void> {
   // Update cache
   cachedIndex = filtered;
   lastIndexLoad = Date.now();
+  notifySkillIndexChanged();
 }
 
 /** Invalidate the cached index so the next load fetches fresh from GitHub. */
 export function invalidateSkillCache(): void {
   cachedIndex = null;
   lastIndexLoad = 0;
+}
+
+// ---------------------------------------------------------------------------
+// Change subscribers — fire after the index is mutated so listeners (e.g. the
+// Telegram channel command menu) can refresh without polling.
+// ---------------------------------------------------------------------------
+
+type SkillChangeListener = () => void | Promise<void>;
+const listeners = new Set<SkillChangeListener>();
+
+export function onSkillIndexChange(listener: SkillChangeListener): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+export function notifySkillIndexChanged(): void {
+  for (const listener of listeners) {
+    Promise.resolve()
+      .then(listener)
+      .catch((err) => console.warn("[skills] change listener failed:", err?.message ?? err));
+  }
 }
