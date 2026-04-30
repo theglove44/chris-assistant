@@ -16,7 +16,7 @@ export const envSchema = z.object({
     .url()
     .refine((u) => u.startsWith("https://"), "must be HTTPS")
     .optional(),
-  TELEGRAM_WEBHOOK_SECRET: z.string().min(1).optional(),
+  TELEGRAM_WEBHOOK_SECRET: z.string().min(1).max(256).optional(),
   TELEGRAM_WEBHOOK_PORT: z.coerce.number().int().positive().optional(),
   GITHUB_TOKEN: envString,
   GITHUB_MEMORY_REPO: envString.regex(/^[^/]+\/[^/]+$/, "Expected owner/repo format"),
