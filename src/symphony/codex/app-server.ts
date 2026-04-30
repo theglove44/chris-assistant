@@ -48,6 +48,7 @@ export class CodexAppServerSession {
       cwd: this.workspacePath,
       stdio: ["pipe", "pipe", "pipe"],
       env: process.env,
+      detached: true,
     });
 
     this.child.stderr.setEncoding("utf-8");
@@ -139,7 +140,9 @@ export class CodexAppServerSession {
   stop(): void {
     if (this.closed) return;
     this.closed = true;
-    this.child.kill("SIGTERM");
+    // run-once leaked 40+ codex children over weeks: killing the sh wrapper
+    // left codex orphaned. Kill the whole process group so codex dies with sh.
+    killProcessTree(this.child.pid);
   }
 
   private send(payload: Record<string, unknown>): void {
@@ -500,6 +503,20 @@ function looksLikePath(value: string): boolean {
   if (trimmed.includes("\n")) return false;
   if (trimmed === "." || trimmed === ".." || trimmed.startsWith("/") || trimmed.startsWith("~/")) return true;
   return trimmed.includes("/") || trimmed.includes("\\") || trimmed.startsWith(".");
+}
+
+function killProcessTree(pid: number | undefined): void {
+  if (!pid) return;
+  try {
+    // Negative pid targets the whole process group created by detached:true.
+    process.kill(-pid, "SIGTERM");
+  } catch {
+    try {
+      process.kill(pid, "SIGTERM");
+    } catch {
+      // already exited
+    }
+  }
 }
 
 function isPathInsideWorkspace(candidatePath: string, workspacePath: string): boolean {

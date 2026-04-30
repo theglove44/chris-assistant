@@ -99,9 +99,14 @@ export class SymphonyOrchestrator {
       }
     }
     this.retries.clear();
+    const pending: Promise<unknown>[] = [];
     for (const entry of this.running.values()) {
       entry.handle.stop("orchestrator shutdown");
+      pending.push(entry.handle.promise.catch(() => null));
     }
+    // Await runners so codex children finish tearing down before we exit.
+    await Promise.all(pending);
+    this.running.clear();
   }
 
   snapshot(): SymphonySnapshot {
