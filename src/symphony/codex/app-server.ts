@@ -145,6 +145,13 @@ export class CodexAppServerSession {
     killProcessTree(this.child.pid);
   }
 
+  forceKill(): void {
+    // Escape hatch for shutdown timeouts: SIGKILL the whole process group
+    // when SIGTERM (stop) didn't trigger a turn/completed within the budget.
+    this.closed = true;
+    killProcessTree(this.child.pid, "SIGKILL");
+  }
+
   private send(payload: Record<string, unknown>): void {
     this.child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", ...payload })}\n`);
   }
@@ -505,14 +512,14 @@ function looksLikePath(value: string): boolean {
   return trimmed.includes("/") || trimmed.includes("\\") || trimmed.startsWith(".");
 }
 
-function killProcessTree(pid: number | undefined): void {
+function killProcessTree(pid: number | undefined, signal: NodeJS.Signals = "SIGTERM"): void {
   if (!pid) return;
   try {
     // Negative pid targets the whole process group created by detached:true.
-    process.kill(-pid, "SIGTERM");
+    process.kill(-pid, signal);
   } catch {
     try {
-      process.kill(pid, "SIGTERM");
+      process.kill(pid, signal);
     } catch {
       // already exited
     }

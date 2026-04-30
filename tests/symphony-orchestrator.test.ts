@@ -256,4 +256,72 @@ describe("SymphonyOrchestrator", () => {
       await orchestrator.stop();
     });
   });
+
+  it("bounds stop() with a shutdown timeout and force-kills stragglers", async () => {
+    await withTempHome(async () => {
+      const { SymphonyOrchestrator } = await import("../src/symphony/orchestrator.js");
+      const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "symphony-orchestrator-"));
+      cleanupPaths.push(workspaceRoot);
+
+      const tracker: Tracker = {
+        async fetchCandidateIssues() { return []; },
+        async fetchIssuesByStates() { return []; },
+        async fetchIssueStatesByIds() { return []; },
+        async createComment() {},
+        async updateIssueState() {},
+      };
+
+      const orchestrator = new SymphonyOrchestrator(
+        makeDefinition(path.join(workspaceRoot, "WORKFLOW.md")),
+        makeConfig(workspaceRoot),
+        tracker,
+        DYNAMIC_TOOLS,
+      );
+
+      // Inject a fake running entry whose handle.promise never resolves, the
+      // shape orchestrator.stop() would otherwise wait turnTimeoutMs (1hr) for.
+      const issue = makeIssue();
+      let stopCalled = false;
+      let forceKillCalled = false;
+      const handle = {
+        promise: new Promise<never>(() => { /* never resolves */ }),
+        stop() { stopCalled = true; },
+        forceKill() { forceKillCalled = true; },
+      };
+      (orchestrator as any).running.set(issue.id, {
+        issue,
+        attempt: 0,
+        startedAt: Date.now(),
+        handle,
+        workspacePath: null,
+        threadId: null,
+        turnId: null,
+        lastEvent: null,
+        lastMessage: null,
+      });
+
+      const previousTimeout = process.env.SYMPHONY_SHUTDOWN_TIMEOUT_MS;
+      process.env.SYMPHONY_SHUTDOWN_TIMEOUT_MS = "100";
+      const warnings: unknown[][] = [];
+      const previousWarn = console.warn;
+      console.warn = (...args: unknown[]) => { warnings.push(args); };
+      try {
+        const startedAt = Date.now();
+        await orchestrator.stop();
+        const elapsed = Date.now() - startedAt;
+        expect(elapsed).toBeLessThan(2_000);
+        expect(stopCalled).toBe(true);
+        expect(forceKillCalled).toBe(true);
+        expect(warnings.some((w) => String(w[0]).includes("shutdown timed out"))).toBe(true);
+        expect((orchestrator as any).running.size).toBe(0);
+      } finally {
+        console.warn = previousWarn;
+        if (previousTimeout === undefined) {
+          delete process.env.SYMPHONY_SHUTDOWN_TIMEOUT_MS;
+        } else {
+          process.env.SYMPHONY_SHUTDOWN_TIMEOUT_MS = previousTimeout;
+        }
+      }
+    });
+  });
 });

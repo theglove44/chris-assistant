@@ -142,6 +142,7 @@ export interface IssueRunResult {
 export interface RunnerHandle {
   promise: Promise<IssueRunResult>;
   stop(reason?: string): void;
+  forceKill?(reason?: string): void;
 }
 
 export interface RetryEntrySnapshot {

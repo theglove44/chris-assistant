@@ -24,6 +24,17 @@ import type {
 const CI_FEEDBACK_WAIT_TIMEOUT_MS = 60_000;
 const CI_FEEDBACK_POLL_INTERVAL_MS = 5_000;
 
+// Bound shutdown so SIGINT/SIGTERM mid-turn can't block on turnTimeoutMs (1hr default)
+// when the codex child fails to emit turn/completed after process-group SIGTERM.
+const DEFAULT_SHUTDOWN_TIMEOUT_MS = 5_000;
+
+function getShutdownTimeoutMs(): number {
+  const raw = process.env.SYMPHONY_SHUTDOWN_TIMEOUT_MS;
+  if (!raw) return DEFAULT_SHUTDOWN_TIMEOUT_MS;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_SHUTDOWN_TIMEOUT_MS;
+}
+
 interface RetryEntry {
   issue: Issue;
   attempt: number;
@@ -99,13 +110,42 @@ export class SymphonyOrchestrator {
       }
     }
     this.retries.clear();
-    const pending: Promise<unknown>[] = [];
+    const pending: Array<{ identifier: string; entry: RunningEntry; settled: boolean }> = [];
+    const promises: Promise<unknown>[] = [];
     for (const entry of this.running.values()) {
       entry.handle.stop("orchestrator shutdown");
-      pending.push(entry.handle.promise.catch(() => null));
+      const item = { identifier: entry.issue.identifier, entry, settled: false };
+      pending.push(item);
+      promises.push(entry.handle.promise.catch(() => null).finally(() => {
+        item.settled = true;
+      }));
     }
-    // Await runners so codex children finish tearing down before we exit.
-    await Promise.all(pending);
+
+    // Await runners so codex children finish tearing down before we exit, but
+    // bound the wait: if codex doesn't emit turn/completed after SIGTERM, the
+    // runner promise can otherwise block on turnTimeoutMs (1hr default).
+    const timeoutMs = getShutdownTimeoutMs();
+    const TIMED_OUT = Symbol("shutdown-timeout");
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const timeoutPromise = new Promise<typeof TIMED_OUT>((resolve) => {
+      timer = setTimeout(() => resolve(TIMED_OUT), timeoutMs);
+    });
+
+    const all = Promise.all(promises).then(() => "ok" as const);
+    const outcome = await Promise.race([all, timeoutPromise]);
+    if (timer) clearTimeout(timer);
+
+    if (outcome === TIMED_OUT) {
+      const stragglers = pending.filter((item) => !item.settled);
+      console.warn(
+        `[symphony] shutdown timed out after ${timeoutMs}ms; force-killing runners:`,
+        stragglers.map((item) => item.identifier),
+      );
+      for (const item of stragglers) {
+        item.entry.handle.forceKill?.("orchestrator shutdown timeout");
+      }
+    }
+
     this.running.clear();
   }
 
