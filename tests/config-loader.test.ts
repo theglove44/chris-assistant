@@ -60,6 +60,45 @@ describe("loadConfig", () => {
     expect(() => loadConfig({})).toThrow(/TELEGRAM_BOT_TOKEN/);
   });
 
+  it("defaults telegram transport to polling", () => {
+    const { config } = loadConfig(baseEnv);
+    expect(config.telegram.transport).toBe("polling");
+    expect(config.telegram.webhookPort).toBe(8443);
+    expect(config.telegram.webhookUrl).toBeNull();
+    expect(config.telegram.webhookSecret).toBeNull();
+  });
+
+  it("accepts webhook transport with URL + secret", () => {
+    const { config } = loadConfig({
+      ...baseEnv,
+      TELEGRAM_TRANSPORT: "webhook",
+      TELEGRAM_WEBHOOK_URL: "https://bot.example.com/tg",
+      TELEGRAM_WEBHOOK_SECRET: "shh",
+      TELEGRAM_WEBHOOK_PORT: "9000",
+    });
+    expect(config.telegram.transport).toBe("webhook");
+    expect(config.telegram.webhookUrl).toBe("https://bot.example.com/tg");
+    expect(config.telegram.webhookSecret).toBe("shh");
+    expect(config.telegram.webhookPort).toBe(9000);
+  });
+
+  it("rejects webhook transport without URL or secret", () => {
+    expect(() =>
+      loadConfig({ ...baseEnv, TELEGRAM_TRANSPORT: "webhook" }),
+    ).toThrow(/TELEGRAM_WEBHOOK_URL/);
+  });
+
+  it("rejects non-https webhook URL", () => {
+    expect(() =>
+      loadConfig({
+        ...baseEnv,
+        TELEGRAM_TRANSPORT: "webhook",
+        TELEGRAM_WEBHOOK_URL: "http://bot.example.com/tg",
+        TELEGRAM_WEBHOOK_SECRET: "shh",
+      }),
+    ).toThrow(/HTTPS|Invalid configuration/);
+  });
+
   it("rejects invalid memory repo format", () => {
     expect(() =>
       loadConfig({

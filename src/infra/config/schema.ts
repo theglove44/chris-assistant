@@ -10,6 +10,14 @@ export const envSchema = z.object({
   TELEGRAM_BOT_TOKEN: envString,
   TELEGRAM_ALLOWED_USER_ID: z.coerce.number().int(),
   TELEGRAM_ALLOW_BOT_MESSAGES: z.coerce.boolean().optional(),
+  TELEGRAM_TRANSPORT: z.enum(["polling", "webhook"]).optional(),
+  TELEGRAM_WEBHOOK_URL: z
+    .string()
+    .url()
+    .refine((u) => u.startsWith("https://"), "must be HTTPS")
+    .optional(),
+  TELEGRAM_WEBHOOK_SECRET: z.string().min(1).optional(),
+  TELEGRAM_WEBHOOK_PORT: z.coerce.number().int().positive().optional(),
   GITHUB_TOKEN: envString,
   GITHUB_MEMORY_REPO: envString.regex(/^[^/]+\/[^/]+$/, "Expected owner/repo format"),
   DISCORD_BOT_TOKEN: z.string().optional(),

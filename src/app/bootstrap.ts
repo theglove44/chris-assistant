@@ -40,6 +40,6 @@ export async function stopApp(): Promise<void> {
     runtimeStarted = false;
   }
 
-  stopTelegram();
+  await stopTelegram();
   await preTelegramRegistry.stopAll();
 }
