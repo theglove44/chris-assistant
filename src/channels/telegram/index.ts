@@ -58,7 +58,11 @@ export async function setTelegramCommandMenu(): Promise<void> {
     console.warn("[telegram] failed to load skill command plan:", err?.message ?? err);
     setActiveSkillRoutes(new Map());
   }
+  // Write both scopes: clients prefer scope-specific over default, so a stale
+  // all_private_chats list (set by an earlier code rev or BotFather) would
+  // otherwise hide the real menu in DMs. Keeping both in sync prevents drift.
   await bot.api.setMyCommands(entries);
+  await bot.api.setMyCommands(entries, { scope: { type: "all_private_chats" } });
 }
 
 // Retry on 409 instead of crashing — another poller occasionally steals the
