@@ -4,6 +4,9 @@ dist/
 *.log
 .DS_Store
 .claude/worktrees/
+.claude/scheduled_tasks.lock
+.claude/skills/wiki-ingest/
+.memsearch/
 .codex/
 docs/.vitepress/cache
 docs/.vitepress/dist
