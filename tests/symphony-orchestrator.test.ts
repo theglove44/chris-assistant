@@ -54,7 +54,7 @@ function makeConfig(workspaceRoot: string): SymphonyConfig {
       beforeRemove: null,
       timeoutMs: 10_000,
     },
-    agent: { maxConcurrentAgents: 0, maxTurns: 1, maxRetryBackoffMs: 10_000 },
+    agent: { maxConcurrentAgents: 0, maxTurns: 1, maxRetryBackoffMs: 10_000, provider: "codex" as const },
     codex: {
       command: "codex app-server",
       model: null,
@@ -65,6 +65,12 @@ function makeConfig(workspaceRoot: string): SymphonyConfig {
       readTimeoutMs: 5_000,
       stallTimeoutMs: 5_000,
       serviceName: "test-symphony",
+    },
+    claudeCode: {
+      model: "claude-sonnet-4-6",
+      maxTurnsPerQuery: null,
+      systemPromptAppend: null,
+      turnTimeoutMs: 3_600_000,
     },
     server: { host: "127.0.0.1", port: null },
   };

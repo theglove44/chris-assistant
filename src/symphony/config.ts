@@ -2,7 +2,7 @@ import * as os from "os";
 import * as path from "path";
 import { resolveCodexBinary } from "../codex.js";
 import { SYMPHONY_HOME } from "./paths.js";
-import type { CodexApprovalPolicy, SymphonyConfig, WorkflowDefinition } from "./types.js";
+import type { ClaudeCodeConfig, CodexApprovalPolicy, SymphonyConfig, WorkflowDefinition } from "./types.js";
 
 const DEFAULT_ACTIVE_STATES = ["Todo", "In Progress"];
 const DEFAULT_TERMINAL_STATES = ["Closed", "Cancelled", "Canceled", "Duplicate", "Done"];
@@ -65,6 +65,10 @@ function approvalPolicyValue(value: unknown): CodexApprovalPolicy {
   };
 }
 
+function agentProviderValue(value: string | null): SymphonyConfig["agent"]["provider"] {
+  return value?.trim().toLowerCase() === "claude-code" ? "claude-code" : "codex";
+}
+
 export function buildSymphonyConfig(definition: WorkflowDefinition): SymphonyConfig {
   const tracker = section(definition.config, "tracker");
   const polling = section(definition.config, "polling");
@@ -73,6 +77,7 @@ export function buildSymphonyConfig(definition: WorkflowDefinition): SymphonyCon
   const hooks = section(definition.config, "hooks");
   const agent = section(definition.config, "agent");
   const codex = section(definition.config, "codex");
+  const claudeCode = section(definition.config, "claude_code");
   const server = section(definition.config, "server");
 
   const resolvedConfig: SymphonyConfig = {
@@ -129,6 +134,7 @@ export function buildSymphonyConfig(definition: WorkflowDefinition): SymphonyCon
       maxConcurrentAgents: intValue(agent.max_concurrent_agents, 2),
       maxTurns: intValue(agent.max_turns, 20),
       maxRetryBackoffMs: intValue(agent.max_retry_backoff_ms, 300_000),
+      provider: agentProviderValue(stringValue(agent.provider)),
     },
     codex: {
       command: stringValue(codex.command) || `${resolveCodexBinary() || "codex"} app-server`,
@@ -141,6 +147,7 @@ export function buildSymphonyConfig(definition: WorkflowDefinition): SymphonyCon
       stallTimeoutMs: intValue(codex.stall_timeout_ms, 300_000),
       serviceName: stringValue(codex.service_name) || "chris-assistant-symphony",
     },
+    claudeCode: buildClaudeCodeConfig(claudeCode),
     server: {
       host: stringValue(server.host) || "127.0.0.1",
       port: typeof server.port === "number" ? Math.trunc(server.port) : 3010,
@@ -149,6 +156,15 @@ export function buildSymphonyConfig(definition: WorkflowDefinition): SymphonyCon
 
   validateSymphonyConfig(resolvedConfig);
   return resolvedConfig;
+}
+
+function buildClaudeCodeConfig(raw: Record<string, unknown>): ClaudeCodeConfig {
+  return {
+    model: stringValue(raw.model) || process.env.AI_MODEL || "claude-sonnet-4-6",
+    maxTurnsPerQuery: typeof raw.max_turns_per_query === "number" ? Math.trunc(raw.max_turns_per_query) : null,
+    systemPromptAppend: stringValue(raw.system_prompt_append),
+    turnTimeoutMs: intValue(raw.turn_timeout_ms, 3_600_000),
+  };
 }
 
 export function buildTurnSandboxPolicy(config: SymphonyConfig, workspacePath: string): Record<string, unknown> {
@@ -186,11 +202,11 @@ export function validateSymphonyConfig(config: SymphonyConfig): void {
     throw new Error("landing.enabled currently requires tracker.kind: github");
   }
 
-  if (config.landing.enabled && !config.landing.branchPrefix.startsWith("codex/")) {
-    throw new Error("landing.branch_prefix must start with codex/");
+  if (config.landing.enabled && config.agent.provider === "codex" && !config.landing.branchPrefix.startsWith("codex/")) {
+    throw new Error("landing.branch_prefix must start with codex/ when using the codex provider");
   }
 
-  if (!config.codex.command.trim()) {
+  if (config.agent.provider === "codex" && !config.codex.command.trim()) {
     throw new Error("Missing codex.command in WORKFLOW.md");
   }
 }

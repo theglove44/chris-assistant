@@ -36,6 +36,13 @@ export type CodexApprovalPolicy =
 
 export type CodexThreadSandbox = "read-only" | "workspace-write" | "danger-full-access";
 
+export interface ClaudeCodeConfig {
+  model: string;
+  maxTurnsPerQuery: number | null;
+  systemPromptAppend: string | null;
+  turnTimeoutMs: number;
+}
+
 export interface SymphonyConfig {
   workflowPath: string;
   tracker: {
@@ -77,6 +84,7 @@ export interface SymphonyConfig {
     maxConcurrentAgents: number;
     maxTurns: number;
     maxRetryBackoffMs: number;
+    provider: "codex" | "claude-code";
   };
   codex: {
     command: string;
@@ -89,6 +97,7 @@ export interface SymphonyConfig {
     stallTimeoutMs: number;
     serviceName: string | null;
   };
+  claudeCode: ClaudeCodeConfig;
   server: {
     host: string;
     port: number | null;

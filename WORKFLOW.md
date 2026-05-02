@@ -44,6 +44,7 @@ agent:
   max_concurrent_agents: 2
   max_turns: 4
   max_retry_backoff_ms: 300000
+  # provider: claude-code  # Uncomment to use Claude Code sub-agents instead of Codex
 codex:
   command: "codex app-server"
   approval_policy:
@@ -52,6 +53,11 @@ codex:
       rules: true
       mcp_elicitations: true
   thread_sandbox: workspace-write
+# claude_code:
+#   model: claude-sonnet-4-6       # Default: AI_MODEL env or claude-sonnet-4-6
+#   max_turns_per_query: 20        # Optional cap on tool-call turns per AgentRunner turn
+#   system_prompt_append: |        # Optional extra text appended to the claude_code system prompt
+#     Always run npm run typecheck before moving to human-review.
 server:
   host: "127.0.0.1"
   port: 3010
