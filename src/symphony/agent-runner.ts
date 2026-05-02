@@ -1,9 +1,12 @@
 import { buildTurnSandboxPolicy } from "./config.js";
 import { CodexAppServerSession } from "./codex/app-server.js";
+import { ClaudeCodeSession } from "./claude-code/session.js";
 import { appendIssueLog } from "./paths.js";
 import { renderWorkflowPrompt } from "./workflow.js";
 import { WorkspaceManager } from "./workspace.js";
 import type {
+  AppServerSessionMeta,
+  AppServerTurnResult,
   AppServerUpdate,
   DynamicToolHandler,
   Issue,
@@ -13,6 +16,26 @@ import type {
   Tracker,
   WorkflowDefinition,
 } from "./types.js";
+
+interface AgentSession {
+  start(): Promise<AppServerSessionMeta>;
+  runTurn(prompt: string): Promise<AppServerTurnResult>;
+  stop(): void;
+  forceKill(): void;
+}
+
+function createSession(
+  config: SymphonyConfig,
+  workspacePath: string,
+  issue: Issue,
+  dynamicTools: DynamicToolHandler,
+  onUpdate?: (update: AppServerUpdate) => void,
+): AgentSession {
+  if (config.agent.provider === "claude-code") {
+    return new ClaudeCodeSession(config, workspacePath, issue, dynamicTools, onUpdate);
+  }
+  return new CodexAppServerSession(config, workspacePath, issue, dynamicTools, onUpdate);
+}
 
 export class AgentRunner {
   constructor(
@@ -35,7 +58,7 @@ export class AgentRunner {
       let turnId: string | null = null;
 
       try {
-        const session = new CodexAppServerSession(
+        const session = createSession(
           this.config,
           workspace.path,
           issue,
