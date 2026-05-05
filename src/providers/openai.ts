@@ -195,7 +195,7 @@ export function createOpenAiProvider(model: string): Provider {
       const accessToken = await getValidAccessToken();
       const accountId = getAccountId();
 
-      const systemPrompt = await getSystemPrompt();
+      const systemPrompt = await getSystemPrompt(userMessage);
       const conversationContext = await formatHistoryForPrompt(chatId);
 
       const fullUserMessage = conversationContext

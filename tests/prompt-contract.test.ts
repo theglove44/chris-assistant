@@ -10,12 +10,17 @@ const fixtures = vi.hoisted(() => {
     curatedSummary: "Chris is rebuilding confidence in his personal assistant.",
     skillIndex: "- **debug_self** - Inspect assistant runtime\n  Triggers: \"debug yourself\"",
   };
+  const recalledMemory = {
+    path: "/Users/christaylor/Projects/chris-assistant/memory/trading-agent.md",
+    mtimeMs: Date.UTC(2026, 4, 5),
+    content: "Chris is building My Trading Agent and wants continuity across providers.",
+  };
 
   const config = {
     model: "gpt-5.2",
   };
 
-  return { memory, config };
+  return { memory, recalledMemory, config };
 });
 
 vi.mock("../src/config.js", () => ({
@@ -37,6 +42,13 @@ vi.mock("../src/memory/loader.js", () => ({
   ].filter(Boolean).join("\n\n---\n\n")),
 }));
 
+vi.mock("../src/domain/memory/recall.js", () => ({
+  findRelevantMemories: vi.fn(async () => [fixtures.recalledMemory]),
+  formatRecalledMemories: vi.fn((memories: typeof fixtures.recalledMemory[]) => memories.length
+    ? `# Recalled Memories\n\n### trading-agent.md\n${memories[0].content}`
+    : ""),
+}));
+
 vi.mock("../src/tools/files.js", () => ({
   getWorkspaceRoot: vi.fn(() => "/Users/christaylor/Projects/chris-assistant"),
   isProjectActive: vi.fn(() => true),
@@ -55,18 +67,18 @@ import {
   invalidatePromptCache,
 } from "../src/providers/shared.js";
 
-async function assembledPrompts(): Promise<string[]> {
+async function assembledPrompts(userMessage?: string): Promise<string[]> {
   fixtures.config.model = "gpt-5.2";
   invalidatePromptCache();
-  const openai = await getSystemPrompt();
+  const openai = await getSystemPrompt(userMessage);
 
   fixtures.config.model = "claude-sonnet-4-6";
   invalidatePromptCache();
-  const claude = await getClaudeAppendPrompt();
+  const claude = await getClaudeAppendPrompt(userMessage);
 
   fixtures.config.model = "codex-agent-o4-mini";
   invalidatePromptCache();
-  const codex = await getCodexSystemPrompt();
+  const codex = await getCodexSystemPrompt(userMessage);
 
   return [openai, claude, codex];
 }
@@ -115,6 +127,36 @@ describe("assistant runtime prompt contract", () => {
     expect(prompt).toContain("Tools Available");
   });
 
+  it("assembles identity, curated memory, recent summaries, recalled memories, and current time for every provider", async () => {
+    for (const prompt of await assembledPrompts("what should you remember about my trading agent?")) {
+      expect(prompt).toContain("Chris Assistant is warm, direct, and continuous.");
+      expect(prompt).toContain("Chris is rebuilding confidence in his personal assistant.");
+      expect(prompt).toContain("Discussed recovery planning.");
+      expect(prompt).toContain("# Recalled Memories");
+      expect(prompt).toContain("Chris is building My Trading Agent");
+      expect(prompt).toContain("# Current Date & Time");
+      expect(prompt).toContain("Europe/London");
+    }
+  });
+
+  it("adds recalled memories even when the base provider prompt is cached", async () => {
+    await getSystemPrompt();
+    const openai = await getSystemPrompt("what should you remember about my trading agent?");
+    expect(openai).toContain("# Recalled Memories");
+
+    fixtures.config.model = "claude-sonnet-4-6";
+    invalidatePromptCache();
+    await getClaudeAppendPrompt();
+    const claude = await getClaudeAppendPrompt("what should you remember about my trading agent?");
+    expect(claude).toContain("# Recalled Memories");
+
+    fixtures.config.model = "codex-agent-o4-mini";
+    invalidatePromptCache();
+    await getCodexSystemPrompt();
+    const codex = await getCodexSystemPrompt("what should you remember about my trading agent?");
+    expect(codex).toContain("# Recalled Memories");
+  });
+
   it("suppresses provider identity leakage for Claude and Codex agent modes", async () => {
     fixtures.config.model = "claude-sonnet-4-6";
     invalidatePromptCache();
@@ -151,6 +193,7 @@ describe("prompt inspection", () => {
       "Runtime Context",
       "Provider Adapter",
       "Formatting",
+      "Current Date & Time",
       "Project Context",
     ]) {
       expect(report).toContain(section);

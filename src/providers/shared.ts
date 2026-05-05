@@ -6,6 +6,7 @@ import { config } from "../config.js";
 import { resetLoopDetection } from "../tools/index.js";
 import { getWorkspaceRoot, isProjectActive, setWorkspaceChangeCallback } from "../tools/files.js";
 import { LIMITS } from "../infra/config/limits.js";
+import { findRelevantMemories, formatRecalledMemories } from "../domain/memory/recall.js";
 
 let cachedSystemPrompt: string | null = null;
 let lastPromptLoad = 0;
@@ -50,6 +51,7 @@ interface PromptAssembly {
   runtimeContext: string;
   providerAdapter: string;
   formatting: string;
+  currentDateTime: string;
   projectContext: string;
 }
 
@@ -188,6 +190,7 @@ function assemblePromptSections(memory: LoadedMemory, mode: PromptProviderMode, 
     runtimeContext: buildRuntimeContextSection(model, provider),
     providerAdapter: buildProviderAdapterSection(mode),
     formatting: buildFormattingSection(),
+    currentDateTime: currentDateTimeSection(),
     projectContext: buildProjectContextSection(bootstrap),
   };
 }
@@ -249,6 +252,7 @@ export async function inspectPrompt(): Promise<string> {
       { name: "Runtime Context", present: true, chars: sections.runtimeContext.length },
       { name: "Provider Adapter", present: true, chars: sections.providerAdapter.length },
       { name: "Formatting", present: true, chars: sections.formatting.length },
+      { name: "Current Date & Time", present: true, chars: sections.currentDateTime.length },
       { name: "Project Context", present: !!sections.projectContext, chars: sections.projectContext.length },
     ],
   });
@@ -310,7 +314,7 @@ Triggers for each category:
   return section;
 }
 
-export async function getSystemPrompt(): Promise<string> {
+export async function getSystemPrompt(userMessage?: string): Promise<string> {
   const now = Date.now();
   if (!cachedSystemPrompt || now - lastPromptLoad > PROMPT_CACHE_MS) {
     console.log("[prompt] Loading memory from GitHub...");
@@ -325,12 +329,13 @@ export async function getSystemPrompt(): Promise<string> {
       sections.runtimeContext,
       sections.providerAdapter,
       sections.formatting,
+      sections.currentDateTime,
       sections.projectContext,
     ]);
     lastPromptLoad = now;
     console.log("[prompt] System prompt loaded (%d chars)", cachedSystemPrompt.length);
   }
-  return cachedSystemPrompt;
+  return appendRecalledMemoryContext(cachedSystemPrompt, userMessage, "openai");
 }
 
 export function invalidatePromptCache(): void {
@@ -356,10 +361,39 @@ let lastCodexPromptLoad = 0;
  * knowledge, and Telegram formatting rules, but skips the capabilities
  * section since Claude Code's preset already handles tool descriptions.
  */
-export async function getClaudeAppendPrompt(): Promise<string> {
+export async function getRecalledMemoryPrompt(userMessage: string, providerLabel: string): Promise<string> {
+  if (!userMessage.trim()) return "";
+
+  const recalledMemories = await findRelevantMemories(userMessage).catch((e) => {
+    console.warn("[%s] Memory recall failed: %s", providerLabel, e instanceof Error ? e.message : e);
+    return [];
+  });
+
+  const recalledSection = formatRecalledMemories(recalledMemories);
+  if (recalledMemories.length > 0) {
+    console.log("[%s] Recalled %d memories for current turn", providerLabel, recalledMemories.length);
+  }
+
+  return recalledSection;
+}
+
+async function appendRecalledMemoryContext(
+  basePrompt: string,
+  userMessage: string | undefined,
+  providerLabel: string,
+): Promise<string> {
+  if (!userMessage) return basePrompt;
+
+  const recalledSection = await getRecalledMemoryPrompt(userMessage, providerLabel);
+  return recalledSection
+    ? joinPromptSections([basePrompt, recalledSection])
+    : basePrompt;
+}
+
+export async function getClaudeAppendPrompt(userMessage?: string): Promise<string> {
   const now = Date.now();
   if (cachedClaudeAppendPrompt && now - lastClaudePromptLoad < PROMPT_CACHE_MS) {
-    return cachedClaudeAppendPrompt;
+    return appendRecalledMemoryContext(cachedClaudeAppendPrompt, userMessage, "claude");
   }
 
   console.log("[prompt] Loading memory for Claude append prompt...");
@@ -377,13 +411,13 @@ export async function getClaudeAppendPrompt(): Promise<string> {
   lastClaudePromptLoad = now;
   console.log("[prompt] Claude append prompt loaded (%d chars)", cachedClaudeAppendPrompt.length);
 
-  return cachedClaudeAppendPrompt;
+  return appendRecalledMemoryContext(cachedClaudeAppendPrompt, userMessage, "claude");
 }
 
-export async function getCodexSystemPrompt(): Promise<string> {
+export async function getCodexSystemPrompt(userMessage?: string): Promise<string> {
   const now = Date.now();
   if (cachedCodexSystemPrompt && now - lastCodexPromptLoad < PROMPT_CACHE_MS) {
-    return cachedCodexSystemPrompt;
+    return appendRecalledMemoryContext(cachedCodexSystemPrompt, userMessage, "codex-agent");
   }
 
   console.log("[prompt] Loading memory for Codex system prompt...");
@@ -397,10 +431,11 @@ export async function getCodexSystemPrompt(): Promise<string> {
     sections.runtimeContext,
     sections.providerAdapter,
     sections.formatting,
+    sections.currentDateTime,
     sections.projectContext,
   ]);
   lastCodexPromptLoad = now;
   console.log("[prompt] Codex system prompt loaded (%d chars)", cachedCodexSystemPrompt.length);
 
-  return cachedCodexSystemPrompt;
+  return appendRecalledMemoryContext(cachedCodexSystemPrompt, userMessage, "codex-agent");
 }

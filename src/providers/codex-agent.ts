@@ -4,7 +4,7 @@ import * as path from "path";
 import { resolveCodexBinary } from "../codex.js";
 import { getThreadId, setThreadId } from "../codex-sessions.js";
 import { getWorkspaceRoot } from "../tools/files.js";
-import { getCodexSystemPrompt, invalidatePromptCache } from "./shared.js";
+import { getCodexSystemPrompt, getRecalledMemoryPrompt, invalidatePromptCache } from "./shared.js";
 import type { ImageAttachment, Provider } from "./types.js";
 
 const activeControllers = new Map<number, AbortController>();
@@ -75,7 +75,14 @@ export function createCodexAgentProvider(model: string): Provider {
       const imageNote = images && images.length > 0
         ? `[${images.length} image(s) were attached, but this Codex agent mode is running text-only here. The user's caption follows.]\n\n`
         : "";
-      const systemContext = existingThreadId ? "" : `<system>\n${await getCodexSystemPrompt()}\n</system>\n\n`;
+      const recalledContext = existingThreadId
+        ? await getRecalledMemoryPrompt(userMessage, "codex-agent")
+        : "";
+      const systemContext = existingThreadId
+        ? recalledContext
+          ? `<system>\n${recalledContext}\n</system>\n\n`
+          : ""
+        : `<system>\n${await getCodexSystemPrompt(userMessage)}\n</system>\n\n`;
       const prompt = `${systemContext}${imageNote}${userMessage}`;
 
       let latestText = "";
