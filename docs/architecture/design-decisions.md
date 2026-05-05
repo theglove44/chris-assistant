@@ -65,7 +65,7 @@ The bot writes structured notes throughout the day via the `journal_entry` tool.
 
 ## Recent Summaries in System Prompt
 
-`loader.ts` loads the last 7 days of daily summaries from the memory repo (in parallel with identity/knowledge/memory loads). Injected as a `# Recent Conversation History` section in `buildSystemPrompt()`. This gives the bot natural recall of recent conversations without needing a tool call.
+`loader.ts` loads the last 7 days of daily summaries from the memory repo in parallel with the canonical identity, user, and memory files. Injected as a `# Recent Conversation History` section in `buildSystemPrompt()`. This gives the bot natural recall of recent conversations without needing a tool call.
 
 ## System Prompt Caching
 
@@ -117,7 +117,7 @@ File tools scope to `WORKSPACE_ROOT` (default `~/Projects`). Mutable at runtime 
 
 ## Weekly Memory Consolidation
 
-`src/memory-consolidation.ts` — built-in module, fires Sunday at 23:00. Reads all knowledge, memory, past 7 days of summaries and journal entries, plus existing `memory/SUMMARY.md`. Produces a curated, topic-organized markdown document (32K cap). SUMMARY.md is a read-only consolidated view — split knowledge files remain the source of truth for `update_memory`.
+`src/memory-consolidation.ts` — built-in module, fires Sunday at 23:00. Reads `USER.md`, memory files, past 7 days of summaries and journal entries, plus existing `memory/SUMMARY.md`. Produces a curated, topic-organized markdown document (32K cap). SUMMARY.md is a read-only consolidated view; `USER.md` and `memory/learnings.md` remain the writable source files for `update_memory`.
 
 ## Weekly Channel Summaries
 

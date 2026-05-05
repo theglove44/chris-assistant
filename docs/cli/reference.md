@@ -64,7 +64,7 @@ chris memory edit <file> # Open in $EDITOR, push changes to GitHub on save
 chris memory search <q>  # Search across all memory files with highlighted matches
 ```
 
-File aliases: `soul`, `rules`, `voice`, `about-chris`, `preferences`, `projects`, `people`, `decisions`, `learnings`
+File aliases: `soul`, `identity`, `user`, `summary`, `dashboard`, `learnings`
 
 ## Identity
 
@@ -100,7 +100,7 @@ chris doctor             # Run all health checks:
                          #   - .env file exists
                          #   - Required env vars are set
                          #   - GitHub token can access memory repo
-                         #   - Memory repo has identity files
+                         #   - Memory schema health
                          #   - Telegram bot token is valid
                          #   - OpenAI OAuth tokens (optional)
                          #   - MiniMax OAuth tokens (optional)

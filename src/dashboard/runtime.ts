@@ -14,6 +14,7 @@ import { handleWebMessage, parseDataUrlImages } from "../channels/web/handlers.j
 import { getBotProcess } from "../cli/pm2-helper.js";
 import { loadSkillIndex, loadSkill } from "../skills/loader.js";
 import { LIMITS } from "../infra/config/limits.js";
+import { REQUIRED_MEMORY_FILES } from "../domain/memory/constants.js";
 
 const BOT_STARTED_AT = new Date().toISOString();
 const PM2_LOG_DIR = path.join(os.homedir(), ".pm2", "logs");
@@ -21,18 +22,7 @@ const OUT_LOG = path.join(PM2_LOG_DIR, "chris-assistant-out.log");
 const ERR_LOG = path.join(PM2_LOG_DIR, "chris-assistant-error.log");
 const PM2_CACHE_TTL = LIMITS.pm2CacheTtlMs;
 
-const MEMORY_FILES = [
-  "SOUL.md",
-  "IDENTITY.md",
-  "USER.md",
-  "MEMORY.md",
-  "AGENTS.md",
-  "TOOLS.md",
-  "BOOTSTRAP.md",
-  "memory/SUMMARY.md",
-  "memory/DASHBOARD.md",
-  "memory/learnings.md",
-];
+const MEMORY_FILES = [...REQUIRED_MEMORY_FILES];
 
 let server: Server | null = null;
 let pm2Cache: { data: any; ts: number } | null = null;

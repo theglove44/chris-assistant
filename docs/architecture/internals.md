@@ -31,16 +31,12 @@ Important note: several legacy top-level files still exist as compatibility faca
 ```txt
 chris-assistant-memory/       ← Separate private repo (the brain)
 ├── HEARTBEAT.md              # Bot self-reported status snapshot (updated every 3h by heartbeat.ts)
-├── identity/SOUL.md          # Personality, purpose, onboarding instructions
-├── identity/RULES.md         # Hard boundaries
-├── identity/VOICE.md         # Tone and language
-├── knowledge/about-chris.md  # Facts about Chris
-├── knowledge/preferences.md  # Likes, dislikes, style
-├── knowledge/projects.md     # Current work
-├── knowledge/people.md       # People mentioned
-├── memory/decisions.md       # Important decisions
-├── memory/learnings.md       # Self-improvement notes
+├── SOUL.md                   # Personality, purpose, onboarding instructions
+├── IDENTITY.md               # Runtime identity and boundaries
+├── USER.md                   # Facts, preferences, projects, people, decisions
 ├── memory/SUMMARY.md         # Weekly-consolidated curated summary
+├── memory/DASHBOARD.md       # Operator-facing status and notes
+├── memory/learnings.md       # Self-improvement notes
 ├── archive/YYYY-MM-DD.jsonl  # Daily JSONL message logs (uploaded every 30 minutes)
 ├── journal/YYYY-MM-DD.md     # Bot's daily journal notes (uploaded every 6 hours)
 ├── conversations/summaries/YYYY-MM-DD.md  # AI-generated daily conversation summaries
@@ -181,7 +177,7 @@ SSHes to Mac Mini (via `MAC_MINI_HOST` env var or SSH config alias) to run `tast
 
 ## Weekly Memory Consolidation
 
-`src/memory-consolidation.ts` — fires Sunday at 23:00. Reads all knowledge, memory, past 7 days of summaries and journal entries, plus existing `memory/SUMMARY.md`. Produces a curated, topic-organized markdown document (32K cap). `loader.ts` injects as `# Curated Memory` section. The split knowledge files remain the source of truth for `update_memory` — SUMMARY.md is read-only.
+`src/memory-consolidation.ts` — fires Sunday at 23:00. Reads `USER.md`, memory files, past 7 days of summaries and journal entries, plus existing `memory/SUMMARY.md`. Produces a curated, topic-organized markdown document (32K cap). `loader.ts` injects as `# Curated Memory` section. `USER.md` and `memory/learnings.md` remain the writable source files for `update_memory`; SUMMARY.md is read-only.
 
 ## Heartbeat
 

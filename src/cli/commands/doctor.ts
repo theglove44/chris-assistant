@@ -8,6 +8,7 @@ import { getBotProcess, withPm2, PM2_NAME, PROJECT_ROOT } from "../pm2-helper.js
 import { loadTokens } from "../../providers/minimax-oauth.js";
 import { loadTokens as loadOpenaiTokens } from "../../providers/openai-oauth.js";
 import { getCodexStatus } from "../../codex.js";
+import { checkMemoryHealth, type MemoryHealthClient } from "../../domain/memory/health.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ENV_PATH = resolve(__dirname, "../../..", ".env");
@@ -134,18 +135,42 @@ export function registerDoctorCommand(program: Command) {
           },
         },
         {
-          name: "Memory repo has identity files",
+          name: "Memory schema health",
           run: async () => {
             if (!env.GITHUB_TOKEN || !env.GITHUB_MEMORY_REPO) return "fail";
-            try {
-              const octokit = new Octokit({ auth: env.GITHUB_TOKEN });
-              const [owner, repo] = env.GITHUB_MEMORY_REPO.split("/");
-              await octokit.repos.getContent({ owner, repo, path: "identity/SOUL.md" });
-              return "pass";
-            } catch {
-              console.log("    identity/SOUL.md not found — push seed memory files first");
-              return "fail";
+            const octokit = new Octokit({ auth: env.GITHUB_TOKEN });
+            const [owner, repo] = env.GITHUB_MEMORY_REPO.split("/");
+            const report = await checkMemoryHealth({
+              client: octokit as unknown as MemoryHealthClient,
+              owner,
+              repo,
+            });
+
+            for (const file of report.files) {
+              const size = file.size === null
+                ? "missing"
+                : file.size < 1024
+                  ? `${file.size}B`
+                  : `${(file.size / 1024).toFixed(1)}KB`;
+              const date = file.lastCommitAt ? file.lastCommitAt.slice(0, 10) : "no commits";
+              console.log("    %s — %s, last commit %s", file.path, size, date);
             }
+
+            if (report.missing.length > 0) {
+              console.log("    Missing required runtime files: %s", report.missing.map((f) => f.path).join(", "));
+              console.log("    Seed the canonical memory schema, then rerun `chris doctor`.");
+            }
+            if (report.empty.length > 0) {
+              console.log("    Empty required runtime files: %s", report.empty.map((f) => f.path).join(", "));
+              console.log("    Add starter content so prompt loading has real memory context.");
+            }
+            if (report.stale.length > 0) {
+              console.log("    Stale memory files (>30 days): %s", report.stale.map((f) => f.path).join(", "));
+              console.log("    Run dream consolidation or manually refresh stale memory.");
+            }
+
+            if (!report.ok) return "fail";
+            return report.stale.length > 0 ? "warn" : "pass";
           },
         },
         {

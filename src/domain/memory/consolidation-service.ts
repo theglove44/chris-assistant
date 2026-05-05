@@ -34,8 +34,8 @@ function lastNDates(n: number): string[] {
 const CONSOLIDATION_PROMPT = `You are performing a weekly memory consolidation for an AI assistant. Your task is to create a single, well-organized markdown document called SUMMARY.md that represents a curated, up-to-date understanding of Chris.
 
 You have been given:
-1. The current knowledge files (about-chris, preferences, projects, people)
-2. The current memory files (decisions, learnings)
+1. The current user knowledge file (USER.md)
+2. The current memory files (SUMMARY, DASHBOARD, learnings)
 3. The existing SUMMARY.md (if any) — use this as the base to update, not replace from scratch
 4. The past 7 days of daily conversation summaries
 5. The past 7 days of journal entries written by the assistant
