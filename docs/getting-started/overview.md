@@ -56,7 +56,7 @@ The assistant has its own identity, personality, and evolving memory. Everything
 - **GitHub webhooks** — PR merge notifications posted to Discord channels via webhook server.
 - **Dynamic skills** — Reusable AI workflows defined as JSON, composing existing tools. Create at runtime via `manage_skills`.
 - **Market snapshots** — SSH to Mac Mini for market data from tasty-coach.
-- **Weekly memory consolidation** — Auto-curates a `SUMMARY.md` from all knowledge, memory, and recent conversations every Sunday.
+- **Weekly memory consolidation** — Auto-curates `memory/SUMMARY.md` from `USER.md`, memory files, journals, and recent conversations every Sunday.
 - **Weekly channel summaries** — Per-Discord-channel conversation summaries generated every Sunday.
 - **Heartbeat** — Writes `HEARTBEAT.md` to memory repo every 3 hours with bot status snapshot.
 - **Prompt injection defense** — Memory writes are validated for size, rate, and suspicious content.

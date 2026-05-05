@@ -27,6 +27,10 @@ vi.mock("../src/domain/memory/recall.js", () => ({
   recallMemory: vi.fn().mockResolvedValue([]),
 }));
 
+vi.mock("../src/domain/memory/voyage-index.js", () => ({
+  updateVoyageEntry: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock("fs/promises", () => ({
   mkdir: vi.fn().mockResolvedValue(undefined),
   writeFile: vi.fn().mockResolvedValue(undefined),
@@ -38,6 +42,7 @@ import {
   resetGlobalBucket,
   setGlobalBucketClock,
 } from "../src/domain/memory/update-service.js";
+import { updateVoyageEntry } from "../src/domain/memory/voyage-index.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -70,6 +75,7 @@ beforeEach(() => {
   // Restore real Date.now clock and reset bucket to full
   setGlobalBucketClock(() => Date.now());
   resetGlobalBucket();
+  vi.mocked(updateVoyageEntry).mockClear();
 });
 
 // ---------------------------------------------------------------------------
@@ -77,6 +83,18 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("global token bucket", () => {
+  it("updates the Voyage index after writing a local recall file", async () => {
+    const result = await callUpdate("preferences", "Chris prefers concise updates");
+    expect(result).toBe("Memory updated (preferences/add)");
+    expect(updateVoyageEntry).toHaveBeenCalledOnce();
+    expect(updateVoyageEntry).toHaveBeenCalledWith(expect.objectContaining({
+      filename: expect.stringMatching(/^preferences_\d{4}-\d{2}-\d{2}_/),
+      filePath: expect.stringContaining("/tmp/test-memory/preferences_"),
+      description: "Chris prefers concise updates",
+      type: "feedback",
+    }));
+  });
+
   it("allows the first 10 calls across distinct categories", async () => {
     // Capacity is 10 — first 10 should all succeed.
     const results: string[] = [];

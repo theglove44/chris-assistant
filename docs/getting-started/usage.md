@@ -33,7 +33,7 @@ Message your bot on Telegram or Discord. That's it. On first contact, the assist
 
 - **Short-term**: Last 20 messages per chat, persisted to `~/.chris-assistant/conversations.json`. Survives restarts. `/clear` wipes it.
 - **Long-term**: The assistant uses its `update_memory` tool to persist important facts to GitHub.
-- **Identity**: SOUL.md, RULES.md, VOICE.md define who the assistant is.
+- **Identity**: `SOUL.md` and `IDENTITY.md` define who the assistant is; `USER.md` holds durable knowledge about Chris.
 - **All memory changes are git commits** — fully auditable and rollback-able.
 
 ## Conversation Archive & Recall

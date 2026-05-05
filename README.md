@@ -70,19 +70,13 @@ chris model set minimax        # Switch to MiniMax
 
 ```
 chris-assistant-memory/       ← Private GitHub repo
-├── identity/
-│   ├── SOUL.md               # Personality and purpose
-│   ├── RULES.md              # Hard boundaries
-│   └── VOICE.md              # Tone and language
-├── knowledge/
-│   ├── about-chris.md        # Facts about you
-│   ├── preferences.md        # Likes, dislikes, style
-│   ├── projects.md           # Current work
-│   └── people.md             # People you mention
+├── SOUL.md                   # Personality and purpose
+├── IDENTITY.md               # Runtime identity and boundaries
+├── USER.md                   # Facts, preferences, projects, people, decisions
 ├── memory/
-│   ├── decisions.md          # Important decisions
+│   ├── SUMMARY.md            # Weekly consolidated summary
+│   ├── DASHBOARD.md          # Operator-facing status and notes
 │   ├── learnings.md          # Self-improvement notes
-│   └── SUMMARY.md            # Weekly consolidated summary
 ├── journal/                  # Daily journal entries
 ├── skills/                   # Reusable skill definitions
 ├── archive/                  # Full conversation logs (JSONL)

@@ -4,8 +4,9 @@ import { spawn } from "child_process";
 import { writeFileSync, readFileSync, mkdtempSync, unlinkSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
+import { MEMORY_FILE_ALIASES } from "../../domain/memory/constants.js";
 
-const SOUL_PATH = "identity/SOUL.md";
+const SOUL_PATH = MEMORY_FILE_ALIASES.soul;
 
 async function getOctokit(): Promise<{ octokit: Octokit; owner: string; repo: string }> {
   await import("dotenv/config");
@@ -90,7 +91,7 @@ export function registerIdentityCommand(program: Command) {
         owner,
         repo,
         path: SOUL_PATH,
-        message: "manual edit: identity/SOUL.md",
+        message: `manual edit: ${SOUL_PATH}`,
         content: Buffer.from(newContent).toString("base64"),
         ...(sha ? { sha } : {}),
       });

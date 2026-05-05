@@ -3,6 +3,8 @@ import * as path from "path";
 import { appendToMemoryFile, writeMemoryFile } from "./repository.js";
 import { MEMORY_CATEGORY_FILES } from "./constants.js";
 import { LOCAL_MEMORY_DIR } from "./recall.js";
+import { updateVoyageEntry } from "./voyage-index.js";
+import type { MemoryHeader } from "./memory-scan.js";
 
 const CONTENT_MAX_CHARS = 2000;
 const REPLACE_THROTTLE_MS = 5 * 60 * 1000;
@@ -196,7 +198,7 @@ function autoDescription(content: string, category: string): string {
 async function writeLocalMemoryFile(
   category: string,
   content: string,
-): Promise<void> {
+): Promise<MemoryHeader | null> {
   try {
     await mkdir(LOCAL_MEMORY_DIR, { recursive: true });
     const type = CATEGORY_TO_TYPE[category] || "reference";
@@ -216,8 +218,16 @@ ${content}
 `;
     await writeFile(filePath, fileContent, "utf-8");
     console.log("[memory] Local recall file written: %s", filename);
+    return {
+      filename,
+      filePath,
+      mtimeMs: Date.now(),
+      description,
+      type: type as MemoryHeader["type"],
+    };
   } catch (err: any) {
     console.warn("[memory] Failed to write local recall file:", err.message);
+    return null;
   }
 }
 
@@ -242,9 +252,12 @@ export async function executeMemoryTool(args: { category: string; action: "add" 
       await appendToMemoryFile(filePath, entry, `memory: add to ${category}`);
     }
 
-    // Dual-write: also persist as a local topic file for Sonnet recall.
-    // Fire-and-forget — GitHub is the source of truth.
-    writeLocalMemoryFile(category, content).catch(() => {});
+    // Dual-write: also persist as a local topic file for recall. GitHub remains
+    // the source of truth; local/Voyage failures are logged but non-fatal.
+    const localHeader = await writeLocalMemoryFile(category, content);
+    if (localHeader) {
+      await updateVoyageEntry(localHeader);
+    }
 
     return `Memory updated (${category}/${action})`;
   } catch (error: any) {

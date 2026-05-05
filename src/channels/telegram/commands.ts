@@ -9,6 +9,7 @@ import { providerDisplayName } from "../../providers/model-routing.js";
 import { getWorkspaceRoot, setWorkspaceRoot, isProjectActive } from "../../tools/files.js";
 import { chatService } from "../../agent/chat-service.js";
 import { dreamStatus, forceDream } from "../../domain/memory/dream-service.js";
+import { REQUIRED_MEMORY_FILES } from "../../domain/memory/constants.js";
 import { purgeConfirmKeyboard, restartConfirmKeyboard } from "./callbacks.js";
 
 export const TELEGRAM_COMMAND_MENU = [
@@ -51,12 +52,7 @@ export function registerTelegramCommands(bot: Bot<Context>): void {
   });
 
   bot.command("memory", async (ctx) => {
-    const files = [
-      "identity/SOUL.md", "identity/RULES.md", "identity/VOICE.md",
-      "knowledge/about-chris.md", "knowledge/preferences.md",
-      "knowledge/projects.md", "knowledge/people.md",
-      "memory/decisions.md", "memory/learnings.md",
-    ];
+    const files = REQUIRED_MEMORY_FILES;
 
     const results = await Promise.all(
       files.map(async (path) => {

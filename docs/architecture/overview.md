@@ -45,19 +45,13 @@ These mostly re-export or delegate into `channels/`, `domain/`, or `dashboard/`.
 
 ```
 chris-assistant-memory/       ← Separate private repo (the brain)
-├── identity/
-│   ├── SOUL.md               # Personality, purpose, communication style
-│   ├── RULES.md              # Hard boundaries
-│   └── VOICE.md              # Tone and language
-├── knowledge/
-│   ├── about-chris.md        # Facts about you
-│   ├── preferences.md        # Likes, dislikes, style
-│   ├── projects.md           # Current work
-│   └── people.md             # People you mention
+├── SOUL.md                   # Personality, purpose, communication style
+├── IDENTITY.md               # Runtime identity and boundaries
+├── USER.md                   # Facts, preferences, projects, people, decisions
 ├── memory/
-│   ├── decisions.md          # Important decisions
+│   ├── SUMMARY.md            # Weekly-consolidated curated summary (read-only)
+│   ├── DASHBOARD.md          # Operator-facing status and notes
 │   ├── learnings.md          # Self-improvement notes
-│   └── SUMMARY.md            # Weekly-consolidated curated summary (read-only)
 ├── HEARTBEAT.md              # Bot self-reported status snapshot (updated every 3h)
 ├── archive/                  # Daily JSONL message logs (uploaded every 5 min)
 ├── journal/                  # Bot's daily journal notes (uploaded every 6 hours)

@@ -13,19 +13,13 @@ The assistant's long-term memory is stored as markdown files in a private GitHub
 
 ```
 chris-assistant-memory/
-├── identity/
-│   ├── SOUL.md               # Personality, purpose, communication style
-│   ├── RULES.md              # Hard boundaries
-│   └── VOICE.md              # Tone and language
-├── knowledge/
-│   ├── about-chris.md        # Facts about you
-│   ├── preferences.md        # Likes, dislikes, style
-│   ├── projects.md           # Current work
-│   └── people.md             # People you mention
+├── SOUL.md                   # Personality, purpose, communication style
+├── IDENTITY.md               # Runtime identity and boundaries
+├── USER.md                   # Facts, preferences, projects, people, decisions
 ├── memory/
-│   ├── decisions.md          # Important decisions
+│   ├── SUMMARY.md            # Weekly-consolidated curated summary (read-only)
+│   ├── DASHBOARD.md          # Operator-facing status and notes
 │   ├── learnings.md          # Self-improvement notes
-│   └── SUMMARY.md            # Weekly-consolidated curated summary (read-only)
 ├── HEARTBEAT.md              # Bot status snapshot (updated every 3h)
 ├── archive/                  # Daily JSONL message logs
 ├── journal/                  # Bot's daily journal notes
@@ -37,7 +31,7 @@ chris-assistant-memory/
 
 ## `update_memory` Tool
 
-Registered in `src/tools/memory.ts`. All providers support it — Claude uses MCP (in-process server), OpenAI and MiniMax use OpenAI-format function calling. All delegate to the same `executeMemoryTool()` function in `src/memory/tools.ts`.
+Registered in `src/tools/memory.ts`. All providers support it — Claude uses MCP (in-process server), OpenAI and MiniMax use OpenAI-format function calling. All delegate to the same `executeMemoryTool()` function in `src/domain/memory/update-service.ts`.
 
 ### Actions
 
@@ -55,7 +49,7 @@ The tool targets specific memory file categories: `about-chris`, `preferences`, 
 | What you tell the bot | What happens |
 |------------------------|-------------|
 | "Remember that I prefer dark mode in all apps" | AI calls `update_memory` with action `add`, category `preferences` |
-| "My friend Jake works at Stripe" | AI adds to `people` memory — stored in `knowledge/people.md` |
+| "My friend Jake works at Stripe" | AI adds to `people` memory — stored in `USER.md` |
 | "I decided to use Postgres instead of SQLite for the new project" | AI adds to `decisions` memory |
 | "What do you know about my preferences?" | AI reads the `preferences` memory file from the system prompt context |
 | "Update my project notes — the deadline moved to April" | AI calls `update_memory` with action `replace` on the `projects` category |
@@ -71,16 +65,16 @@ The tool targets specific memory file categories: `about-chris`, `preferences`, 
 
 | Category | File | Use for |
 |----------|------|---------|
-| `about-chris` | `knowledge/about-chris.md` | Facts about you — job, location, family |
-| `preferences` | `knowledge/preferences.md` | Likes, dislikes, style preferences |
-| `projects` | `knowledge/projects.md` | Current work and side projects |
-| `people` | `knowledge/people.md` | People you mention — names, context |
-| `decisions` | `memory/decisions.md` | Important decisions and reasoning |
+| `about-chris` | `USER.md` | Facts about you — job, location, family |
+| `preferences` | `USER.md` | Likes, dislikes, style preferences |
+| `projects` | `USER.md` | Current work and side projects |
+| `people` | `USER.md` | People you mention — names, context |
+| `decisions` | `memory/learnings.md` | Important decisions and reasoning |
 | `learnings` | `memory/learnings.md` | Things the bot learned about how to help you better |
 
 ## Memory Guard
 
-`validateMemoryContent()` in `memory/tools.ts` defends against prompt injection:
+`validateMemoryContent()` in `src/domain/memory/update-service.ts` defends against prompt injection:
 
 - **2000 char limit** per memory write
 - **Replace throttle** — 1 replace per 5 minutes per category
@@ -92,9 +86,9 @@ The tool targets specific memory file categories: `about-chris`, `preferences`, 
 
 `src/memory/loader.ts` loads all memory files from GitHub and assembles the system prompt:
 
-1. Identity files (SOUL.md, RULES.md, VOICE.md)
-2. Knowledge files (about-chris, preferences, projects, people)
-3. Memory files (decisions, learnings)
+1. Identity files (`SOUL.md`, `IDENTITY.md`)
+2. User knowledge (`USER.md`)
+3. Memory files (`memory/SUMMARY.md`, `memory/DASHBOARD.md`, `memory/learnings.md`)
 4. Recent conversation summaries (last 7 days)
 5. Recent journal entries (today + yesterday)
 6. Curated memory summary (SUMMARY.md)
@@ -116,7 +110,7 @@ After each conversation, `tryDream()` checks three gates in order (cheapest firs
 3. **Lock gate** — no other consolidation currently in progress
 
 If all gates pass, the service:
-1. Reads current memory state (knowledge files, memory files, existing SUMMARY.md)
+1. Reads current memory state (`USER.md`, memory files, existing `memory/SUMMARY.md`)
 2. Collects recent conversation transcripts and journal entries
 3. Sends a single-shot prompt to the AI with `allowedTools: []` (no tool loops)
 4. Parses the JSON response and writes updated files to GitHub
@@ -166,7 +160,7 @@ User sends message
 
 ### Keyword Fallback
 
-If Voyage returns no results (or `VOYAGE_API_KEY` is absent), the system falls back to keyword overlap + recency weighting. The two systems are complementary — Voyage handles semantic matches ("what's my trading setup" → `projects.md`), keyword handles exact-word queries.
+If Voyage returns no results (or `VOYAGE_API_KEY` is absent), the system falls back to keyword overlap + recency weighting. The two systems are complementary — Voyage handles semantic matches ("what's my trading setup" → a local project memory entry), keyword handles exact-word queries.
 
 ### Index Updates
 

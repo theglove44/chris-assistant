@@ -4,20 +4,10 @@ import { spawn } from "child_process";
 import { writeFileSync, mkdtempSync, unlinkSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
+import { MEMORY_FILE_ALIASES } from "../../domain/memory/constants.js";
 
 /** All memory files and their shorthand aliases. */
-const MEMORY_FILES: Record<string, string> = {
-  "soul": "SOUL.md",
-  "identity": "IDENTITY.md",
-  "user": "USER.md",
-  "memory": "MEMORY.md",
-  "agents": "AGENTS.md",
-  "tools": "TOOLS.md",
-  "bootstrap": "BOOTSTRAP.md",
-  "summary": "memory/SUMMARY.md",
-  "dashboard": "memory/DASHBOARD.md",
-  "learnings": "memory/learnings.md",
-};
+const MEMORY_FILES = MEMORY_FILE_ALIASES;
 
 async function getOctokit(): Promise<{ octokit: Octokit; owner: string; repo: string }> {
   // Lazy-load dotenv so the CLI doesn't crash if other vars are missing
@@ -79,7 +69,7 @@ export function registerMemoryCommand(program: Command) {
   // chris memory show <file>
   memory
     .command("show <file>")
-    .description("Print a memory file (e.g. chris memory show about-chris)")
+    .description("Print a memory file (e.g. chris memory show user)")
     .action(async (file: string) => {
       const path = resolveFile(file);
       if (!path) {

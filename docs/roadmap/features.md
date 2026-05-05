@@ -83,5 +83,5 @@ Tools and features that expand what the bot can do.
 | 1 | 🔴 | ✅ | **Daily memory journal** | Bot writes notes via `journal_entry` tool, uploaded every 6 hours. |
 | 2 | 🟠 | ✅ | **Curated MEMORY.md** | `memory-consolidation.ts` — weekly consolidation into SUMMARY.md from all sources. |
 | 3 | 🟡 | ✅ | **Heartbeat file** | `heartbeat.ts` — writes HEARTBEAT.md every 3h with uptime, model, health, schedules, message count. |
-| 4 | 🟡 | ✅ | **Memory consolidation loop** | Sunday 23:00, reads all knowledge/memory/summaries/journal, produces curated SUMMARY.md (32K cap). |
+| 4 | 🟡 | ✅ | **Memory consolidation loop** | Sunday 23:00, reads USER.md/memory/summaries/journal, produces curated SUMMARY.md (32K cap). |
 | 5 | 🟢 | ⬜ | **Conversation analytics** | Track patterns: messages/day, peak hours, tool usage, topic distribution. |
