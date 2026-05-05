@@ -15,6 +15,7 @@ import { registerOpenaiCommand } from "./commands/openai-login.js";
 import { registerCodexCommand } from "./commands/codex.js";
 import { registerDreamCommand } from "./commands/dream.js";
 import { registerSymphonyCommand } from "./commands/symphony.js";
+import { registerPromptCommand } from "./commands/prompt.js";
 
 const program = new Command();
 
@@ -41,6 +42,7 @@ registerDoctorCommand(program);
 registerSetupCommand(program);
 registerCodexCommand(program);
 registerSymphonyCommand(program);
+registerPromptCommand(program);
 
 // Memory consolidation
 registerDreamCommand(program);

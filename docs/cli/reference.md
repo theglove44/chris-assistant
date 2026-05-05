@@ -32,18 +32,28 @@ chris model search <q>   # Filter models by name, provider, or description
 
 | Shortcut | Model ID | Provider |
 |----------|----------|----------|
-| `opus` | claude-opus-4-6 | Claude |
+| `opus` | claude-opus-4-7 | Claude |
 | `sonnet` | claude-sonnet-4-6 | Claude |
 | `haiku` | claude-haiku-4-5-20251001 | Claude |
+| `opus-4-6` | claude-opus-4-6 | Claude |
 | `sonnet-4-5` | claude-sonnet-4-5-20250929 | Claude |
-| `gpt5` | gpt-5.2 | OpenAI |
-| `codex` | GPT-5.3-Codex | OpenAI |
+| `gpt5` | gpt-5.5 | OpenAI |
+| `gpt54` | gpt-5.4 | OpenAI |
+| `gpt54-mini` | gpt-5.4-mini | OpenAI |
+| `gpt54-nano` | gpt-5.4-nano | OpenAI |
+| `codex` | gpt-5.3-codex | OpenAI |
+| `codex-spark` | gpt-5.3-codex-spark | OpenAI |
+| `codex-agent` | codex-agent-gpt-5.5 | OpenAI Codex Agent |
+| `codex-agent-fast` | codex-agent-gpt-5.4-mini | OpenAI Codex Agent |
+| `codex-agent-coding` | codex-agent-gpt-5.3-codex | OpenAI Codex Agent |
+| `gpt52` | gpt-5.2 | OpenAI |
 | `gpt4o` | gpt-4o | OpenAI |
 | `gpt41` | gpt-4.1 | OpenAI |
 | `o3` | o3 | OpenAI |
 | `o4-mini` | o4-mini | OpenAI |
-| `minimax` | MiniMax-M2.5 | MiniMax |
-| `minimax-fast` | MiniMax-M2.5-highspeed | MiniMax |
+| `minimax` | MiniMax-M2.7 | MiniMax |
+| `minimax-fast` | MiniMax-M2.7-highspeed | MiniMax |
+| `minimax-m25` | MiniMax-M2.5 | MiniMax |
 
 ## Memory Management
 
@@ -84,6 +94,8 @@ chris minimax status     # Check OAuth token status and expiry
 ## Diagnostics
 
 ```bash
+chris prompt inspect     # Show redacted prompt sections, provider, workspace, and memory-section status
+
 chris doctor             # Run all health checks:
                          #   - .env file exists
                          #   - Required env vars are set
@@ -132,6 +144,6 @@ chris symphony cleanup --delete-remote-branches --apply  # Also prune stale remo
 ## Codex
 
 ```bash
-chris codex verify       # Check that the codex CLI is installed and working
-chris codex login        # Authenticate with OpenAI (required for codex-agent-* models)
+chris codex status       # Show Codex CLI binary/auth/app-server status
+chris codex doctor       # Run Codex CLI readiness checks
 ```

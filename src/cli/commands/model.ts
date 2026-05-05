@@ -12,23 +12,32 @@ const DEFAULT_MODEL = "gpt-4o";
 /** Well-known model IDs for quick reference */
 const KNOWN_MODELS: Record<string, { id: string; provider: string }> = {
   // Claude
-  "opus": { id: "claude-opus-4-6", provider: "claude" },
+  "opus": { id: "claude-opus-4-7", provider: "claude" },
   "sonnet": { id: "claude-sonnet-4-6", provider: "claude" },
   "haiku": { id: "claude-haiku-4-5-20251001", provider: "claude" },
+  "opus-4-6": { id: "claude-opus-4-6", provider: "claude" },
   "sonnet-4-5": { id: "claude-sonnet-4-5-20250929", provider: "claude" },
-  // OpenAI — current flagship
-  "gpt5": { id: "gpt-5.2", provider: "openai" },
-  "codex": { id: "GPT-5.3-Codex", provider: "openai" },
-  "codex-agent": { id: "codex-agent-o4-mini", provider: "codex-agent" },
-  "codex-agent-o3": { id: "codex-agent-o3", provider: "codex-agent" },
+  // OpenAI — current recommended models
+  "gpt5": { id: "gpt-5.5", provider: "openai" },
+  "gpt54": { id: "gpt-5.4", provider: "openai" },
+  "gpt54-mini": { id: "gpt-5.4-mini", provider: "openai" },
+  "gpt54-nano": { id: "gpt-5.4-nano", provider: "openai" },
+  "codex": { id: "gpt-5.3-codex", provider: "openai" },
+  "codex-spark": { id: "gpt-5.3-codex-spark", provider: "openai" },
+  "codex-agent": { id: "codex-agent-gpt-5.5", provider: "codex-agent" },
+  "codex-agent-fast": { id: "codex-agent-gpt-5.4-mini", provider: "codex-agent" },
+  "codex-agent-coding": { id: "codex-agent-gpt-5.3-codex", provider: "codex-agent" },
+  // OpenAI — older reasoning models still accepted
   "o3": { id: "o3", provider: "openai" },
   "o4-mini": { id: "o4-mini", provider: "openai" },
   // OpenAI — previous gen
+  "gpt52": { id: "gpt-5.2", provider: "openai" },
   "gpt4o": { id: "gpt-4o", provider: "openai" },
   "gpt41": { id: "gpt-4.1", provider: "openai" },
   // MiniMax
-  "minimax": { id: "MiniMax-M2.5", provider: "minimax" },
-  "minimax-fast": { id: "MiniMax-M2.5-highspeed", provider: "minimax" },
+  "minimax": { id: "MiniMax-M2.7", provider: "minimax" },
+  "minimax-fast": { id: "MiniMax-M2.7-highspeed", provider: "minimax" },
+  "minimax-m25": { id: "MiniMax-M2.5", provider: "minimax" },
 };
 
 function getCurrentModel(): string {
@@ -86,7 +95,7 @@ export function registerModelCommand(program: Command) {
       console.log("Shortcuts:");
       for (const [alias, info] of Object.entries(KNOWN_MODELS)) {
         const marker = info.id === current ? " ← active" : "";
-        console.log("  %s %s %s%s", alias.padEnd(14), info.provider.padEnd(8), info.id, marker);
+        console.log("  %s %s %s%s", alias.padEnd(20), info.provider.padEnd(12), info.id, marker);
       }
       console.log("");
       console.log('Change with: chris model set <name-or-id>');
@@ -107,35 +116,44 @@ export function registerModelCommand(program: Command) {
   /** All known models across providers for search */
   const ALL_MODELS: { id: string; provider: string; description: string }[] = [
     // Claude
-    { id: "claude-opus-4-6", provider: "claude", description: "Most capable Claude model" },
-    { id: "claude-sonnet-4-6", provider: "claude", description: "Balanced Claude model" },
+    { id: "claude-opus-4-7", provider: "claude", description: "Most capable Claude model for complex reasoning and agentic coding" },
+    { id: "claude-sonnet-4-6", provider: "claude", description: "Best Claude speed/intelligence balance" },
+    { id: "claude-opus-4-6", provider: "claude", description: "Previous Opus generation" },
     { id: "claude-sonnet-4-5-20250929", provider: "claude", description: "Previous-gen Sonnet" },
     { id: "claude-haiku-4-5-20251001", provider: "claude", description: "Fast, lightweight Claude" },
-    // OpenAI — GPT-5 series (current flagship)
-    { id: "gpt-5.2", provider: "openai", description: "Current flagship, professional knowledge work" },
-    { id: "gpt-5.2-chat-latest", provider: "openai", description: "Instant version of GPT-5.2" },
-    { id: "gpt-5.2-pro", provider: "openai", description: "More compute for harder reasoning" },
-    { id: "GPT-5.3-Codex", provider: "openai", description: "Most advanced agentic coding model" },
-    { id: "GPT-5.2-Codex", provider: "openai", description: "Previous Codex coding model" },
-    { id: "GPT-5.1-Codex-Mini", provider: "openai", description: "Smaller, cost-effective Codex" },
-    { id: "codex-agent-o4-mini", provider: "codex-agent", description: "Codex SDK agent provider on o4-mini" },
-    { id: "codex-agent-o3", provider: "codex-agent", description: "Codex SDK agent provider on o3" },
+    // OpenAI — GPT-5 series (current recommended)
+    { id: "gpt-5.5", provider: "openai", description: "Current flagship for complex reasoning, coding, and professional work" },
+    { id: "gpt-5.4", provider: "openai", description: "Affordable frontier model for coding and professional work" },
+    { id: "gpt-5.4-mini", provider: "openai", description: "Strong mini model for coding, computer use, and subagents" },
+    { id: "gpt-5.4-nano", provider: "openai", description: "Fastest, lowest-cost GPT-5.4 variant" },
+    { id: "gpt-5.3-codex", provider: "openai", description: "Specialized coding model for complex software engineering" },
+    { id: "gpt-5.3-codex-spark", provider: "openai", description: "Research preview for near-instant coding iteration" },
+    { id: "gpt-5.2", provider: "openai", description: "Previous general-purpose model" },
+    { id: "gpt-5.2-chat-latest", provider: "openai", description: "Previous ChatGPT-style GPT-5.2 model" },
+    { id: "gpt-5.2-pro", provider: "openai", description: "Previous higher-compute GPT-5.2 model" },
+    { id: "codex-agent-gpt-5.5", provider: "codex-agent", description: "Codex SDK agent provider on gpt-5.5" },
+    { id: "codex-agent-gpt-5.4", provider: "codex-agent", description: "Codex SDK agent provider on gpt-5.4" },
+    { id: "codex-agent-gpt-5.4-mini", provider: "codex-agent", description: "Codex SDK agent provider on gpt-5.4-mini" },
+    { id: "codex-agent-gpt-5.3-codex", provider: "codex-agent", description: "Codex SDK agent provider on gpt-5.3-codex" },
+    { id: "codex-agent-gpt-5.3-codex-spark", provider: "codex-agent", description: "Codex SDK agent provider on codex spark preview" },
     // OpenAI — o-series (reasoning)
-    { id: "o3", provider: "openai", description: "Powerful reasoning (math, science, code)" },
-    { id: "o3-mini", provider: "openai", description: "Lightweight reasoning" },
-    { id: "o3-pro", provider: "openai", description: "Enhanced reasoning, more compute" },
+    { id: "o3", provider: "openai", description: "Older powerful reasoning model" },
+    { id: "o3-mini", provider: "openai", description: "Older lightweight reasoning model" },
+    { id: "o3-pro", provider: "openai", description: "Older enhanced reasoning model" },
     { id: "o3-deep-research", provider: "openai", description: "Deep research variant of o3" },
-    { id: "o4-mini", provider: "openai", description: "Fast reasoning model" },
+    { id: "o4-mini", provider: "openai", description: "Older fast reasoning model" },
     { id: "o4-mini-deep-research", provider: "openai", description: "Deep research variant of o4-mini" },
     // OpenAI — GPT-4 series (previous gen)
-    { id: "gpt-4o", provider: "openai", description: "Versatile flagship (text + vision)" },
+    { id: "gpt-4o", provider: "openai", description: "Previous versatile GPT-4o model" },
     { id: "gpt-4o-mini", provider: "openai", description: "Small, fast, affordable" },
-    { id: "gpt-4.1", provider: "openai", description: "Coding-optimized, 1M context" },
-    { id: "gpt-4.1-mini", provider: "openai", description: "Smaller coding model" },
-    { id: "gpt-4.1-nano", provider: "openai", description: "Fastest coding model" },
+    { id: "gpt-4.1", provider: "openai", description: "Previous non-reasoning coding model" },
+    { id: "gpt-4.1-mini", provider: "openai", description: "Previous smaller GPT-4.1 model" },
+    { id: "gpt-4.1-nano", provider: "openai", description: "Previous fastest GPT-4.1 model" },
     // MiniMax
-    { id: "MiniMax-M2.5", provider: "minimax", description: "MiniMax flagship" },
-    { id: "MiniMax-M2.5-highspeed", provider: "minimax", description: "MiniMax fast mode" },
+    { id: "MiniMax-M2.7", provider: "minimax", description: "Current MiniMax text generation model" },
+    { id: "MiniMax-M2.7-highspeed", provider: "minimax", description: "Current MiniMax high-speed mode" },
+    { id: "MiniMax-M2.5", provider: "minimax", description: "Previous MiniMax agentic model" },
+    { id: "MiniMax-M2.5-highspeed", provider: "minimax", description: "Previous MiniMax fast mode" },
   ];
 
   model

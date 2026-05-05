@@ -51,9 +51,9 @@ Switch between providers with a single command. The model string determines the 
 | Provider | Models | Auth |
 |----------|--------|------|
 | **Claude Agent** | Opus, Sonnet, Haiku | Claude CLI (`claude` — uses your Max subscription) |
-| **OpenAI Responses** | GPT-5.x, GPT-4o, o3, o4-mini | ChatGPT Plus/Pro subscription (OAuth) |
+| **OpenAI Responses** | GPT-5.5, GPT-5.4, GPT-5.3 Codex, GPT-4o | ChatGPT Plus/Pro subscription (OAuth) |
 | **OpenAI Codex Agent** | `codex-agent-*` models | Codex CLI (`codex login`) |
-| **MiniMax** | M2.5, M2.5-highspeed | MiniMax subscription (OAuth) |
+| **MiniMax** | M2.7, M2.7-highspeed, M2.5 | MiniMax subscription (OAuth) |
 
 Claude uses the [Agent SDK](https://github.com/anthropics/claude-agent-sdk), which piggybacks on the Claude CLI's authentication — just run `claude` once to log in, and the bot picks it up automatically.
 
@@ -61,7 +61,7 @@ The Codex agent mode uses `@openai/codex-sdk`, which spawns the `codex` CLI unde
 
 ```bash
 chris model set sonnet         # Switch to Claude Sonnet
-chris model set gpt5           # Switch to OpenAI GPT-5.2
+chris model set gpt5           # Switch to OpenAI GPT-5.5
 chris model set codex-agent    # Switch to OpenAI Codex Agent
 chris model set minimax        # Switch to MiniMax
 ```
@@ -210,6 +210,7 @@ chris openai login / status      # OpenAI OAuth
 chris minimax login / status     # MiniMax OAuth
 
 # Diagnostics
+chris prompt inspect            # Redacted prompt section diagnostics
 chris doctor                     # Health checks
 chris doctor --fix               # Auto-diagnose and repair
 chris setup                      # First-time setup wizard

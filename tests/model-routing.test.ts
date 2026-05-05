@@ -14,6 +14,7 @@ import {
 
 describe("isClaudeModel", () => {
   it("recognises real Claude model IDs (lowercase claude- prefix)", () => {
+    expect(isClaudeModel("claude-opus-4-7")).toBe(true);
     expect(isClaudeModel("claude-opus-4-6")).toBe(true);
     expect(isClaudeModel("claude-sonnet-4-6")).toBe(true);
     expect(isClaudeModel("claude-sonnet-4-5-20250929")).toBe(true);
@@ -51,6 +52,10 @@ describe("isOpenAiModel", () => {
     expect(isOpenAiModel("gpt-4.1")).toBe(true);
     expect(isOpenAiModel("gpt-4.1-mini")).toBe(true);
     expect(isOpenAiModel("gpt-4.1-nano")).toBe(true);
+    expect(isOpenAiModel("gpt-5.5")).toBe(true);
+    expect(isOpenAiModel("gpt-5.4")).toBe(true);
+    expect(isOpenAiModel("gpt-5.4-mini")).toBe(true);
+    expect(isOpenAiModel("gpt-5.3-codex")).toBe(true);
     expect(isOpenAiModel("gpt-5.2")).toBe(true);
     expect(isOpenAiModel("gpt-5.2-chat-latest")).toBe(true);
     expect(isOpenAiModel("gpt-5.2-pro")).toBe(true);
@@ -87,6 +92,8 @@ describe("isOpenAiModel", () => {
 
 describe("isMiniMaxModel", () => {
   it("recognises real MiniMax model IDs", () => {
+    expect(isMiniMaxModel("MiniMax-M2.7")).toBe(true);
+    expect(isMiniMaxModel("MiniMax-M2.7-highspeed")).toBe(true);
     expect(isMiniMaxModel("MiniMax-M2.5")).toBe(true);
     expect(isMiniMaxModel("MiniMax-M2.5-highspeed")).toBe(true);
   });
@@ -137,18 +144,20 @@ describe("providerForModel", () => {
   });
 
   it("maps OpenAI models", () => {
+    expect(providerForModel("gpt-5.5")).toBe("openai");
     expect(providerForModel("gpt-5.2")).toBe("openai");
     expect(providerForModel("o3-mini")).toBe("openai");
     expect(providerForModel("o4-mini")).toBe("openai");
   });
 
   it("maps MiniMax models", () => {
+    expect(providerForModel("MiniMax-M2.7")).toBe("minimax");
     expect(providerForModel("MiniMax-M2.5")).toBe("minimax");
   });
 
   it("maps claude- models", () => {
     expect(providerForModel("claude-sonnet-4-6")).toBe("claude");
-    expect(providerForModel("claude-opus-4-6")).toBe("claude");
+    expect(providerForModel("claude-opus-4-7")).toBe("claude");
   });
 
   it("falls through to claude for truly unrecognised strings (legacy hot-path behaviour)", () => {
@@ -168,19 +177,24 @@ describe("strictProviderForModel", () => {
 
   it("accepts OpenAI models", () => {
     expect(strictProviderForModel("gpt-4o")).toBe("openai");
+    expect(strictProviderForModel("gpt-5.5")).toBe("openai");
+    expect(strictProviderForModel("gpt-5.4")).toBe("openai");
+    expect(strictProviderForModel("gpt-5.3-codex")).toBe("openai");
     expect(strictProviderForModel("gpt-5.2")).toBe("openai");
     expect(strictProviderForModel("o3")).toBe("openai");
     expect(strictProviderForModel("o4-mini")).toBe("openai");
   });
 
   it("accepts MiniMax models", () => {
+    expect(strictProviderForModel("MiniMax-M2.7")).toBe("minimax");
+    expect(strictProviderForModel("MiniMax-M2.7-highspeed")).toBe("minimax");
     expect(strictProviderForModel("MiniMax-M2.5")).toBe("minimax");
     expect(strictProviderForModel("MiniMax-M2.5-highspeed")).toBe("minimax");
   });
 
   it("accepts Claude models", () => {
     expect(strictProviderForModel("claude-sonnet-4-6")).toBe("claude");
-    expect(strictProviderForModel("claude-opus-4-6")).toBe("claude");
+    expect(strictProviderForModel("claude-opus-4-7")).toBe("claude");
     expect(strictProviderForModel("claude-haiku-4-5-20251001")).toBe("claude");
   });
 
