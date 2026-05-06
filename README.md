@@ -36,7 +36,7 @@ You send a message on Telegram
   → Auth guard (your user ID only)
   → Rate limiter (10 msgs/min)
   → Loads identity + memory from GitHub
-  → Routes to AI provider (Claude / OpenAI / MiniMax)
+  → Routes to AI provider (Claude / OpenAI / Codex Agent / MiniMax)
   → Streams response back with live typing updates
   → AI calls tools as needed (web search, code, files, calendar...)
   → Conversation archived, memory updated
@@ -48,21 +48,21 @@ The assistant has its own identity (personality, voice, rules) and an evolving m
 
 Switch between providers with a single command. The model string determines the backend:
 
-| Provider | Models | Auth |
-|----------|--------|------|
-| **Claude Agent** | Opus, Sonnet, Haiku | Claude CLI (`claude` — uses your Max subscription) |
-| **OpenAI Responses** | GPT-5.5, GPT-5.4, GPT-5.3 Codex, GPT-4o | ChatGPT Plus/Pro subscription (OAuth) |
-| **OpenAI Codex Agent** | `codex-agent-*` models | Codex CLI (`codex login`) |
-| **MiniMax** | M2.7, M2.7-highspeed, M2.5 | MiniMax subscription (OAuth) |
+| Provider | Best for | Assistant memory/tools | Auth |
+|----------|----------|------------------------|------|
+| **Claude Agent** | Default personal assistant experience | Memory read/write, semantic recall, journal, scheduler, native coding tools | Claude CLI (`claude` — uses your Max subscription) |
+| **OpenAI Responses** | Personal assistant chat with OpenAI models and vision | Memory read/write, semantic recall, journal, scheduler, shared tools | ChatGPT Plus/Pro subscription (OAuth) |
+| **OpenAI Codex Agent** | Coding-focused workspace agent | Memory context and semantic recall are injected; direct memory write and journal tools are not wired yet | Codex CLI (`codex login`) |
+| **MiniMax** | General assistant chat through MiniMax | Memory read/write, semantic recall, journal, scheduler, shared tools | MiniMax subscription (OAuth) |
 
 Claude uses the [Agent SDK](https://github.com/anthropics/claude-agent-sdk), which piggybacks on the Claude CLI's authentication — just run `claude` once to log in, and the bot picks it up automatically.
 
-The Codex agent mode uses `@openai/codex-sdk`, which spawns the `codex` CLI under the hood for native coding tools and persistent threads.
+The Codex agent mode uses `@openai/codex-sdk`, which spawns the `codex` CLI under the hood for native coding tools and persistent threads. Treat it as a coding agent until custom memory, journal, and recall tools are wired directly into the Codex CLI environment.
 
 ```bash
 chris model set sonnet         # Switch to Claude Sonnet
 chris model set gpt5           # Switch to OpenAI GPT-5.5
-chris model set codex-agent    # Switch to OpenAI Codex Agent
+chris model set codex-agent    # Switch to coding-focused OpenAI Codex Agent
 chris model set minimax        # Switch to MiniMax
 ```
 

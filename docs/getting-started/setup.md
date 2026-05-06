@@ -93,6 +93,8 @@ chris minimax status     # Check token expiry
 
 **Claude** — requires a Claude Max subscription. Add `CLAUDE_CODE_OAUTH_TOKEN` to your `.env` file (get it via `claude setup-token`), then switch with `chris model set sonnet`.
 
+**Codex Agent** — requires the Codex CLI to be installed and authenticated with `codex login`, then switch with `chris model set codex-agent`. This mode is currently best for coding-focused workspace tasks; use Claude or OpenAI Responses for the fullest personal-assistant memory and journal behavior.
+
 ## 8. (Optional) Set up web search
 
 Get a free Brave Search API key at [brave.com/search/api](https://brave.com/search/api), then:

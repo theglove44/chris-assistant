@@ -291,12 +291,19 @@ async function loadStatus() {
     document.getElementById("provider-badge").textContent = status.provider + " / " + status.model;
 
     const pm2 = status.pm2 || {};
+    const capabilities = status.providerCapabilities || {};
     const mem = pm2.memory ? (pm2.memory / 1024 / 1024).toFixed(1) + " MB" : "N/A";
 
     document.getElementById("status-stats").innerHTML = [
       stat("Uptime", status.uptimeFormatted),
       stat("Model", status.model),
       stat("Provider", status.provider),
+      stat("Mode", capabilities.mode || "N/A"),
+      stat("Memory Tools", capabilities.memoryRead ? (capabilities.memoryWrite ? "read/write" : "read-only") : "no"),
+      stat("Recall", capabilities.semanticRecall ? "yes" : "no"),
+      stat("Journal", capabilities.journal ? "yes" : "no"),
+      stat("Coding Tools", capabilities.nativeCodingTools ? "native" : "shared"),
+      stat("Scheduler", capabilities.schedulerSuitable ? "yes" : "no"),
       stat("Image Model", status.imageModel),
       stat("PID", pm2.pid ?? "N/A"),
       stat("Memory", mem),

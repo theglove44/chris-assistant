@@ -4,7 +4,10 @@ import {
   isCodexAgentModel,
   isMiniMaxModel,
   isOpenAiModel,
+  providerCapabilitiesForModel,
+  providerCapabilitySummary,
   providerForModel,
+  providerDisplayName,
   strictProviderForModel,
 } from "../src/providers/model-routing.js";
 
@@ -163,6 +166,72 @@ describe("providerForModel", () => {
   it("falls through to claude for truly unrecognised strings (legacy hot-path behaviour)", () => {
     // The hot-path intentionally does NOT throw — use strictProviderForModel for that
     expect(providerForModel("totally-unknown-model")).toBe("claude");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Provider metadata
+// ---------------------------------------------------------------------------
+
+describe("providerDisplayName", () => {
+  it("uses the Codex Agent display name for codex-agent models", () => {
+    expect(providerDisplayName("codex-agent-gpt-5.3-codex")).toBe("OpenAI Codex Agent");
+  });
+});
+
+describe("providerCapabilitiesForModel", () => {
+  it("describes Claude as the default personal assistant path", () => {
+    const capabilities = providerCapabilitiesForModel("claude-sonnet-4-6");
+    expect(capabilities.mode).toBe("personal-assistant");
+    expect(capabilities.memoryRead).toBe(true);
+    expect(capabilities.memoryWrite).toBe(true);
+    expect(capabilities.semanticRecall).toBe(true);
+    expect(capabilities.journal).toBe(true);
+    expect(capabilities.nativeCodingTools).toBe(true);
+    expect(capabilities.schedulerSuitable).toBe(true);
+  });
+
+  it("describes OpenAI Responses as assistant-capable with vision but no native agent tools", () => {
+    const capabilities = providerCapabilitiesForModel("gpt-5.5");
+    expect(capabilities.mode).toBe("personal-assistant");
+    expect(capabilities.memoryRead).toBe(true);
+    expect(capabilities.memoryWrite).toBe(true);
+    expect(capabilities.semanticRecall).toBe(true);
+    expect(capabilities.journal).toBe(true);
+    expect(capabilities.nativeCodingTools).toBe(false);
+    expect(capabilities.vision).toBe(true);
+    expect(capabilities.schedulerSuitable).toBe(true);
+  });
+
+  it("describes Codex Agent as coding-focused until custom tools are wired", () => {
+    const capabilities = providerCapabilitiesForModel("codex-agent-gpt-5.3-codex");
+    expect(capabilities.mode).toBe("coding-agent");
+    expect(capabilities.memoryRead).toBe(true);
+    expect(capabilities.memoryWrite).toBe(false);
+    expect(capabilities.semanticRecall).toBe(true);
+    expect(capabilities.journal).toBe(false);
+    expect(capabilities.nativeCodingTools).toBe(true);
+    expect(capabilities.vision).toBe(false);
+    expect(capabilities.schedulerSuitable).toBe(false);
+  });
+
+  it("describes MiniMax as a general chat path with shared tools", () => {
+    const capabilities = providerCapabilitiesForModel("MiniMax-M2.7");
+    expect(capabilities.mode).toBe("general-chat");
+    expect(capabilities.memoryRead).toBe(true);
+    expect(capabilities.memoryWrite).toBe(true);
+    expect(capabilities.semanticRecall).toBe(true);
+    expect(capabilities.journal).toBe(true);
+    expect(capabilities.nativeCodingTools).toBe(false);
+    expect(capabilities.vision).toBe(true);
+    expect(capabilities.schedulerSuitable).toBe(true);
+  });
+});
+
+describe("providerCapabilitySummary", () => {
+  it("renders concise yes/no capability lines", () => {
+    expect(providerCapabilitySummary("codex-agent-gpt-5.3-codex")).toContain("Memory write: no");
+    expect(providerCapabilitySummary("codex-agent-gpt-5.3-codex")).toContain("Native coding tools: yes");
   });
 });
 

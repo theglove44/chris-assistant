@@ -2,7 +2,11 @@ import { Command } from "commander";
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
-import { providerForModel } from "../../providers/model-routing.js";
+import {
+  providerCapabilitiesForModel,
+  providerCapabilitySummary,
+  providerForModel,
+} from "../../providers/model-routing.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ENV_PATH = resolve(__dirname, "../../..", ".env");
@@ -90,7 +94,11 @@ export function registerModelCommand(program: Command) {
     .action(() => {
       const current = getCurrentModel();
       const provider = providerForModel(current);
+      const capabilities = providerCapabilitiesForModel(current);
       console.log("Current model: %s (%s)", current, provider);
+      console.log("Best use: %s", capabilities.summary);
+      console.log("");
+      console.log(providerCapabilitySummary(current));
       console.log("");
       console.log("Shortcuts:");
       for (const [alias, info] of Object.entries(KNOWN_MODELS)) {
@@ -108,8 +116,10 @@ export function registerModelCommand(program: Command) {
       const known = KNOWN_MODELS[input.toLowerCase()];
       const modelId = known ? known.id : input;
       const provider = providerForModel(modelId);
+      const capabilities = providerCapabilitiesForModel(modelId);
       setModel(modelId);
       console.log("Model set to: %s (%s)", modelId, provider);
+      console.log("Best use: %s", capabilities.summary);
       console.log('Run "chris restart" for this to take effect.');
     });
 
@@ -131,11 +141,11 @@ export function registerModelCommand(program: Command) {
     { id: "gpt-5.2", provider: "openai", description: "Previous general-purpose model" },
     { id: "gpt-5.2-chat-latest", provider: "openai", description: "Previous ChatGPT-style GPT-5.2 model" },
     { id: "gpt-5.2-pro", provider: "openai", description: "Previous higher-compute GPT-5.2 model" },
-    { id: "codex-agent-gpt-5.5", provider: "codex-agent", description: "Codex SDK agent provider on gpt-5.5" },
-    { id: "codex-agent-gpt-5.4", provider: "codex-agent", description: "Codex SDK agent provider on gpt-5.4" },
-    { id: "codex-agent-gpt-5.4-mini", provider: "codex-agent", description: "Codex SDK agent provider on gpt-5.4-mini" },
-    { id: "codex-agent-gpt-5.3-codex", provider: "codex-agent", description: "Codex SDK agent provider on gpt-5.3-codex" },
-    { id: "codex-agent-gpt-5.3-codex-spark", provider: "codex-agent", description: "Codex SDK agent provider on codex spark preview" },
+    { id: "codex-agent-gpt-5.5", provider: "codex-agent", description: "Coding-focused Codex CLI agent on gpt-5.5" },
+    { id: "codex-agent-gpt-5.4", provider: "codex-agent", description: "Coding-focused Codex CLI agent on gpt-5.4" },
+    { id: "codex-agent-gpt-5.4-mini", provider: "codex-agent", description: "Fast coding-focused Codex CLI agent on gpt-5.4-mini" },
+    { id: "codex-agent-gpt-5.3-codex", provider: "codex-agent", description: "Coding-focused Codex CLI agent on gpt-5.3-codex" },
+    { id: "codex-agent-gpt-5.3-codex-spark", provider: "codex-agent", description: "Coding-focused Codex CLI agent on codex spark preview" },
     // OpenAI — o-series (reasoning)
     { id: "o3", provider: "openai", description: "Older powerful reasoning model" },
     { id: "o3-mini", provider: "openai", description: "Older lightweight reasoning model" },
