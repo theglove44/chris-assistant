@@ -5,7 +5,7 @@ description: What Chris Assistant is and how it works
 
 # Overview
 
-A personal AI assistant accessible through Telegram and Discord. Supports multiple AI providers (Claude, OpenAI, MiniMax) with persistent memory stored in GitHub.
+A personal AI assistant accessible through Telegram and Discord. Supports multiple AI providers (Claude, OpenAI, Codex Agent, and MiniMax) with persistent memory stored in GitHub.
 
 ## How It Works
 
@@ -16,7 +16,7 @@ Telegram message (text, photo, or document)
   → Loads identity + memory from GitHub private repo (5-min cache)
   → Loads project context (CLAUDE.md/AGENTS.md/README.md from active workspace)
   → Builds system prompt with personality, knowledge, conversation history
-  → Routes to active provider (Claude, OpenAI, or MiniMax)
+  → Routes to active provider (Claude, OpenAI, Codex Agent, or MiniMax)
   → Streams response back to Telegram with live updates
   → AI can call tools: memory, web search, fetch URLs, run code,
     read/write/edit files, git operations, manage scheduled tasks
@@ -33,9 +33,10 @@ The assistant has its own identity, personality, and evolving memory. Everything
 
 ## Features
 
-- **Multi-provider AI** — Claude (Agent SDK), OpenAI, and MiniMax via a single bot. Switch models with `chris model set <name>`.
-- **Streaming responses** — OpenAI and MiniMax stream tokens in real-time. Telegram message updates every 1.5s with a typing cursor.
-- **Image understanding** — Send a photo and the AI will describe/analyze it (OpenAI and MiniMax). Claude falls back to text-only.
+- **Multi-provider AI** — Claude (Agent SDK), OpenAI Responses, OpenAI Codex Agent, and MiniMax via a single bot. Switch models with `chris model set <name>`.
+- **Provider capability metadata** — `chris model`, Telegram `/model`, and the dashboard status API show whether the active provider is a personal assistant path, a coding agent path, or a general chat path.
+- **Streaming responses** — All providers stream responses. Telegram message updates every 1.5s with a typing cursor.
+- **Image understanding** — Send a photo and the AI will describe/analyze it (OpenAI Responses and MiniMax). Claude and Codex Agent fall back to text-only in this integration.
 - **Document reading** — Send text files (.txt, .json, .csv, .md, etc.) and the AI reads the contents inline.
 - **Web search** — AI can search the web via Brave Search API (optional, needs API key).
 - **URL fetching** — AI can read any URL, with HTML stripping and 50KB truncation.

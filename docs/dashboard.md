@@ -21,7 +21,7 @@ http://localhost:3100
 
 ### Status
 
-Bot uptime, active model and provider, image model, pm2 process info, and health check indicators (GitHub, Telegram, token expiry).
+Bot uptime, active model and provider, provider capability metadata, image model, pm2 process info, and health check indicators (GitHub, Telegram, token expiry).
 
 ### Chat
 
@@ -62,7 +62,7 @@ All endpoints return JSON and support CORS.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/status` | Bot status, uptime, model, pm2 info |
+| `GET` | `/api/status` | Bot status, uptime, model, provider capabilities, pm2 info |
 | `GET` | `/api/health` | Health check results |
 | `GET` | `/api/symphony/state` | Symphony sidecar state (proxied) |
 | `GET` | `/api/schedules` | List all schedules |

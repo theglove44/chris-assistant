@@ -14,6 +14,19 @@ The model string determines the provider. No separate "provider" config key need
 | `MiniMax-*` | MiniMax | `src/providers/minimax.ts` |
 | Everything else | Claude | `src/providers/claude.ts` |
 
+## Capability Matrix
+
+Provider capability metadata lives in `src/providers/model-routing.ts` so CLI output, Telegram `/model`, and the dashboard status API use the same source of truth.
+
+| Provider | Mode | Memory read | Memory write | Semantic recall | Journal | Native coding tools | Vision | Scheduler suitable |
+|----------|------|-------------|--------------|-----------------|---------|---------------------|--------|--------------------|
+| Claude | Personal assistant | yes | yes | yes | yes | yes | no | yes |
+| OpenAI Responses | Personal assistant | yes | yes | yes | yes | no | yes | yes |
+| Codex Agent | Coding agent | yes | no | yes | no | yes | no | no |
+| MiniMax | General chat | yes | yes | yes | yes | no | yes | yes |
+
+Claude is the default personal assistant path. OpenAI Responses and MiniMax use the shared tool registry and provider-wide memory recall. Codex Agent receives identity, curated memory, and recalled memory context, but it should be described as coding-focused until custom memory write, journal, and recall tools are exposed directly to the Codex CLI subprocess.
+
 ## Claude
 
 Uses the `@anthropic-ai/claude-agent-sdk` as a full agent with Claude Code's native tools (Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch, etc.) running natively. Custom tools (memory, SSH, scheduler, recall, journal, skills, market_snapshot) are exposed via an in-process MCP server. See the [Agent SDKs](./agent-sdks) page for a deep dive into how this works, the MCP bridge, session persistence, and safety hooks.
@@ -32,11 +45,13 @@ Uses the `@anthropic-ai/claude-agent-sdk` as a full agent with Claude Code's nat
 
 ## Codex Agent
 
-Uses the `@openai/codex-sdk` to run a full agent with workspace access. This is a distinct provider from the OpenAI Responses API — it uses OpenAI's Codex Agent SDK to manage persistent threads with tool execution in a sandboxed workspace.
+Uses the `@openai/codex-sdk` to run a coding-focused agent with workspace access. This is a distinct provider from the OpenAI Responses API — it uses OpenAI's Codex Agent SDK to manage persistent threads with tool execution in a sandboxed workspace.
 
 **Model routing**: Models prefixed with `codex-agent-` route here. The prefix is stripped to determine the underlying model (e.g. `codex-agent-o4-mini` uses `o4-mini`). If no model suffix is provided, defaults to `o4-mini`.
 
-**Thread persistence**: Each chat gets a persistent thread via `src/codex-sessions.ts` (parallel to `claude-sessions.ts`). First message starts a new thread; follow-up messages resume the existing thread via `codex.resumeThread()`. `/clear` resets the thread. System context (identity, memory, formatting rules) is prepended to the first message only.
+**Thread persistence**: Each chat gets a persistent thread via `src/codex-sessions.ts` (parallel to `claude-sessions.ts`). First message starts a new thread; follow-up messages resume the existing thread via `codex.resumeThread()`. `/clear` resets the thread. System context (identity, memory, recalled memory, and formatting rules) is prepended to the first message only.
+
+**Assistant parity status**: Codex Agent can read injected memory context and relevant semantic recall, but it does not yet have direct custom MCP tools for writing memory, appending journal entries, or explicitly searching assistant memory from inside the Codex CLI subprocess. Use Claude or OpenAI Responses for the most complete personal-assistant behavior.
 
 **Workspace**: The agent runs with `workspace-write` sandbox mode in `getWorkspaceRoot()`, with additional access to `~/.chris-assistant/`. Network access is enabled and git repo checks are skipped.
 

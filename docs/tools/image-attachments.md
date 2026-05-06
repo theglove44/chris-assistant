@@ -21,7 +21,7 @@ When an image is attached to a message, the bot:
 
 ### Provider routing
 
-Images always bypass the active text provider (Claude, MiniMax) and go directly to OpenAI. This is because the Claude Agent SDK and MiniMax don't support vision via this integration.
+Images always bypass the active text provider and go directly to OpenAI. This keeps vision behavior consistent even when the active text provider is Claude, Codex Agent, or MiniMax.
 
 ```
 Message + images
@@ -33,7 +33,7 @@ createOpenAiProvider(IMAGE_MODEL)
 Multi-part content: [text, image1, image2, ...]
 ```
 
-If Claude is the active provider and an image is attached, a note is added to the prompt: `[N image(s) attached but the Claude Agent SDK can't process images directly...]`. This fallback ensures the text message still gets a response.
+When images are routed to the dedicated image model, the active provider session is cleared so follow-up text continues from a clean provider state.
 
 ---
 
@@ -84,9 +84,10 @@ Files are truncated at 50,000 bytes with a `[... truncated ...]` marker.
 | File | Role |
 |---|---|
 | `src/providers/types.ts` | `ImageAttachment` interface (`base64`, `mimeType`) |
-| `src/providers/index.ts` | Routes image requests to OpenAI |
+| `src/agent/chat-service.ts` | Routes image requests to OpenAI image model |
 | `src/providers/openai.ts` | Builds multi-part content array with all images |
-| `src/providers/claude.ts` | Fallback note when images can't be processed |
-| `src/providers/minimax.ts` | Supports image array in content parts |
+| `src/providers/claude.ts` | Text-only fallback note when images reach Claude directly |
+| `src/providers/codex-agent.ts` | Text-only fallback note when images reach Codex Agent directly |
+| `src/providers/minimax.ts` | Supports image array in content parts when used directly |
 | `src/telegram.ts` | Downloads Telegram photos/documents, wraps in `ImageAttachment[]` |
 | `src/discord.ts` | Downloads all Discord image attachments, collects into `ImageAttachment[]` |

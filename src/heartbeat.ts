@@ -19,6 +19,7 @@ import { writeMemoryFile } from "./memory/github.js";
 import { getSchedules } from "./scheduler.js";
 import { loadTokens as loadMinimaxTokens } from "./providers/minimax-oauth.js";
 import { loadTokens as loadOpenaiTokens } from "./providers/openai-oauth.js";
+import { providerDisplayName } from "./providers/model-routing.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -52,10 +53,7 @@ const octokit = new Octokit({ auth: config.github.token });
 // ---------------------------------------------------------------------------
 
 function getProviderName(model: string): string {
-  const m = model.toLowerCase();
-  if (m.startsWith("gpt-") || m.startsWith("o3") || m.startsWith("o4-")) return "OpenAI";
-  if (model.startsWith("MiniMax")) return "MiniMax";
-  return "Claude";
+  return providerDisplayName(model);
 }
 
 // ---------------------------------------------------------------------------

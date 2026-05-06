@@ -2,6 +2,7 @@ import { Octokit } from "@octokit/rest";
 import { config, repoOwner, repoName } from "./config.js";
 import { loadTokens as loadMinimaxTokens } from "./providers/minimax-oauth.js";
 import { loadTokens as loadOpenaiTokens } from "./providers/openai-oauth.js";
+import { providerDisplayName } from "./providers/model-routing.js";
 import { getUploadHealthStatus } from "./domain/memory/upload-tracker.js";
 
 const CHECK_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
@@ -38,10 +39,7 @@ export function getHealthStatus(): Array<{ name: string; ok: boolean; detail?: s
 // --- Provider name helper ---
 
 export function getProviderName(model: string): string {
-  const m = model.toLowerCase();
-  if (m.startsWith("gpt-") || m.startsWith("o3") || m.startsWith("o4-")) return "OpenAI";
-  if (model.startsWith("MiniMax")) return "MiniMax";
-  return "Claude";
+  return providerDisplayName(model);
 }
 
 // --- Telegram alert sender ---

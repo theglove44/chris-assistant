@@ -5,7 +5,11 @@ import { config } from "../../config.js";
 import { clearHistory } from "../../conversation.js";
 import { readMemoryFile } from "../../memory/github.js";
 import { invalidatePromptCache } from "../../providers/shared.js";
-import { providerDisplayName } from "../../providers/model-routing.js";
+import {
+  providerCapabilitiesForModel,
+  providerCapabilitySummary,
+  providerDisplayName,
+} from "../../providers/model-routing.js";
 import { getWorkspaceRoot, setWorkspaceRoot, isProjectActive } from "../../tools/files.js";
 import { chatService } from "../../agent/chat-service.js";
 import { dreamStatus, forceDream } from "../../domain/memory/dream-service.js";
@@ -48,7 +52,15 @@ export function registerTelegramCommands(bot: Bot<Context>): void {
   bot.command("model", async (ctx) => {
     const model = config.model;
     const provider = providerDisplayName(model);
-    await ctx.reply(`Model: ${model}\nProvider: ${provider}\nWorkspace: ${getWorkspaceRoot()}\n\nUse the CLI to switch: chris model set <name>`);
+    const capabilities = providerCapabilitiesForModel(model);
+    await ctx.reply(
+      `Model: ${model}\n` +
+        `Provider: ${provider}\n` +
+        `Best use: ${capabilities.summary}\n\n` +
+        `${providerCapabilitySummary(model)}\n\n` +
+        `Workspace: ${getWorkspaceRoot()}\n\n` +
+        `Use the CLI to switch: chris model set <name>`,
+    );
   });
 
   bot.command("memory", async (ctx) => {

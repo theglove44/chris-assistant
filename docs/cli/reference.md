@@ -28,6 +28,8 @@ chris model search       # List all available models across all providers
 chris model search <q>   # Filter models by name, provider, or description
 ```
 
+`chris model` also prints capability metadata for the active provider: mode, memory read/write, semantic recall, journal access, native coding tools, vision, and scheduler suitability. The same metadata is used by Telegram `/model` and the dashboard status API.
+
 ### Available Shortcuts
 
 | Shortcut | Model ID | Provider |
