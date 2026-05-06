@@ -36,6 +36,8 @@ export interface RelevantMemory {
   content: string;
 }
 
+type RecallIntent = "none" | "personal" | "project";
+
 // ---------------------------------------------------------------------------
 // Memory directory
 // ---------------------------------------------------------------------------
@@ -84,6 +86,11 @@ export async function findRelevantMemories(
   query: string,
   memoryDir: string = LOCAL_MEMORY_DIR,
 ): Promise<RelevantMemory[]> {
+  const intent = recallIntent(query);
+  if (intent === "none") {
+    return [];
+  }
+
   const memories = await scanMemoryFiles(memoryDir);
   if (memories.length === 0) {
     return [];
@@ -93,13 +100,14 @@ export async function findRelevantMemories(
   let selected: MemoryHeader[];
   if (isVoyageReady()) {
     selected = await semanticRecall(query);
+    selected = filterMemoriesByIntent(query, selected, intent);
     if (selected.length === 0) {
-      // Voyage returned nothing — fall back to keyword scorer
-      console.log("[recall] Voyage returned 0 results, falling back to keyword scoring");
-      selected = selectRelevantMemories(query, memories);
+      // Voyage returned nothing usable for this turn — fall back to keyword scorer.
+      console.log("[recall] Semantic recall yielded no relevant results, falling back to keyword scoring");
+      selected = selectRelevantMemories(query, memories, intent);
     }
   } else {
-    selected = selectRelevantMemories(query, memories);
+    selected = selectRelevantMemories(query, memories, intent);
   }
 
   if (selected.length === 0) {
@@ -171,6 +179,48 @@ const TIME_PATTERNS = [
   /\b\d{4}-\d{2}-\d{2}\b/,
 ];
 
+const EXPLICIT_MEMORY_PATTERNS = [
+  /\b(?:remember|recall|memory|memories|know about me|about me)\b/i,
+  /\b(?:what|who)\s+(?:do|did)\s+you\s+(?:remember|know)\b/i,
+  /\b(?:what|when)\s+(?:did|were|was)\s+(?:we|i|you)\b/i,
+  /\b(?:talked?\s+about|discussed?|worked?\s+on|happened)\b/i,
+  /\b(?:yesterday|last\s+week|last\s+month|recently|previously|earlier)\b/i,
+  /\bdebug yourself\b/i,
+];
+
+const PROJECT_CONTEXT_PATTERNS = [
+  /\b(?:my|our|this|the)\s+(?:project|repo|repository|codebase|app|agent|assistant|bot)\b/i,
+  /\b(?:project|repo|repository|codebase|issue|pr|pull request|branch|sprint)\s+(?:we|i|you|chris)\b/i,
+  /\bchris-assistant\b/i,
+  /\btrading agent\b/i,
+];
+
+const GENERIC_HELP_PATTERNS = [
+  /^(?:what|how|why|when|where|can|could|should|would|is|are|does|do)\b/i,
+  /\b(?:explain|define|summarize|compare|recommend|help me|show me|tell me)\b/i,
+];
+
+function recallIntent(query: string): RecallIntent {
+  const normalized = query.trim();
+  if (!normalized) return "none";
+
+  const wantsMemory = EXPLICIT_MEMORY_PATTERNS.some((p) => p.test(normalized));
+  const wantsProject = PROJECT_CONTEXT_PATTERNS.some((p) => p.test(normalized));
+  if (wantsProject) return "project";
+  if (wantsMemory) return "personal";
+
+  const tokens = tokenize(normalized);
+  if (tokens.length < 4) return "none";
+
+  // General help questions should not pull project memories just because an
+  // embedding or keyword overlaps with one remembered project.
+  if (GENERIC_HELP_PATTERNS.some((p) => p.test(normalized))) {
+    return "none";
+  }
+
+  return "personal";
+}
+
 /**
  * Extract meaningful tokens from text for scoring.
  * Lowercases, strips punctuation, removes stop words.
@@ -186,7 +236,9 @@ function tokenize(text: string): string[] {
 /**
  * Score a memory against a query using keyword overlap + bonuses.
  */
-function scoreMemory(query: string, queryTokens: string[], memory: MemoryHeader): number {
+function scoreMemory(query: string, queryTokens: string[], memory: MemoryHeader, intent: RecallIntent): number {
+  if (!memoryAllowedForIntent(query, memory, intent)) return 0;
+
   // Build searchable text from filename + description
   const memText = [memory.filename, memory.description || ""].join(" ");
   const memTokens = new Set(tokenize(memText));
@@ -233,6 +285,7 @@ function scoreMemory(query: string, queryTokens: string[], memory: MemoryHeader)
 function selectRelevantMemories(
   query: string,
   memories: MemoryHeader[],
+  intent: RecallIntent,
 ): MemoryHeader[] {
   const queryTokens = tokenize(query);
   if (queryTokens.length === 0) {
@@ -241,10 +294,10 @@ function selectRelevantMemories(
   }
 
   const scored = memories
-    .map((m) => ({ memory: m, score: scoreMemory(query, queryTokens, m) }))
-    .filter((s) => s.score > 0.15) // Minimum relevance threshold
+    .map((m) => ({ memory: m, score: scoreMemory(query, queryTokens, m, intent) }))
+    .filter((s) => s.score > 0.3) // Minimum relevance threshold
     .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
+    .slice(0, intent === "project" ? 3 : 2);
 
   if (scored.length > 0) {
     console.log(
@@ -256,4 +309,29 @@ function selectRelevantMemories(
   }
 
   return scored.map((s) => s.memory);
+}
+
+function filterMemoriesByIntent(query: string, memories: MemoryHeader[], intent: RecallIntent): MemoryHeader[] {
+  return memories
+    .filter((memory) => memoryAllowedForIntent(query, memory, intent))
+    .slice(0, intent === "project" ? 3 : 2);
+}
+
+function memoryAllowedForIntent(query: string, memory: MemoryHeader, intent: RecallIntent): boolean {
+  if (intent === "none") return false;
+  if (intent === "project") return true;
+
+  if (memory.type === "project" || memory.type === "reference") {
+    return hasDirectMemoryNameOverlap(query, memory);
+  }
+
+  return true;
+}
+
+function hasDirectMemoryNameOverlap(query: string, memory: MemoryHeader): boolean {
+  const queryTokens = new Set(tokenize(query));
+  if (queryTokens.size === 0) return false;
+
+  const memoryTokens = tokenize([memory.filename, memory.description || ""].join(" "));
+  return memoryTokens.some((token) => queryTokens.has(token));
 }
