@@ -37,7 +37,7 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 ├── memory/SUMMARY.md         # Weekly-consolidated curated summary
 ├── memory/DASHBOARD.md       # Operator-facing status and notes
 ├── memory/learnings.md       # Self-improvement notes
-├── archive/YYYY-MM-DD.jsonl  # Daily JSONL message logs (uploaded every 30 minutes)
+├── archive/YYYY-MM-DD.jsonl  # Daily JSONL message logs (uploaded every 5 minutes)
 ├── journal/YYYY-MM-DD.md     # Bot's daily journal notes (uploaded every 6 hours)
 ├── conversations/summaries/YYYY-MM-DD.md  # AI-generated daily conversation summaries
 ├── conversations/channels/<name>/YYYY-WXX.md  # Weekly per-channel summaries
@@ -53,7 +53,7 @@ The bot uses `@anthropic-ai/claude-agent-sdk` as a full agent when Claude is the
 
 The system prompt uses `{ type: 'preset', preset: 'claude_code', append: <identity/memory> }` to extend Claude Code's default prompt with personality and knowledge. Session persistence via `resume` gives multi-turn conversation context without manual history management. Extended thinking is keyword-triggered ("think" → 10k tokens, "think hard" → 50k). Authenticated through Max subscription via the `claude` CLI (same auth Claude Code uses).
 
-Telegram commands: `/stop` aborts the active query via AbortController, `/session` shows the active session ID, `/clear` resets both conversation history and Claude session.
+Telegram commands: `/stop` aborts the active provider query when supported, `/session` shows the active provider session ID when available, and `/clear` resets conversation history plus the active provider session.
 
 ### OpenAI (Codex Responses API)
 
@@ -117,10 +117,10 @@ Telegram is now implemented under `src/channels/telegram/`:
 ## Conversation System
 
 ### Persistent History
-Last 20 messages per chat in `~/.chris-assistant/conversations.json`. Loaded lazily, saved async via write queue. Fire-and-forget `addMessage()`, await `clearHistory()`. Metadata (`{ source?, channelName? }`) passed through to archive. `/clear` wipes history + Claude session. `/purge` also redacts today's archive.
+Last 20 messages per chat in `~/.chris-assistant/conversations.json`. Loaded lazily, saved async via write queue. Fire-and-forget `addMessage()`, await `clearHistory()`. Metadata (`{ source?, channelName? }`) passed through to archive. `/clear` wipes history plus the active provider session. `/purge` also redacts today's archive.
 
 ### Archive
-`conversation-archive.ts` — sync `appendFileSync` to `~/.chris-assistant/archive/YYYY-MM-DD.jsonl`. Each entry has optional `source` and `channelName` fields. Uploads to GitHub every 30 minutes (SHA-256 dedup). Exports: `readLocalArchive()`, `listLocalArchiveDates()`, `datestamp()`, `localArchivePath()`, `uploadArchives()`, `redactArchiveEntries()`.
+`conversation-archive.ts` — sync `appendFileSync` to `~/.chris-assistant/archive/YYYY-MM-DD.jsonl`. Each entry has optional `source` and `channelName` fields. Uploads to GitHub every 5 minutes (SHA-256 dedup). Exports: `readLocalArchive()`, `listLocalArchiveDates()`, `datestamp()`, `localArchivePath()`, `uploadArchives()`, `redactArchiveEntries()`.
 
 ### Daily Summaries
 `conversation-summary.ts` — fires at 23:55 local time. Reads today's archive, calls `chat()` with summarization prompt, writes to `conversations/summaries/YYYY-MM-DD.md` in memory repo. Backfills yesterday on startup if missing.
@@ -135,7 +135,7 @@ Last 20 messages per chat in `~/.chris-assistant/conversations.json`. Loaded laz
 `conversation-backup.ts` — backs up `conversations.json` to GitHub every 6 hours (SHA-256 dedup). Immediate backup on startup.
 
 ### Purge
-`/purge` clears rolling window, resets Claude session, redacts today's archive entries, writes empty file so GitHub copy gets overwritten, triggers immediate upload.
+`/purge` clears the rolling window, resets the active provider session, redacts today's archive entries, writes an empty file so the GitHub copy gets overwritten, and triggers immediate upload.
 
 ## Tool Details
 
@@ -161,7 +161,7 @@ Native fetch, 15s timeout. HTML extracted via Readability + linkedom, regex fall
 `git_status`, `git_diff` (optional `staged`), `git_commit` (optional `files` array). No `git_push` (safety). 50KB diff truncation.
 
 ### Memory Tool
-All providers support `update_memory`. Claude via MCP, OpenAI/MiniMax via function calling. All delegate to `executeMemoryTool()`.
+Claude, OpenAI Responses, and MiniMax support direct `update_memory` calls. Claude uses MCP, OpenAI/MiniMax use function calling, and all direct writes delegate to `executeMemoryTool()`. Codex Agent receives injected memory context and semantic recall, but direct memory writes are not wired into the Codex CLI subprocess yet.
 
 ### Market Snapshot
 SSHes to Mac Mini (via `MAC_MINI_HOST` env var or SSH config alias) to run `tasty-coach --snapshot --json`. Parses JSON output into structured objects. Formats for Telegram with categorized sections (Futures, ETFs, Commodities, Crypto, Volatility) and auto-generated insights.

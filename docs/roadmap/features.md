@@ -30,7 +30,7 @@ Tools and features that expand what the bot can do.
 |---|--------|--------|------|-------------|
 | 1 | 🔴 | ✅ | **Streaming responses** | OpenAI and MiniMax stream via `onChunk`. Telegram edits every 1.5s with cursor. |
 | 2 | 🟠 | ✅ | **Persistent conversation history** | Last 20 messages per chat, async I/O with write queue. |
-| 3 | 🟠 | ✅ | **MarkdownV2 rendering** | Context-aware escaping, plain text fallback. |
+| 3 | 🟠 | ✅ | **Telegram HTML rendering** | Markdown-like input converted to Telegram HTML (`parse_mode: "HTML"`), with plain text fallback. |
 | 4 | 🟡 | ⬜ | **Voice message support** | Transcribe incoming voice via Whisper, optionally respond with TTS. |
 | 5 | 🟢 | ✅ | **Telegram commands menu** | `/model`, `/memory`, `/help` registered via `setMyCommands`. |
 

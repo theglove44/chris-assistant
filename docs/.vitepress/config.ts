@@ -7,6 +7,7 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: 'Guide', link: '/getting-started/overview' },
+      { text: 'Manual', link: '/operating-manual' },
       { text: 'Symphony', link: '/symphony-overview' },
       { text: 'Architecture', link: '/architecture/overview' },
       { text: 'Tools', link: '/tools/overview' },
@@ -21,6 +22,7 @@ export default defineConfig({
             { text: 'Overview', link: '/getting-started/overview' },
             { text: 'Setup', link: '/getting-started/setup' },
             { text: 'Usage', link: '/getting-started/usage' },
+            { text: 'Operating Manual', link: '/operating-manual' },
           ],
         },
         {
@@ -104,7 +106,7 @@ export default defineConfig({
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/christaylor/chris-assistant' },
+      { icon: 'github', link: 'https://github.com/theglove44/chris-assistant' },
     ],
 
     search: {

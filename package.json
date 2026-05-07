@@ -16,9 +16,9 @@
     "setup:reminders-helper": "bash scripts/setup-reminders-helper.sh",
     "test": "vitest run",
     "docs:dev": "vitepress dev docs",
-    "docs:build": "vitepress build docs",
+    "docs:build": "vitepress build docs && node scripts/prepare-docs-routes.js && node scripts/check-docs-routes.js",
     "docs:preview": "vitepress preview docs",
-    "docs:deploy": "vitepress build docs && rsync -avz --delete docs/.vitepress/dist/ ${DOCS_DEPLOY_HOST:?Set DOCS_DEPLOY_HOST}:~/chris-assistant-docs/"
+    "docs:deploy": "npm run docs:build && rsync -avz --delete docs/.vitepress/dist/ ${DOCS_DEPLOY_HOST:?Set DOCS_DEPLOY_HOST}:~/chris-assistant-docs/"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.114",

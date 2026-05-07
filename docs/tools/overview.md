@@ -55,7 +55,7 @@ Skills are higher-level — they're JSON definitions that compose existing tools
 
 1. Create `src/tools/<name>.ts` with a `registerTool()` call
 2. Add `import "./<name>.js"` to `src/tools/index.ts`
-3. All three providers pick it up automatically — no provider code changes needed
+3. Shared-tool providers pick it up automatically. Codex Agent currently receives memory context but does not get these custom tools directly inside the Codex CLI subprocess.
 
 ## Loop Detection
 
