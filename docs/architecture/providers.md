@@ -53,7 +53,7 @@ Uses the `@openai/codex-sdk` to run a coding-focused agent with workspace access
 
 **Assistant parity status**: Codex Agent can read injected memory context and relevant semantic recall, but it does not yet have direct custom MCP tools for writing memory, appending journal entries, or explicitly searching assistant memory from inside the Codex CLI subprocess. Use Claude or OpenAI Responses for the most complete personal-assistant behavior.
 
-**Workspace**: The agent runs with `workspace-write` sandbox mode in `getWorkspaceRoot()`, with additional access to `~/.chris-assistant/`. Network access is enabled and git repo checks are skipped.
+**Workspace**: The agent runs with `workspace-write` sandbox mode in `getWorkspaceRoot()`. It does not receive additional write access to `~/.chris-assistant/`; live assistant runtime data stays outside the Codex Agent workspace. Network access is enabled and git repo checks are skipped.
 
 **Streaming**: Streams via the SDK's `runStreamed()` method. The provider listens for `item.updated` and `item.completed` events, extracting text from `agent_message` items and forwarding via `onChunk()`.
 
