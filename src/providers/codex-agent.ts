@@ -1,6 +1,4 @@
 import { Codex, type ThreadItem } from "@openai/codex-sdk";
-import * as os from "os";
-import * as path from "path";
 import { resolveCodexBinary } from "../codex.js";
 import { getThreadId, setThreadId } from "../codex-sessions.js";
 import { getWorkspaceRoot } from "../tools/files.js";
@@ -22,7 +20,7 @@ function getCodex(): Codex {
 }
 
 function underlyingModel(model: string): string {
-  return model.replace(/^codex-agent-?/, "") || "o4-mini";
+  return model.replace(/^codex-agent-?/i, "") || "o4-mini";
 }
 
 function buildThreadOptions(model: string) {
@@ -33,7 +31,6 @@ function buildThreadOptions(model: string) {
     networkAccessEnabled: true,
     skipGitRepoCheck: true,
     workingDirectory: getWorkspaceRoot(),
-    additionalDirectories: [path.join(os.homedir(), ".chris-assistant")],
   };
 }
 
