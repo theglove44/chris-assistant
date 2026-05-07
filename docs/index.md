@@ -10,11 +10,11 @@ hero:
       text: Get Started
       link: /getting-started/overview
     - theme: alt
+      text: Operating Manual
+      link: /operating-manual
+    - theme: alt
       text: See Symphony
       link: /symphony-overview
-    - theme: alt
-      text: View on GitHub
-      link: https://github.com/christaylor/chris-assistant
 
 features:
   - title: Multi-Provider AI

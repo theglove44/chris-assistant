@@ -6,7 +6,7 @@
 
 export const DREAM_CONSOLIDATION_PROMPT = `IMPORTANT: This is a memory consolidation task. Do NOT use any tools. Do NOT call Bash, Read, Edit, Write, or any other tool. Your ENTIRE response must be a single JSON object inside a markdown code block. No tool calls. No file operations. Just return the JSON.
 
-You are performing a memory consolidation for an AI assistant called Claw. You are "dreaming" — reviewing recent conversations and updating memory files to keep them accurate and useful.
+You are performing a memory consolidation for Chris Assistant. You are "dreaming" — reviewing recent conversations and updating memory files to keep them accurate and useful.
 
 All the information you need is provided below in this message. Do not attempt to read files or run commands.
 

@@ -129,7 +129,7 @@ export function startArchiveUploader(): void {
     return;
   }
 
-  console.log("[archive] Starting archive uploader (every 30 minutes)");
+  console.log("[archive] Starting archive uploader (every 5 minutes)");
   uploadArchives().catch((err: any) => {
     console.error("[archive] Unexpected error during initial upload:", err.message);
   });

@@ -44,6 +44,8 @@ You send a message on Telegram
 
 The assistant has its own identity (personality, voice, rules) and an evolving memory — all stored as markdown in a separate private GitHub repo. You can browse, edit, and roll back anything it knows.
 
+For the runtime-accurate guide to what the assistant remembers, how recall works, and when to use each provider mode, see the [Operating Manual](docs/operating-manual.md).
+
 ### Multi-Provider AI
 
 Switch between providers with a single command. The model string determines the backend:
@@ -105,7 +107,7 @@ Accessible over Tailnet with token auth.
 ### Install
 
 ```bash
-git clone https://github.com/christayloruk/chris-assistant.git
+git clone https://github.com/theglove44/chris-assistant.git
 cd chris-assistant
 npm install
 npm link              # Makes 'chris' available globally

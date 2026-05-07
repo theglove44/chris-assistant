@@ -31,7 +31,7 @@ chris-assistant-memory/
 
 ## `update_memory` Tool
 
-Registered in `src/tools/memory.ts`. All providers support it — Claude uses MCP (in-process server), OpenAI and MiniMax use OpenAI-format function calling. All delegate to the same `executeMemoryTool()` function in `src/domain/memory/update-service.ts`.
+Registered in `src/tools/memory.ts`. Claude uses MCP (in-process server), while OpenAI Responses and MiniMax use OpenAI-format function calling. Those shared-tool providers delegate to the same `executeMemoryTool()` function in `src/domain/memory/update-service.ts`. Codex Agent receives injected memory context and semantic recall, but direct memory writes are not wired into the Codex CLI subprocess yet.
 
 ### Actions
 

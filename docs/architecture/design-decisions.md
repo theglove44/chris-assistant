@@ -13,7 +13,7 @@ The model string determines the provider. `gpt-*`/`o3*`/`o4-*` → OpenAI, `Mini
 
 `src/tools/registry.ts` — shared tool registry. Tools register once with `registerTool()`, auto-generate both OpenAI and Claude MCP formats. Generic `dispatchToolCall()` replaces per-tool if/else in providers. New tools: create file in `src/tools/`, add import to `src/tools/index.ts`, done.
 
-All providers support `update_memory`. Claude uses MCP (in-process server). OpenAI and MiniMax use OpenAI-format function calling. All delegate to the same `executeMemoryTool()` function.
+Claude, OpenAI Responses, and MiniMax support direct `update_memory` calls. Claude uses MCP (in-process server). OpenAI and MiniMax use OpenAI-format function calling. All direct writes delegate to the same `executeMemoryTool()` function. Codex Agent receives injected memory context and semantic recall, but direct memory writes are not wired into the Codex CLI subprocess yet.
 
 ## Tool Categories
 
@@ -53,7 +53,7 @@ Last 20 messages per chat stored in `~/.chris-assistant/conversations.json`. Loa
 
 ## Conversation Archive
 
-`conversation-archive.ts` appends every message (user + assistant) as a JSONL line to `~/.chris-assistant/archive/YYYY-MM-DD.jsonl` via synchronous `appendFileSync` (microseconds, never throws). Called from `addMessage()` in `conversation.ts` before the rolling window trims old messages. A periodic uploader (every 30 minutes) pushes changed archive files to the memory repo using SHA-256 dedup.
+`conversation-archive.ts` appends every message (user + assistant) as a JSONL line to `~/.chris-assistant/archive/YYYY-MM-DD.jsonl` via synchronous `appendFileSync` (microseconds, never throws). Called from `addMessage()` in `conversation.ts` before the rolling window trims old messages. A periodic uploader (every 5 minutes) pushes changed archive files to the memory repo using SHA-256 dedup.
 
 ## Daily Conversation Summaries
 

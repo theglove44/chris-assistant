@@ -18,9 +18,9 @@ Message your bot on Telegram or Discord. That's it. On first contact, the assist
 | Command | Description |
 |---------|-------------|
 | `/start` | Initial greeting |
-| `/clear` | Reset conversation history and Claude session (long-term memory is preserved) |
-| `/stop` | Abort the current Claude query |
-| `/session` | Show active Claude session info |
+| `/clear` | Reset conversation history and active provider session (long-term memory is preserved) |
+| `/stop` | Abort the current provider query when supported |
+| `/session` | Show active provider session info when available |
 | `/model` | Show current AI model and provider |
 | `/memory` | Show memory file status with sizes |
 | `/project` | Show or set the active project/workspace directory |
@@ -38,7 +38,7 @@ Message your bot on Telegram or Discord. That's it. On first contact, the assist
 
 ## Conversation Archive & Recall
 
-Every message (user and assistant) is archived as JSONL to `~/.chris-assistant/archive/YYYY-MM-DD.jsonl`. These archives are uploaded to the GitHub memory repo every 5 minutes.
+Every message (user and assistant) is archived as JSONL to `~/.chris-assistant/archive/YYYY-MM-DD.jsonl`. These archives are uploaded to the GitHub memory repo every 5 minutes with SHA-256 deduping.
 
 At 23:55 each day, an AI-generated summary of the day's conversations is created and stored in the memory repo. The last 7 days of summaries are automatically loaded into the system prompt, giving the bot natural recall of recent conversations.
 
