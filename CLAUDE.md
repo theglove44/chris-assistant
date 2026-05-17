@@ -1,6 +1,6 @@
 # Chris Assistant
 
-Personal AI assistant for Chris Taylor — Telegram + Discord bot with multi-provider AI (Claude, OpenAI, MiniMax), GitHub-backed memory, and a web dashboard.
+Personal AI assistant for Chris Taylor — Telegram + Discord bot with multi-provider AI (Claude, OpenAI, Codex Agent), GitHub-backed memory, and a web dashboard.
 
 ## Commands
 
@@ -26,7 +26,6 @@ chris doctor --fix       # Diagnose + auto-repair
 Model string determines provider:
 - `codex-agent-*` → OpenAI Codex Agent SDK
 - `gpt-*` / `o3*` / `o4-*` → OpenAI Responses
-- `MiniMax-*` → MiniMax
 - everything else → Claude Agent SDK
 
 The project is now split into explicit layers:
@@ -35,7 +34,7 @@ The project is now split into explicit layers:
 - `src/channels/` — Telegram and Discord transport adapters
 - `src/domain/` — conversations, memory, schedules
 - `src/infra/` — config + storage infrastructure
-- `src/providers/` — Claude, OpenAI, Codex Agent, MiniMax implementations
+- `src/providers/` — Claude, OpenAI, and Codex Agent implementations
 - `src/tools/` — tool registration, filtering, loop guard, provider adapters, tool modules
 - `src/dashboard/` — dashboard HTTP runtime + UI template
 - `src/skills/` — dynamic JSON workflow system

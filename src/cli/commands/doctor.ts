@@ -5,7 +5,6 @@ import { fileURLToPath } from "url";
 import { execFileSync } from "child_process";
 import { Octokit } from "@octokit/rest";
 import { getBotProcess, withPm2, PM2_NAME, PROJECT_ROOT } from "../pm2-helper.js";
-import { loadTokens } from "../../providers/minimax-oauth.js";
 import { loadTokens as loadOpenaiTokens } from "../../providers/openai-oauth.js";
 import { getCodexStatus } from "../../codex.js";
 import { checkMemoryHealth, type MemoryHealthClient } from "../../domain/memory/health.js";
@@ -210,25 +209,6 @@ export function registerDoctorCommand(program: Command) {
             const remaining = tokens.expires - now;
             const minutes = Math.floor(remaining / 60000);
             console.log("    Valid (%dm remaining, auto-refreshes)", minutes);
-            return "pass";
-          },
-        },
-        {
-          name: "MiniMax OAuth tokens",
-          run: async () => {
-            const tokens = loadTokens();
-            if (!tokens) {
-              console.log('    Not set up — run "chris minimax login"');
-              return "warn";
-            }
-            const now = Date.now();
-            if (now >= tokens.expires) {
-              console.log('    Token expired — run "chris minimax login"');
-              return "warn";
-            }
-            const remaining = tokens.expires - now;
-            const hours = Math.floor(remaining / 3600000);
-            console.log("    Valid (%dh remaining)", hours);
             return "pass";
           },
         },

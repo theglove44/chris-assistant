@@ -36,7 +36,7 @@ You send a message on Telegram
   → Auth guard (your user ID only)
   → Rate limiter (10 msgs/min)
   → Loads identity + memory from GitHub
-  → Routes to AI provider (Claude / OpenAI / Codex Agent / MiniMax)
+  → Routes to AI provider (Claude / OpenAI / Codex Agent)
   → Streams response back with live typing updates
   → AI calls tools as needed (web search, code, files, calendar...)
   → Conversation archived, memory updated
@@ -55,7 +55,6 @@ Switch between providers with a single command. The model string determines the 
 | **Claude Agent** | Default personal assistant experience | Memory read/write, semantic recall, journal, scheduler, native coding tools | Claude CLI (`claude` — uses your Max subscription) |
 | **OpenAI Responses** | Personal assistant chat with OpenAI models and vision | Memory read/write, semantic recall, journal, scheduler, shared tools | ChatGPT Plus/Pro subscription (OAuth) |
 | **OpenAI Codex Agent** | Coding-focused workspace agent | Memory context and semantic recall are injected; direct memory write and journal tools are not wired yet | Codex CLI (`codex login`) |
-| **MiniMax** | General assistant chat through MiniMax | Memory read/write, semantic recall, journal, scheduler, shared tools | MiniMax subscription (OAuth) |
 
 Claude uses the [Agent SDK](https://github.com/anthropics/claude-agent-sdk), which piggybacks on the Claude CLI's authentication — just run `claude` once to log in, and the bot picks it up automatically.
 
@@ -65,7 +64,6 @@ The Codex agent mode uses `@openai/codex-sdk`, which spawns the `codex` CLI unde
 chris model set sonnet         # Switch to Claude Sonnet
 chris model set gpt5           # Switch to OpenAI GPT-5.5
 chris model set codex-agent    # Switch to coding-focused OpenAI Codex Agent
-chris model set minimax        # Switch to MiniMax
 ```
 
 ### Memory Architecture
@@ -102,7 +100,7 @@ Accessible over Tailnet with token auth.
 - Node.js 22+
 - A Telegram bot token (from [@BotFather](https://t.me/BotFather))
 - A GitHub fine-grained PAT (Contents read/write on your memory repo)
-- At least one AI provider subscription (ChatGPT Plus/Pro, Claude Max, or MiniMax)
+- At least one AI provider subscription (ChatGPT Plus/Pro or Claude Max)
 
 ### Install
 
@@ -123,8 +121,6 @@ claude
 # OpenAI — browser OAuth, uses your ChatGPT subscription
 chris openai login
 
-# MiniMax — browser OAuth
-chris minimax login
 ```
 
 ### Start
@@ -186,7 +182,7 @@ chris logs -f                    # Live tail logs
 
 # Model switching
 chris model                      # Show current model
-chris model set <name>           # Switch (opus, sonnet, gpt5, codex, minimax, ...)
+chris model set <name>           # Switch (opus, sonnet, gpt5, codex, ...)
 chris model search               # List all available models
 
 # Memory
@@ -203,7 +199,6 @@ chris identity edit              # Edit personality in $EDITOR
 chris config                     # Show all config (secrets redacted)
 chris config set <key> <value>   # Set a value
 chris openai login / status      # OpenAI OAuth
-chris minimax login / status     # MiniMax OAuth
 
 # Diagnostics
 chris prompt inspect            # Redacted prompt section diagnostics
@@ -304,7 +299,7 @@ src/
 Telegram / Discord message
   → channel handler
   → ChatService
-  → provider routing (Claude / OpenAI / Codex Agent / MiniMax)
+  → provider routing (Claude / OpenAI / Codex Agent)
   → tool execution via shared registry
   → conversation + archive persistence
   → memory/journal updates
@@ -320,7 +315,7 @@ Telegram / Discord message
 - `src/domain/memory/*` — GitHub memory repository, prompt loading, journal service, consolidation
 - `src/domain/schedules/*` — schedule CRUD, cron parsing, scheduled task execution
 - `src/tools/*` — provider-agnostic tool registration, filtering, loop guard, adapters
-- `src/providers/*` — Claude Agent SDK, OpenAI Responses, Codex Agent SDK, MiniMax
+- `src/providers/*` — Claude Agent SDK, OpenAI Responses, Codex Agent SDK
 - `src/dashboard/*` — HTTP runtime/API layer and HTML UI
 
 **Key design decisions:**

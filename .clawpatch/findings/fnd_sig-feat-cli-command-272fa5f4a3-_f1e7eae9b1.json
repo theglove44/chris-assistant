@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-cli-command-272fa5f4a3-_f1e7eae9b1",
+  "featureId": "feat_cli-command_272fa5f4a3",
+  "title": "logs --lines is interpolated into a shell command",
+  "category": "security",
+  "severity": "high",
+  "confidence": "high",
+  "triage": "confirmed-bug",
+  "evidence": [
+    {
+      "path": "src/cli/commands/logs.ts",
+      "startLine": 30,
+      "endLine": 32,
+      "symbol": "registerLogsCommand",
+      "quote": "execSync(`npx pm2 logs ${PM2_NAME} --nostream --lines ${opts.lines}`, {\n            stdio: \"inherit\",\n          });"
+    }
+  ],
+  "reasoning": "The non-follow logs path passes the user-controlled --lines option through a template string to execSync, which invokes a shell. A value such as `--lines '10; touch /tmp/pwned'` would be parsed by the shell as an additional command. The follow path already uses spawn with an argv array, so this is an avoidable command-injection bug at the user-input/process-exec boundary.",
+  "reproduction": "Run `chris logs --lines '1; touch /tmp/chris-assistant-injected'` and observe that the shell command after the semicolon can execute.",
+  "recommendation": "Replace execSync with execFileSync or spawn using an argument array, e.g. `execFileSync(\"npx\", [\"pm2\", \"logs\", PM2_NAME, \"--nostream\", \"--lines\", String(opts.lines)], { stdio: \"inherit\" })`. Also validate that --lines is a positive integer before passing it to pm2.",
+  "whyTestsDoNotAlreadyCoverThis": "No linked tests are included for the CLI logs command or for shell metacharacter handling in command options.",
+  "suggestedRegressionTest": "Add a CLI unit test or child-process integration test that invokes the logs command with a malicious --lines value and asserts the pm2 invocation receives it as a single argv value or rejects it as invalid, without executing shell metacharacters.",
+  "minimumFixScope": "Update `src/cli/commands/logs.ts` non-follow branch to avoid shell execution and validate `opts.lines`.",
+  "status": "fixed",
+  "history": [
+    {
+      "runId": "20260517T090438-81e4ba",
+      "kind": "revalidate",
+      "status": "fixed",
+      "note": null,
+      "reasoning": "The original evidence path still exists, but the vulnerable lines no longer do. Current src/cli/commands/logs.ts validates --lines with parseLogLineCount at lines 5-16, rejects non-digits and values below 1, and the non-follow branch now calls execFileSync(\"npx\", [\"pm2\", \"logs\", PM2_NAME, \"--nostream\", \"--lines\", lines], ...) at lines 43-46 instead of interpolating opts.lines into a shell string. The follow branch also uses spawn with an argv array. A regression test exists in tests/cli-logs-command.test.ts that rejects \"1; touch /tmp/injected\" and asserts execFileSync receives argv. I also checked a nearby Symphony logs command; it reuses parseLogLineCount for PM2 logs and uses argv-based spawn/execFileSync. I could not execute the test in this read-only sandbox because Vitest tried to write node_modules/.vite-temp and failed with EPERM, but the current code and test evidence show the command-injection issue is fixed.",
+      "commands": [
+        "mgrep \"logs command implementation where --lines is passed to pm2 or child process\" src/cli",
+        "sed -n '1,220p' src/cli/commands/logs.ts",
+        "mgrep \"tests for logs command lines option shell metacharacters validation pm2 logs\" .",
+        "nl -ba src/cli/commands/logs.ts | sed -n '1,220p'",
+        "rg -n \"execSync|execFileSync|parseLogLineCount|registerLogsCommand|pm2 logs|--lines\" src tests --glob '!node_modules/**'",
+        "find . -maxdepth 3 \\( -name 'package.json' -o -name 'vitest.config.*' -o -name 'jest.config.*' -o -name '*.test.ts' -o -name '*.spec.ts' \\) -print",
+        "sed -n '1,240p' tests/cli-logs-command.test.ts",
+        "cat package.json",
+        "sed -n '400,455p' src/cli/commands/symphony.ts",
+        "npm test -- tests/cli-logs-command.test.ts"
+      ],
+      "createdAt": "2026-05-17T09:05:30.885Z"
+    }
+  ],
+  "signature": "sig_feat-cli-command-272fa5f4a3_ff16d7c4c3",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260517T083419-325f4b",
+  "createdAt": "2026-05-17T08:34:57.758Z",
+  "updatedAt": "2026-05-17T09:05:30.884Z"
+}

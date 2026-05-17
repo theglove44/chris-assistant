@@ -17,7 +17,6 @@ import { Octokit } from "@octokit/rest";
 import { config, repoOwner, repoName } from "./config.js";
 import { writeMemoryFile } from "./memory/github.js";
 import { getSchedules } from "./scheduler.js";
-import { loadTokens as loadMinimaxTokens } from "./providers/minimax-oauth.js";
 import { loadTokens as loadOpenaiTokens } from "./providers/openai-oauth.js";
 import { providerDisplayName } from "./providers/model-routing.js";
 
@@ -29,7 +28,6 @@ const HEARTBEAT_INTERVAL_MS = 3 * 60 * 60 * 1000; // 3 hours
 const HEARTBEAT_REPO_PATH = "HEARTBEAT.md";
 
 // Warning thresholds — mirror the values in health.ts
-const MINIMAX_WARN_MS = 30 * 60 * 1000;   // 30 minutes
 const OPENAI_WARN_MS  = 60 * 60 * 1000;   // 1 hour
 
 // Local data paths
@@ -111,28 +109,6 @@ async function githubStatus(): Promise<StatusLine> {
   } catch (err: any) {
     return { label: "GitHub memory repo", icon: "🔴", detail: err.message ?? "unreachable" };
   }
-}
-
-function minimaxStatus(): StatusLine {
-  const tokens = loadMinimaxTokens();
-  if (!tokens) {
-    return { label: "MiniMax tokens", icon: "⚪", detail: "not configured" };
-  }
-
-  const now = Date.now();
-  if (now >= tokens.expires) {
-    return { label: "MiniMax tokens", icon: "🔴", detail: "expired — run chris minimax login" };
-  }
-  if (now >= tokens.expires - MINIMAX_WARN_MS) {
-    const minutesLeft = Math.floor((tokens.expires - now) / 60_000);
-    return {
-      label: "MiniMax tokens",
-      icon: "🟡",
-      detail: `expiring in ~${minutesLeft}m`,
-    };
-  }
-  const hoursLeft = Math.floor((tokens.expires - now) / 3_600_000);
-  return { label: "MiniMax tokens", icon: "✅", detail: `OK (expires in ${hoursLeft}h)` };
 }
 
 function openaiStatus(): StatusLine {
@@ -237,12 +213,11 @@ async function buildHeartbeatDocument(): Promise<string> {
   const model = config.model;
   const provider = getProviderName(model);
 
-  // Collect health statuses (GitHub check is async, token checks are sync)
+  // Collect health statuses (GitHub check is async, token check is sync)
   const ghStatus = await githubStatus();
-  const mmStatus = minimaxStatus();
   const oaiStatus = openaiStatus();
 
-  const healthLines = [ghStatus, mmStatus, oaiStatus]
+  const healthLines = [ghStatus, oaiStatus]
     .map((s) => `- **${s.label}**: ${s.icon} ${s.detail}`)
     .join("\n");
 

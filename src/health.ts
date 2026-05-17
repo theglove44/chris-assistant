@@ -1,6 +1,5 @@
 import { Octokit } from "@octokit/rest";
 import { config, repoOwner, repoName } from "./config.js";
-import { loadTokens as loadMinimaxTokens } from "./providers/minimax-oauth.js";
 import { loadTokens as loadOpenaiTokens } from "./providers/openai-oauth.js";
 import { providerDisplayName } from "./providers/model-routing.js";
 import { getUploadHealthStatus } from "./domain/memory/upload-tracker.js";
@@ -77,12 +76,9 @@ const octokit = new Octokit({ auth: config.github.token });
 
 /**
  * Warning thresholds — warn this far in advance of actual expiry.
- * MiniMax tokens expire after a few hours with no auto-refresh, so 30 minutes
- * gives enough time to act before the next message fails.
  * OpenAI access tokens auto-refresh via refresh_token, so the only dangerous
  * case is no refresh token — 1 hour gives time to log in before it fully expires.
  */
-const MINIMAX_WARN_MS = 30 * 60 * 1000; // 30 minutes
 const OPENAI_WARN_MS = 60 * 60 * 1000;  // 1 hour
 
 const checks: HealthCheck[] = [
@@ -98,30 +94,6 @@ const checks: HealthCheck[] = [
           detail: `GitHub memory repo unreachable: ${err.message ?? "unknown error"}`,
         };
       }
-    },
-  },
-  {
-    name: "minimax-tokens",
-    run: async (): Promise<CheckResult> => {
-      const tokens = loadMinimaxTokens();
-      // No tokens means MiniMax is not set up — that's optional, so skip
-      if (!tokens) return { ok: true };
-
-      const now = Date.now();
-      if (now >= tokens.expires) {
-        return {
-          ok: false,
-          detail: 'MiniMax tokens expired — run "chris minimax login" to re-authenticate',
-        };
-      }
-      if (now >= tokens.expires - MINIMAX_WARN_MS) {
-        const minutesLeft = Math.floor((tokens.expires - now) / 60_000);
-        return {
-          ok: false,
-          detail: `MiniMax tokens expiring in ~${minutesLeft} minute${minutesLeft === 1 ? "" : "s"} — run "chris minimax login" to re-authenticate`,
-        };
-      }
-      return { ok: true };
     },
   },
   {

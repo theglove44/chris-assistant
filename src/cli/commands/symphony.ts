@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { execFileSync, execSync, spawn } from "child_process";
+import { execFileSync, spawn } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -16,6 +16,7 @@ import {
   TSX_BIN,
   withPm2,
 } from "../pm2-helper.js";
+import { parseLogLineCount } from "./logs.js";
 
 function formatUptime(startMs: number | undefined): string {
   if (!startMs) return "unknown";
@@ -429,7 +430,7 @@ export function registerSymphonyCommand(program: Command) {
         return;
       }
 
-      const lines = opts?.lines || "80";
+      const lines = parseLogLineCount(opts?.lines, "80");
       if (opts?.follow) {
         const child = spawn("npx", ["pm2", "logs", SYMPHONY_PM2_NAME, "--lines", lines], {
           cwd: PROJECT_ROOT,
@@ -441,7 +442,7 @@ export function registerSymphonyCommand(program: Command) {
       }
 
       try {
-        execSync(`npx pm2 logs ${SYMPHONY_PM2_NAME} --nostream --lines ${lines}`, {
+        execFileSync("npx", ["pm2", "logs", SYMPHONY_PM2_NAME, "--nostream", "--lines", lines], {
           cwd: PROJECT_ROOT,
           stdio: "inherit",
         });

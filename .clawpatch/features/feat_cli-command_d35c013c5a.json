@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_cli-command_d35c013c5a",
+  "title": "CLI command chris",
+  "summary": "Package bin 'chris' at bin/chris.",
+  "kind": "cli-command",
+  "source": "package-json-bin",
+  "confidence": "high",
+  "entrypoints": [
+    {
+      "path": "bin/chris",
+      "symbol": null,
+      "route": null,
+      "command": "chris"
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "bin/chris",
+      "reason": "entrypoint"
+    }
+  ],
+  "contextFiles": [],
+  "tests": [],
+  "tags": [
+    "node",
+    "cli"
+  ],
+  "trustBoundaries": [
+    "user-input",
+    "filesystem",
+    "process-exec"
+  ],
+  "status": "reviewed",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [
+    {
+      "runId": "20260517T083419-325f4b",
+      "kind": "review",
+      "summary": "0 finding(s)",
+      "provider": "codex",
+      "model": null,
+      "createdAt": "2026-05-17T08:34:38.653Z"
+    }
+  ],
+  "createdAt": "2026-05-17T08:33:25.393Z",
+  "updatedAt": "2026-05-17T08:34:38.653Z"
+}

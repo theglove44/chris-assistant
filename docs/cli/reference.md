@@ -53,9 +53,6 @@ chris model search <q>   # Filter models by name, provider, or description
 | `gpt41` | gpt-4.1 | OpenAI |
 | `o3` | o3 | OpenAI |
 | `o4-mini` | o4-mini | OpenAI |
-| `minimax` | MiniMax-M2.7 | MiniMax |
-| `minimax-fast` | MiniMax-M2.7-highspeed | MiniMax |
-| `minimax-m25` | MiniMax-M2.5 | MiniMax |
 
 ## Memory Management
 
@@ -89,8 +86,6 @@ chris config set <k> <v> # Set a value in .env (run chris restart to apply)
 chris openai login       # Authenticate via browser OAuth + PKCE (opens browser, callback on port 1455)
 chris openai status      # Check OAuth token status (auto-refreshes)
 
-chris minimax login      # Authenticate via OAuth device flow
-chris minimax status     # Check OAuth token status and expiry
 ```
 
 ## Diagnostics
@@ -105,7 +100,6 @@ chris doctor             # Run all health checks:
                          #   - Memory schema health
                          #   - Telegram bot token is valid
                          #   - OpenAI OAuth tokens (optional)
-                         #   - MiniMax OAuth tokens (optional)
                          #   - Brave Search API key (optional)
                          #   - Bot process is running
 

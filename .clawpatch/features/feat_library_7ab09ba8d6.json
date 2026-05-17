@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_7ab09ba8d6",
+  "title": "Node source src/dashboard",
+  "summary": "Node/TypeScript source group src/dashboard with 2 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "package.json",
+      "symbol": "src/dashboard",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "src/dashboard/runtime.ts",
+      "reason": "source group src/dashboard"
+    },
+    {
+      "path": "src/dashboard/ui.ts",
+      "reason": "source group src/dashboard"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "package.json",
+      "reason": "package manifest"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:chris-assistant",
+    "project-root:."
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-17T08:33:25.393Z",
+  "updatedAt": "2026-05-17T08:33:25.393Z"
+}

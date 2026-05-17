@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "projectId": "prj_git-github-com-theglove44-chris-_8452f9b190",
+  "name": "chris-assistant",
+  "rootPath": "/Users/christaylor/Projects/chris-assistant",
+  "git": {
+    "remoteUrl": "git@github.com:theglove44/chris-assistant.git",
+    "defaultBranch": "main",
+    "currentBranch": "main",
+    "headSha": "fe24eaee491216a60e200002c461fa966f69fca6"
+  },
+  "detected": {
+    "languages": [
+      "typescript",
+      "javascript",
+      "swift"
+    ],
+    "frameworks": [
+      "vitest"
+    ],
+    "packageManagers": [
+      "npm"
+    ],
+    "commands": {
+      "typecheck": "npm run typecheck",
+      "lint": null,
+      "format": null,
+      "test": "npm run test"
+    }
+  },
+  "createdAt": "2026-05-17T08:33:07.809Z",
+  "updatedAt": "2026-05-17T08:33:07.809Z"
+}

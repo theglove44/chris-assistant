@@ -20,7 +20,7 @@ export interface TokenUsage {
   inputTokens: number;
   outputTokens: number;
   model: string;
-  provider: "claude" | "openai" | "minimax" | "codex-agent";
+  provider: "claude" | "openai" | "codex-agent";
 }
 
 interface UsageRecord {

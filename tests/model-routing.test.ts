@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   isClaudeModel,
   isCodexAgentModel,
-  isMiniMaxModel,
   isOpenAiModel,
   providerCapabilitiesForModel,
   providerCapabilitySummary,
@@ -90,32 +89,6 @@ describe("isOpenAiModel", () => {
 });
 
 // ---------------------------------------------------------------------------
-// MiniMax
-// ---------------------------------------------------------------------------
-
-describe("isMiniMaxModel", () => {
-  it("recognises real MiniMax model IDs", () => {
-    expect(isMiniMaxModel("MiniMax-M2.7")).toBe(true);
-    expect(isMiniMaxModel("MiniMax-M2.7-highspeed")).toBe(true);
-    expect(isMiniMaxModel("MiniMax-M2.5")).toBe(true);
-    expect(isMiniMaxModel("MiniMax-M2.5-highspeed")).toBe(true);
-  });
-
-  it("is CASE-SENSITIVE — must start with capital MiniMax", () => {
-    // The check is model.startsWith("MiniMax") — no .toLowerCase()
-    expect(isMiniMaxModel("minimax-M2.5")).toBe(false);
-    expect(isMiniMaxModel("MINIMAX-M2.5")).toBe(false);
-    expect(isMiniMaxModel("miniMax-M2.5")).toBe(false);
-  });
-
-  it("rejects non-MiniMax models", () => {
-    expect(isMiniMaxModel("gpt-4o")).toBe(false);
-    expect(isMiniMaxModel("claude-opus-4-6")).toBe(false);
-    expect(isMiniMaxModel("codex-agent-v2")).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Codex Agent
 // ---------------------------------------------------------------------------
 
@@ -151,11 +124,6 @@ describe("providerForModel", () => {
     expect(providerForModel("gpt-5.2")).toBe("openai");
     expect(providerForModel("o3-mini")).toBe("openai");
     expect(providerForModel("o4-mini")).toBe("openai");
-  });
-
-  it("maps MiniMax models", () => {
-    expect(providerForModel("MiniMax-M2.7")).toBe("minimax");
-    expect(providerForModel("MiniMax-M2.5")).toBe("minimax");
   });
 
   it("maps claude- models", () => {
@@ -215,17 +183,6 @@ describe("providerCapabilitiesForModel", () => {
     expect(capabilities.schedulerSuitable).toBe(false);
   });
 
-  it("describes MiniMax as a general chat path with shared tools", () => {
-    const capabilities = providerCapabilitiesForModel("MiniMax-M2.7");
-    expect(capabilities.mode).toBe("general-chat");
-    expect(capabilities.memoryRead).toBe(true);
-    expect(capabilities.memoryWrite).toBe(true);
-    expect(capabilities.semanticRecall).toBe(true);
-    expect(capabilities.journal).toBe(true);
-    expect(capabilities.nativeCodingTools).toBe(false);
-    expect(capabilities.vision).toBe(true);
-    expect(capabilities.schedulerSuitable).toBe(true);
-  });
 });
 
 describe("providerCapabilitySummary", () => {
@@ -254,11 +211,15 @@ describe("strictProviderForModel", () => {
     expect(strictProviderForModel("o4-mini")).toBe("openai");
   });
 
-  it("accepts MiniMax models", () => {
-    expect(strictProviderForModel("MiniMax-M2.7")).toBe("minimax");
-    expect(strictProviderForModel("MiniMax-M2.7-highspeed")).toBe("minimax");
-    expect(strictProviderForModel("MiniMax-M2.5")).toBe("minimax");
-    expect(strictProviderForModel("MiniMax-M2.5-highspeed")).toBe("minimax");
+  it("throws for MiniMax models", () => {
+    expect(() => strictProviderForModel("MiniMax-M2.5")).toThrow(/Unknown model "MiniMax-M2.5"/);
+    expect(() => strictProviderForModel("MiniMax-M2.5-highspeed")).toThrow(
+      /Unknown model "MiniMax-M2.5-highspeed"/,
+    );
+    expect(() => strictProviderForModel("MiniMax-M2.7")).toThrow(/Unknown model "MiniMax-M2.7"/);
+    expect(() => strictProviderForModel("MiniMax-M2.7-highspeed")).toThrow(
+      /Unknown model "MiniMax-M2.7-highspeed"/,
+    );
   });
 
   it("accepts Claude models", () => {
@@ -274,8 +235,7 @@ describe("strictProviderForModel", () => {
     expect(strictProviderForModel("Gpt-4o")).toBe("openai");
   });
 
-  it("throws for a MiniMax typo with wrong capitalisation", () => {
-    // minimax- (all lowercase) is not matched by startsWith("MiniMax")
+  it("throws for lowercase MiniMax strings", () => {
     expect(() => strictProviderForModel("minimax-M2.5")).toThrow(/Unknown model "minimax-M2.5"/);
   });
 
@@ -301,7 +261,7 @@ describe("strictProviderForModel", () => {
     }
     expect(message).toMatch(/gpt-/);
     expect(message).toMatch(/claude-/);
-    expect(message).toMatch(/MiniMax-/);
+    expect(message).not.toMatch(/MiniMax/);
     expect(message).toMatch(/codex-agent-/);
   });
 });

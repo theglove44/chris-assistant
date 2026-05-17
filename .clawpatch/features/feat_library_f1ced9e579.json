@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_f1ced9e579",
+  "title": "Node source src/symphony/tracker",
+  "summary": "Node/TypeScript source group src/symphony/tracker with 3 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "package.json",
+      "symbol": "src/symphony/tracker",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "src/symphony/tracker/github.ts",
+      "reason": "source group src/symphony/tracker"
+    },
+    {
+      "path": "src/symphony/tracker/linear.ts",
+      "reason": "source group src/symphony/tracker"
+    },
+    {
+      "path": "src/symphony/tracker/memory.ts",
+      "reason": "source group src/symphony/tracker"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "package.json",
+      "reason": "package manifest"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:chris-assistant",
+    "project-root:."
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-17T08:33:25.393Z",
+  "updatedAt": "2026-05-17T08:33:25.393Z"
+}

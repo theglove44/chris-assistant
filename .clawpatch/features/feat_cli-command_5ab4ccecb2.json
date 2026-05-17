@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_cli-command_5ab4ccecb2",
+  "title": "Node source src/cli",
+  "summary": "Node/TypeScript source group src/cli with 2 files.",
+  "kind": "cli-command",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "package.json",
+      "symbol": "src/cli",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "src/cli/index.ts",
+      "reason": "source group src/cli"
+    },
+    {
+      "path": "src/cli/pm2-helper.ts",
+      "reason": "source group src/cli"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "package.json",
+      "reason": "package manifest"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:chris-assistant",
+    "project-root:."
+  ],
+  "trustBoundaries": [
+    "user-input",
+    "process-exec"
+  ],
+  "status": "needs-fix",
+  "lock": null,
+  "findingIds": [
+    "fnd_sig-feat-cli-command-5ab4ccecb2-_02235d0248"
+  ],
+  "patchAttemptIds": [],
+  "analysisHistory": [
+    {
+      "runId": "20260517T083419-325f4b",
+      "kind": "review",
+      "summary": "1 finding(s)",
+      "provider": "codex",
+      "model": null,
+      "createdAt": "2026-05-17T08:34:52.248Z"
+    }
+  ],
+  "createdAt": "2026-05-17T08:33:25.393Z",
+  "updatedAt": "2026-05-17T08:34:52.248Z"
+}

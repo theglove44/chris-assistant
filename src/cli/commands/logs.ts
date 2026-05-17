@@ -1,6 +1,20 @@
 import { Command } from "commander";
-import { execSync, spawn } from "child_process";
+import { execFileSync, spawn } from "child_process";
 import { PM2_NAME } from "../pm2-helper.js";
+
+export function parseLogLineCount(value: string | undefined, fallback = "50"): string {
+  const raw = value ?? fallback;
+  if (!/^\d+$/.test(raw)) {
+    throw new Error("--lines must be a positive integer");
+  }
+
+  const lines = Number(raw);
+  if (!Number.isSafeInteger(lines) || lines < 1) {
+    throw new Error("--lines must be a positive integer");
+  }
+
+  return String(lines);
+}
 
 export function registerLogsCommand(program: Command) {
   program
@@ -9,11 +23,11 @@ export function registerLogsCommand(program: Command) {
     .option("-f, --follow", "Follow log output in real-time")
     .option("-n, --lines <number>", "Number of lines to show", "50")
     .action(async (opts) => {
-      const args = ["logs", PM2_NAME, "--nostream", "--lines", opts.lines];
+      const lines = parseLogLineCount(opts.lines);
 
       if (opts.follow) {
         // Streaming mode — hand off to pm2 logs with live output
-        const child = spawn("npx", ["pm2", "logs", PM2_NAME, "--lines", opts.lines], {
+        const child = spawn("npx", ["pm2", "logs", PM2_NAME, "--lines", lines], {
           stdio: "inherit",
         });
 
@@ -27,7 +41,7 @@ export function registerLogsCommand(program: Command) {
         });
       } else {
         try {
-          execSync(`npx pm2 logs ${PM2_NAME} --nostream --lines ${opts.lines}`, {
+          execFileSync("npx", ["pm2", "logs", PM2_NAME, "--nostream", "--lines", lines], {
             stdio: "inherit",
           });
         } catch {

@@ -2,8 +2,7 @@ import { config } from "../config.js";
 import { clearThread, getThreadId } from "../codex-sessions.js";
 import { createClaudeProvider, abortClaudeQuery } from "../providers/claude.js";
 import { createCodexAgentProvider, abortCodexQuery } from "../providers/codex-agent.js";
-import { createMiniMaxProvider } from "../providers/minimax.js";
-import { isOpenAiModel, isMiniMaxModel, isClaudeModel, isCodexAgentModel } from "../providers/model-routing.js";
+import { isOpenAiModel, isClaudeModel, isCodexAgentModel } from "../providers/model-routing.js";
 import { createOpenAiProvider } from "../providers/openai.js";
 import { resetLoopDetection } from "../tools/index.js";
 import type { Provider, ImageAttachment } from "../providers/types.js";
@@ -30,10 +29,6 @@ export class ChatService {
 
     if (isOpenAiModel(model)) {
       return createOpenAiProvider(model);
-    }
-
-    if (isMiniMaxModel(model)) {
-      return createMiniMaxProvider(model);
     }
 
     return createClaudeProvider(model);

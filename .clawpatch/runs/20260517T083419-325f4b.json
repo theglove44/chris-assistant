@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "runId": "20260517T083419-325f4b",
+  "command": "review",
+  "args": [
+    "review",
+    "--limit",
+    "3"
+  ],
+  "rootPath": "/Users/christaylor/Projects/chris-assistant",
+  "headSha": "fe24eaee491216a60e200002c461fa966f69fca6",
+  "startedAt": "2026-05-17T08:34:19.512Z",
+  "finishedAt": "2026-05-17T08:34:57.759Z",
+  "status": "completed",
+  "claimedFeatureIds": [
+    "feat_cli-command_272fa5f4a3",
+    "feat_cli-command_5ab4ccecb2",
+    "feat_cli-command_d35c013c5a"
+  ],
+  "findingIds": [
+    "fnd_sig-feat-cli-command-5ab4ccecb2-_02235d0248",
+    "fnd_sig-feat-cli-command-272fa5f4a3-_f1e7eae9b1",
+    "fnd_sig-feat-cli-command-272fa5f4a3-_3f4241ff67"
+  ],
+  "patchAttemptIds": [],
+  "errors": []
+}

@@ -88,7 +88,7 @@ Format your response exactly as:
 [Any unresolved problems, errors, or next steps identified]`;
 
 // ---------------------------------------------------------------------------
-// Chat Completions compaction (used by MiniMax)
+// Chat Completions compaction
 // ---------------------------------------------------------------------------
 
 /**

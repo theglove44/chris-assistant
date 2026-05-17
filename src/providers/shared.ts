@@ -21,7 +21,6 @@ function getProviderName(model: string): string {
   if (model.toLowerCase().startsWith("codex-agent")) return "OpenAI Codex Agent";
   const m = model.toLowerCase();
   if (m.startsWith("gpt-") || m.startsWith("o3") || m.startsWith("o4-")) return "OpenAI";
-  if (model.startsWith("MiniMax")) return "MiniMax";
   return "Anthropic Claude";
 }
 

@@ -10,7 +10,6 @@ import { registerConfigCommand } from "./commands/config.js";
 import { registerModelCommand } from "./commands/model.js";
 import { registerDoctorCommand } from "./commands/doctor.js";
 import { registerSetupCommand } from "./commands/setup.js";
-import { registerMinimaxCommand } from "./commands/minimax-login.js";
 import { registerOpenaiCommand } from "./commands/openai-login.js";
 import { registerCodexCommand } from "./commands/codex.js";
 import { registerDreamCommand } from "./commands/dream.js";
@@ -48,7 +47,6 @@ registerPromptCommand(program);
 registerDreamCommand(program);
 
 // Provider management
-registerMinimaxCommand(program);
 registerOpenaiCommand(program);
 
 program.parse();

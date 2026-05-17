@@ -6,6 +6,7 @@ import {
   providerCapabilitiesForModel,
   providerCapabilitySummary,
   providerForModel,
+  strictProviderForModel,
 } from "../../providers/model-routing.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -38,10 +39,6 @@ const KNOWN_MODELS: Record<string, { id: string; provider: string }> = {
   "gpt52": { id: "gpt-5.2", provider: "openai" },
   "gpt4o": { id: "gpt-4o", provider: "openai" },
   "gpt41": { id: "gpt-4.1", provider: "openai" },
-  // MiniMax
-  "minimax": { id: "MiniMax-M2.7", provider: "minimax" },
-  "minimax-fast": { id: "MiniMax-M2.7-highspeed", provider: "minimax" },
-  "minimax-m25": { id: "MiniMax-M2.5", provider: "minimax" },
 };
 
 function getCurrentModel(): string {
@@ -111,11 +108,11 @@ export function registerModelCommand(program: Command) {
 
   model
     .command("set <model>")
-    .description("Set the AI model (use a shortcut like 'minimax' or a full model ID)")
+    .description("Set the AI model (use a shortcut like 'sonnet' or a full model ID)")
     .action((input: string) => {
       const known = KNOWN_MODELS[input.toLowerCase()];
       const modelId = known ? known.id : input;
-      const provider = providerForModel(modelId);
+      const provider = strictProviderForModel(modelId);
       const capabilities = providerCapabilitiesForModel(modelId);
       setModel(modelId);
       console.log("Model set to: %s (%s)", modelId, provider);
@@ -159,11 +156,6 @@ export function registerModelCommand(program: Command) {
     { id: "gpt-4.1", provider: "openai", description: "Previous non-reasoning coding model" },
     { id: "gpt-4.1-mini", provider: "openai", description: "Previous smaller GPT-4.1 model" },
     { id: "gpt-4.1-nano", provider: "openai", description: "Previous fastest GPT-4.1 model" },
-    // MiniMax
-    { id: "MiniMax-M2.7", provider: "minimax", description: "Current MiniMax text generation model" },
-    { id: "MiniMax-M2.7-highspeed", provider: "minimax", description: "Current MiniMax high-speed mode" },
-    { id: "MiniMax-M2.5", provider: "minimax", description: "Previous MiniMax agentic model" },
-    { id: "MiniMax-M2.5-highspeed", provider: "minimax", description: "Previous MiniMax fast mode" },
   ];
 
   model

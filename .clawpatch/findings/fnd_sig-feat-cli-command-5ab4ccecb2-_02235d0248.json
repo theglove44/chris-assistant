@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-cli-command-5ab4ccecb2-_02235d0248",
+  "featureId": "feat_cli-command_5ab4ccecb2",
+  "title": "Synchronous exceptions in PM2 callback leave the CLI promise unsettled",
+  "category": "bug",
+  "severity": "low",
+  "confidence": "medium",
+  "triage": "risk",
+  "evidence": [
+    {
+      "path": "src/cli/pm2-helper.ts",
+      "startLine": 18,
+      "endLine": 26,
+      "symbol": "withPm2",
+      "quote": "fn(pm2)\n        .then((result) => {\n          pm2.disconnect();\n          resolve(result);\n        })\n        .catch((err) => {\n          pm2.disconnect();\n          reject(err);\n        });"
+    }
+  ],
+  "reasoning": "withPm2 assumes the supplied callback always returns a Promise. If the callback throws synchronously before returning, the exception escapes the pm2.connect callback, pm2.disconnect() is skipped, and the outer Promise is never rejected in the intended control flow. That can leave CLI commands hanging or produce an uncaught exception instead of a normal command failure.",
+  "reproduction": "Call withPm2(() => { throw new Error('boom'); }) from a CLI command or test. The synchronous throw bypasses both the .then and .catch branches where disconnect and reject are handled.",
+  "recommendation": "Wrap the callback invocation with Promise.resolve().then(() => fn(pm2)) and put pm2.disconnect() in a finally-style path so both synchronous throws and rejected promises disconnect and reject consistently.",
+  "whyTestsDoNotAlreadyCoverThis": "No linked tests were included for src/cli, and the current code has no visible regression coverage for withPm2 error paths.",
+  "suggestedRegressionTest": "Add a unit test that mocks pm2.connect/disconnect, invokes withPm2 with a synchronously throwing callback, asserts the returned promise rejects, and asserts disconnect was called exactly once.",
+  "minimumFixScope": "Change only withPm2 in src/cli/pm2-helper.ts and add focused coverage for synchronous callback failure.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-cli-command-5ab4ccecb2_79f2cb3e73",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260517T083419-325f4b",
+  "createdAt": "2026-05-17T08:34:52.246Z",
+  "updatedAt": "2026-05-17T08:34:52.246Z"
+}

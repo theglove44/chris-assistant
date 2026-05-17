@@ -7,11 +7,10 @@
  * Case-sensitivity notes:
  * - codex-agent: case-insensitive (lowercased before check)
  * - gpt-*, o3*, o4-*: case-insensitive (lowercased before check)
- * - MiniMax-*: CASE-SENSITIVE — must start with capital "MiniMax"
  * - claude-*: anything not matched by the above; claude- prefix is NOT checked
  */
 
-export type ProviderName = "openai" | "minimax" | "claude" | "codex-agent";
+export type ProviderName = "openai" | "claude" | "codex-agent";
 
 export interface ProviderCapabilities {
   mode: "personal-assistant" | "coding-agent" | "general-chat";
@@ -29,7 +28,6 @@ export interface ProviderCapabilities {
 export const SUPPORTED_PREFIXES: Record<ProviderName, string[]> = {
   "codex-agent": ["codex-agent-"],
   openai: ["gpt-", "o3", "o4-"],
-  minimax: ["MiniMax-"],
   claude: ["claude-"],
 };
 
@@ -42,10 +40,6 @@ export function isOpenAiModel(model: string): boolean {
   return m.startsWith("gpt-") || m.startsWith("o3") || m.startsWith("o4-");
 }
 
-export function isMiniMaxModel(model: string): boolean {
-  return model.startsWith("MiniMax");
-}
-
 export function isClaudeModel(model: string): boolean {
   return model.toLowerCase().startsWith("claude-");
 }
@@ -53,7 +47,6 @@ export function isClaudeModel(model: string): boolean {
 export function providerForModel(model: string): ProviderName {
   if (isCodexAgentModel(model)) return "codex-agent";
   if (isOpenAiModel(model)) return "openai";
-  if (isMiniMaxModel(model)) return "minimax";
   return "claude";
 }
 
@@ -66,7 +59,6 @@ export function providerForModel(model: string): ProviderName {
  * A model is accepted when it matches one of:
  *   - codex-agent* (case-insensitive)
  *   - gpt-*, o3*, o4-* (case-insensitive)
- *   - MiniMax-* (case-sensitive — capital M and M)
  *   - claude-* (case-insensitive)
  *
  * Anything else throws so the operator gets a clear message at startup.
@@ -74,19 +66,14 @@ export function providerForModel(model: string): ProviderName {
 export function strictProviderForModel(model: string): ProviderName {
   if (isCodexAgentModel(model)) return "codex-agent";
   if (isOpenAiModel(model)) return "openai";
-  if (isMiniMaxModel(model)) return "minimax";
   if (isClaudeModel(model)) return "claude";
 
   const allPrefixes = Object.values(SUPPORTED_PREFIXES).flat().join(", ");
-  throw new Error(
-    `Unknown model "${model}". Supported prefixes: ${allPrefixes}. ` +
-      `Check AI_MODEL in your environment — MiniMax prefix is case-sensitive (MiniMax-).`,
-  );
+  throw new Error(`Unknown model "${model}". Supported prefixes: ${allPrefixes}.`);
 }
 
 const DISPLAY_NAMES: Record<ProviderName, string> = {
   openai: "OpenAI",
-  minimax: "MiniMax",
   claude: "Claude",
   "codex-agent": "OpenAI Codex Agent",
 };
@@ -124,17 +111,6 @@ export const PROVIDER_CAPABILITIES: Record<ProviderName, ProviderCapabilities> =
     nativeCodingTools: true,
     vision: false,
     schedulerSuitable: false,
-  },
-  minimax: {
-    mode: "general-chat",
-    summary: "General chat provider using the shared tool registry and provider-wide memory recall.",
-    memoryRead: true,
-    memoryWrite: true,
-    semanticRecall: true,
-    journal: true,
-    nativeCodingTools: false,
-    vision: true,
-    schedulerSuitable: true,
   },
 };
 

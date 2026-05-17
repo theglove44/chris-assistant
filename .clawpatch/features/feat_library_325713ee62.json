@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_325713ee62",
+  "title": "Node source src/tools#2",
+  "summary": "Node/TypeScript source group src/tools#2 with 12 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "package.json",
+      "symbol": "src/tools#2",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "src/tools/macos-reminders.ts",
+      "reason": "source group src/tools#2"
+    },
+    {
+      "path": "src/tools/market-snapshot.ts",
+      "reason": "source group src/tools#2"
+    },
+    {
+      "path": "src/tools/memory.ts",
+      "reason": "source group src/tools#2"
+    },
+    {
+      "path": "src/tools/octopus-energy.ts",
+      "reason": "source group src/tools#2"
+    },
+    {
+      "path": "src/tools/openai-adapter.ts",
+      "reason": "source group src/tools#2"
+    },
+    {
+      "path": "src/tools/peekaboo.ts",
+      "reason": "source group src/tools#2"
+    },
+    {
+      "path": "src/tools/recall.ts",
+      "reason": "source group src/tools#2"
+    },
+    {
+      "path": "src/tools/registry.ts",
+      "reason": "source group src/tools#2"
+    },
+    {
+      "path": "src/tools/run-code.ts",
+      "reason": "source group src/tools#2"
+    },
+    {
+      "path": "src/tools/scheduler.ts",
+      "reason": "source group src/tools#2"
+    },
+    {
+      "path": "src/tools/skills.ts",
+      "reason": "source group src/tools#2"
+    },
+    {
+      "path": "src/tools/ssh.ts",
+      "reason": "source group src/tools#2"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "package.json",
+      "reason": "package manifest"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:chris-assistant",
+    "project-root:."
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-17T08:33:25.393Z",
+  "updatedAt": "2026-05-17T08:33:25.393Z"
+}

@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_8980af9007",
+  "title": "Node source src/domain/schedules",
+  "summary": "Node/TypeScript source group src/domain/schedules with 4 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "package.json",
+      "symbol": "src/domain/schedules",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "src/domain/schedules/cron.ts",
+      "reason": "source group src/domain/schedules"
+    },
+    {
+      "path": "src/domain/schedules/service.ts",
+      "reason": "source group src/domain/schedules"
+    },
+    {
+      "path": "src/domain/schedules/store.ts",
+      "reason": "source group src/domain/schedules"
+    },
+    {
+      "path": "src/domain/schedules/types.ts",
+      "reason": "source group src/domain/schedules"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "package.json",
+      "reason": "package manifest"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:chris-assistant",
+    "project-root:."
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-17T08:33:25.393Z",
+  "updatedAt": "2026-05-17T08:33:25.393Z"
+}

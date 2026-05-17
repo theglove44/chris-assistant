@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-cli-command-272fa5f4a3-_3f4241ff67",
+  "featureId": "feat_cli-command_272fa5f4a3",
+  "title": "memory search builds a RegExp from unescaped user input",
+  "category": "bug",
+  "severity": "low",
+  "confidence": "high",
+  "triage": "confirmed-bug",
+  "evidence": [
+    {
+      "path": "src/cli/commands/memory.ts",
+      "startLine": 174,
+      "endLine": 177,
+      "symbol": "registerMemoryCommand",
+      "quote": "const highlighted = line.replace(\n                  new RegExp(`(${query})`, \"gi\"),\n                  \"\\x1b[33m$1\\x1b[0m\",\n                );"
+    }
+  ],
+  "reasoning": "`chris memory search <query>` first finds matches with a plain lowercase substring check, but then uses the raw query as a regular expression for highlighting. Queries containing regex metacharacters such as `[` or `(` can throw `SyntaxError: Invalid regular expression`, causing the command to fail after it has already found a literal match. Other metacharacters also change highlighting semantics away from the literal search behavior.",
+  "reproduction": "If a memory file contains a literal `[`, run `chris memory search '['`; the substring match can succeed and then `new RegExp('([)', 'gi')` throws.",
+  "recommendation": "Escape the query before constructing the highlighting regex, or avoid regex entirely by doing case-insensitive literal highlighting with index calculations.",
+  "whyTestsDoNotAlreadyCoverThis": "No linked tests are included for memory search, especially queries containing regex metacharacters.",
+  "suggestedRegressionTest": "Add a test for `memory search` with a query like `[` or `a+b` against mocked memory content and assert the command prints highlighted literal matches without throwing.",
+  "minimumFixScope": "Escape user input in the highlighting logic in `src/cli/commands/memory.ts`.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-cli-command-272fa5f4a3_767598f731",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260517T083419-325f4b",
+  "createdAt": "2026-05-17T08:34:57.758Z",
+  "updatedAt": "2026-05-17T08:34:57.758Z"
+}

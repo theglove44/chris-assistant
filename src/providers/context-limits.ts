@@ -35,9 +35,6 @@ const MODEL_LIMITS: Record<string, ModelLimits> = {
   "gpt-4.1": limits(1_000_000),
   "gpt-4.1-mini": limits(1_000_000),
   "gpt-4.1-nano": limits(1_000_000),
-  // MiniMax
-  "MiniMax-M2.5": limits(1_000_000),
-  "MiniMax-M2.5-highspeed": limits(1_000_000),
 };
 
 function limits(contextWindow: number): ModelLimits {

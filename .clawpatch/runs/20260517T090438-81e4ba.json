@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "runId": "20260517T090438-81e4ba",
+  "command": "revalidate",
+  "args": [
+    "revalidate",
+    "--finding",
+    "fnd_sig-feat-cli-command-272fa5f4a3-_f1e7eae9b1"
+  ],
+  "rootPath": "/Users/christaylor/Projects/chris-assistant",
+  "headSha": "fe24eaee491216a60e200002c461fa966f69fca6",
+  "startedAt": "2026-05-17T09:04:38.629Z",
+  "finishedAt": "2026-05-17T09:05:30.912Z",
+  "status": "completed",
+  "claimedFeatureIds": [],
+  "findingIds": [
+    "fnd_sig-feat-cli-command-272fa5f4a3-_f1e7eae9b1"
+  ],
+  "patchAttemptIds": [],
+  "errors": []
+}
