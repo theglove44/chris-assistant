@@ -30,7 +30,7 @@
     "@mozilla/readability": "^0.6.0",
     "@octokit/rest": "^21.0.0",
     "@openai/codex-sdk": "^0.140.0",
-    "commander": "^13.0.0",
+    "commander": "^15.0.0",
     "discord.js": "^14.25.1",
     "dotenv": "^16.4.0",
     "grammy": "^1.30.0",
@@ -38,7 +38,7 @@
     "liquidjs": "^10.25.0",
     "openai": "^6.22.0",
     "playwright": "^1.58.2",
-    "pm2": "^6.0.0",
+    "pm2": "^7.0.1",
     "twitter-api-v2": "^1.29.0",
     "yaml": "^2.8.2",
     "zod": "^4.0.0"
@@ -53,5 +53,10 @@
     "typescript": "^5.7.0",
     "vitepress": "^1.6.4",
     "vitest": "^4.0.18"
+  },
+  "overrides": {
+    "pm2": {
+      "js-yaml": "4.2.0"
+    }
   }
 }
