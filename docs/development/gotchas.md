@@ -53,6 +53,14 @@ catch(e) { console.log('ERR:', e.message); }
 
 pm2 spawns processes in its own daemon. It doesn't inherit your shell PATH. That's why `pm2-helper.ts` exports `TSX_BIN` as an absolute path to `node_modules/.bin/tsx`.
 
+## Dependency Audit Residuals
+
+As of the 2026-06-17 dependency refresh, `npm audit` still reports residual transitive findings with no clean direct upgrade path:
+
+- `vitepress@1.6.4` is the latest VitePress release available in this dependency line, but it still pulls vulnerable `vite`/`esbuild` advisories. Avoid exposing `docs:dev` or `docs:preview` outside localhost until VitePress ships a patched line.
+- `pm2@7.0.1` is the latest PM2 release, but it pins `ws@8.20.0`. Keep PM2 endpoints local-only and recheck on the next PM2 release. The `js-yaml` advisory under PM2 is mitigated with an npm override to `js-yaml@4.2.0`.
+- `qs` remains through transitive `typed-rest-client`; no direct dependency in this app uses it. Recheck after future dependency updates.
+
 ## pm2 Runs tsx, Not Compiled dist/
 
 The bot runs via `tsx src/index.ts` directly — **not** from the compiled `dist/` directory. `npm run build` is irrelevant to the running process. Changes to source files take effect on the next `chris restart` without any build step.
