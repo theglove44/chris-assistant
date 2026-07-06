@@ -32,6 +32,15 @@ export interface AppConfig {
   symphony: {
     statusUrl: string;
   };
+  notice: {
+    enabled: boolean;
+    intervalMs: number;
+    quietStartHour: number;
+    quietEndHour: number;
+    minGapMs: number;
+    dailyLimit: number;
+    journalGapDays: number;
+  };
   octopus: {
     apiKey: string | null;
     accountNumber: string | null;

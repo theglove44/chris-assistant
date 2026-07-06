@@ -267,6 +267,11 @@ Maintenance:
 | `DASHBOARD_TOKEN` | No | Auth token for remote dashboard access |
 | `WEBHOOK_PORT` | No | GitHub webhook server port (default: 3001) |
 | `SYMPHONY_STATUS_URL` | No | Symphony status page URL (default: `http://127.0.0.1:3010`) |
+| `NOTICE_LOOP_ENABLED` | No | Enable proactive notices (default: `false`) |
+| `NOTICE_LOOP_INTERVAL_MINUTES` | No | Notice scan interval (default: `60`) |
+| `NOTICE_QUIET_START_HOUR` | No | Local quiet-hours start, 0–23 (default: `22`) |
+| `NOTICE_QUIET_END_HOUR` | No | Local quiet-hours end, 0–23 (default: `8`) |
+| `NOTICE_JOURNAL_GAP_DAYS` | No | Days without journal activity before a nudge (default: `2`) |
 
 Config is validated through a typed zod schema in `src/infra/config/` (`src/config.ts` is a compatibility facade). Run `chris setup` for guided configuration.
 

@@ -20,7 +20,34 @@ describe("loadConfig", () => {
     expect(config.telegram.allowedUserId).toBe(12345);
     expect(config.discord.botToken).toBeNull();
     expect(config.dashboard.token).toBeNull();
+    expect(config.notice).toMatchObject({
+      enabled: false,
+      intervalMs: 60 * 60 * 1000,
+      quietStartHour: 22,
+      quietEndHour: 8,
+      dailyLimit: 2,
+      journalGapDays: 2,
+    });
     expect(repo).toEqual({ owner: "owner", name: "repo" });
+  });
+
+  it("loads notice-loop settings", () => {
+    const { config } = loadConfig({
+      ...baseEnv,
+      NOTICE_LOOP_ENABLED: "true",
+      NOTICE_LOOP_INTERVAL_MINUTES: "30",
+      NOTICE_QUIET_START_HOUR: "21",
+      NOTICE_QUIET_END_HOUR: "7",
+      NOTICE_JOURNAL_GAP_DAYS: "3",
+    });
+
+    expect(config.notice).toMatchObject({
+      enabled: true,
+      intervalMs: 30 * 60 * 1000,
+      quietStartHour: 21,
+      quietEndHour: 7,
+      journalGapDays: 3,
+    });
   });
 
   it("prefers AI_MODEL over CLAUDE_MODEL and parses optional fields", () => {

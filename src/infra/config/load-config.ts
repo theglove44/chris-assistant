@@ -76,6 +76,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): { config: AppC
       symphony: {
         statusUrl: values.SYMPHONY_STATUS_URL || "http://127.0.0.1:3010",
       },
+      notice: {
+        enabled: values.NOTICE_LOOP_ENABLED ?? false,
+        intervalMs: (values.NOTICE_LOOP_INTERVAL_MINUTES ?? 60) * 60_000,
+        quietStartHour: values.NOTICE_QUIET_START_HOUR ?? 22,
+        quietEndHour: values.NOTICE_QUIET_END_HOUR ?? 8,
+        minGapMs: 4 * 60 * 60 * 1000,
+        dailyLimit: 2,
+        journalGapDays: values.NOTICE_JOURNAL_GAP_DAYS ?? 2,
+      },
       octopus: {
         apiKey: normalizeOptional(values.OCTOPUS_API_KEY),
         accountNumber: normalizeOptional(values.OCTOPUS_ACCOUNT_NUMBER),
