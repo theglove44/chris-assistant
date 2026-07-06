@@ -31,6 +31,11 @@ description: Environment variables, file paths, and configuration
 | `OCTOPUS_API_KEY` | No | Octopus Energy API key — required for the `octopus_energy` tool |
 | `OCTOPUS_ACCOUNT_NUMBER` | No | Octopus Energy account number (e.g. `A-XXXXXXXX`) |
 | `SYMPHONY_STATUS_URL` | No | Symphony sidecar status endpoint. Default: `http://127.0.0.1:3010` |
+| `NOTICE_LOOP_ENABLED` | No | Enables proactive notices. Default: `false` |
+| `NOTICE_LOOP_INTERVAL_MINUTES` | No | Notice scan interval. Default: `60` |
+| `NOTICE_QUIET_START_HOUR` | No | Local quiet-hours start, 0–23. Default: `22` |
+| `NOTICE_QUIET_END_HOUR` | No | Local quiet-hours end, 0–23. Default: `8` |
+| `NOTICE_JOURNAL_GAP_DAYS` | No | Days without journal activity before a nudge. Default: `2` |
 
 OpenAI authenticates via browser OAuth + PKCE (`chris openai login`). MiniMax uses OAuth device flow (`chris minimax login`). Tokens stored in `~/.chris-assistant/`.
 

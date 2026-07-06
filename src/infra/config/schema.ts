@@ -2,6 +2,7 @@ import { z } from "zod";
 
 const envString = z.string().min(1);
 const optionalString = z.string().min(1).nullable();
+const optionalBooleanString = z.enum(["true", "false"]).transform((value) => value === "true").optional();
 
 export const envSchema = z.object({
   AI_MODEL: z.string().optional(),
@@ -33,6 +34,11 @@ export const envSchema = z.object({
   OCTOPUS_API_KEY: z.string().optional(),
   OCTOPUS_ACCOUNT_NUMBER: z.string().optional(),
   VOYAGE_API_KEY: z.string().optional(),
+  NOTICE_LOOP_ENABLED: optionalBooleanString,
+  NOTICE_LOOP_INTERVAL_MINUTES: z.coerce.number().int().positive().optional(),
+  NOTICE_QUIET_START_HOUR: z.coerce.number().int().min(0).max(23).optional(),
+  NOTICE_QUIET_END_HOUR: z.coerce.number().int().min(0).max(23).optional(),
+  NOTICE_JOURNAL_GAP_DAYS: z.coerce.number().int().positive().optional(),
 });
 
 export function normalizeOptional(value?: string): string | null {
