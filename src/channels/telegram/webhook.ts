@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { webhookCallback } from "grammy";
 import { bot } from "./bot.js";
-import { verifySecretHeader } from "./webhook-verify.js";
+import { TELEGRAM_WEBHOOK_UPDATES, verifySecretHeader } from "./webhook-verify.js";
 
 export interface WebhookRuntime {
   server: Server;
@@ -55,7 +55,7 @@ export async function startWebhook(opts: {
 
   await bot.api.setWebhook(opts.url, {
     secret_token: opts.secret,
-    allowed_updates: ["message", "edited_message", "callback_query", "channel_post"],
+    allowed_updates: TELEGRAM_WEBHOOK_UPDATES,
   });
 
   return {

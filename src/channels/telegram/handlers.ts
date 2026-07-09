@@ -6,6 +6,7 @@ import { chatService } from "../../agent/chat-service.js";
 import { downloadTelegramFile } from "./bot.js";
 import { config } from "../../config.js";
 import { BotMessageGuard } from "./bot-message-guard.js";
+import { recordAssistantMessage } from "../../domain/feedback/reaction-service.js";
 
 const RETRY_DELAY_MS = 2000;
 const MAX_TEXT_BYTES = 50_000;
@@ -82,6 +83,13 @@ async function handleAiResponse(
     const response = stripThinking(rawResponse);
 
     void addMessage(chatId, "assistant", response, meta);
+    recordAssistantMessage({
+      chatId,
+      messageId,
+      userMessage,
+      assistantMessage: response,
+      responseTs: Date.now(),
+    });
 
     const chunks = response.length <= 4096 ? [response] : splitMessage(response, 4096);
     const firstChunk = chunks[0];

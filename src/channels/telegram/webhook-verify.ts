@@ -1,5 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 
+export const TELEGRAM_WEBHOOK_UPDATES = ["message", "edited_message", "callback_query", "channel_post", "message_reaction"] as const;
+
 // Telegram stamps every delivery with X-Telegram-Bot-Api-Secret-Token when
 // secret_token is set on setWebhook — verifying it rejects forged updates from
 // anyone who guesses the public URL but not the secret. Compared in constant

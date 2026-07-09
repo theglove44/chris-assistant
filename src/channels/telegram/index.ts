@@ -11,6 +11,7 @@ import {
 } from "./skill-commands-runtime.js";
 import { startWebhook, type WebhookRuntime } from "./webhook.js";
 import { registerTelegramCallbackHandlers } from "./callbacks.js";
+import { registerTelegramReactionHandlers } from "./reactions.js";
 
 // Transport selection (env vars):
 //   TELEGRAM_TRANSPORT       = "polling" (default) | "webhook"
@@ -25,6 +26,7 @@ registerTelegramCommands(bot);
 registerSkillCommandRouter(bot);
 registerTelegramMessageHandlers(bot);
 registerTelegramCallbackHandlers(bot);
+registerTelegramReactionHandlers(bot);
 
 // Refresh the autocomplete menu whenever skills are created/updated/deleted.
 // First call happens later via the telegram-command-menu service; this only
