@@ -1,3 +1,5 @@
+export const RESPONSE_STYLE_LEARNINGS_PATH = "memory/response_style_learnings.md";
+
 export const IDENTITY_FILES = [
   "SOUL.md",
   "IDENTITY.md",
@@ -19,6 +21,7 @@ export const REQUIRED_MEMORY_FILES = [
   ...IDENTITY_FILES,
   ...KNOWLEDGE_FILES,
   ...MEMORY_FILES,
+  RESPONSE_STYLE_LEARNINGS_PATH,
 ] as const;
 
 export const MEMORY_DIRECTORIES = [
@@ -33,6 +36,7 @@ export const STALE_MEMORY_FILES = [
   "memory/SUMMARY.md",
   "memory/DASHBOARD.md",
   "memory/learnings.md",
+  RESPONSE_STYLE_LEARNINGS_PATH,
 ] as const;
 
 export const MEMORY_STALE_AFTER_DAYS = 30;
@@ -44,6 +48,7 @@ export const MEMORY_FILE_ALIASES: Record<string, string> = {
   summary: "memory/SUMMARY.md",
   dashboard: "memory/DASHBOARD.md",
   learnings: "memory/learnings.md",
+  response_style_learnings: RESPONSE_STYLE_LEARNINGS_PATH,
 };
 
 export const MEMORY_CATEGORY_FILES: Record<string, string> = {

@@ -6,6 +6,7 @@ import {
   MEMORY_DIRECTORIES,
   MEMORY_FILE_ALIASES,
   MEMORY_FILES,
+  RESPONSE_STYLE_LEARNINGS_PATH,
   REQUIRED_MEMORY_FILES,
 } from "../src/domain/memory/constants.js";
 
@@ -15,6 +16,7 @@ describe("canonical memory schema", () => {
       ...IDENTITY_FILES,
       ...KNOWLEDGE_FILES,
       ...MEMORY_FILES,
+      RESPONSE_STYLE_LEARNINGS_PATH,
     ]);
     expect([...REQUIRED_MEMORY_FILES]).toEqual([
       "SOUL.md",
@@ -23,6 +25,7 @@ describe("canonical memory schema", () => {
       "memory/SUMMARY.md",
       "memory/DASHBOARD.md",
       "memory/learnings.md",
+      "memory/response_style_learnings.md",
     ]);
   });
 
@@ -34,6 +37,7 @@ describe("canonical memory schema", () => {
       summary: "memory/SUMMARY.md",
       dashboard: "memory/DASHBOARD.md",
       learnings: "memory/learnings.md",
+      response_style_learnings: "memory/response_style_learnings.md",
     });
   });
 
@@ -57,4 +61,3 @@ describe("canonical memory schema", () => {
     ]);
   });
 });
-

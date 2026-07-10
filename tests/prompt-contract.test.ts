@@ -5,6 +5,7 @@ const fixtures = vi.hoisted(() => {
     identity: "## SOUL.md\nChris Assistant is warm, direct, and continuous.",
     knowledge: "## USER.md\nChris prefers concise engineering updates.",
     memory: "## memory/learnings.md\nRemember that Chris values trust recovery work.",
+    responseStyleLearnings: "## Learnings\nPrefer brief implementation updates when evidence supports it.",
     recentSummaries: "### 2026-05-04\nDiscussed recovery planning.",
     recentJournal: "### 2026-05-05 (today)\nNoted prompt contract work.",
     curatedSummary: "Chris is rebuilding confidence in his personal assistant.",
@@ -36,6 +37,7 @@ vi.mock("../src/memory/loader.js", () => ({
     memory.curatedSummary ? `# Curated Memory\n\n${memory.curatedSummary}` : "",
     memory.knowledge ? `# Knowledge About Chris\n\n${memory.knowledge}` : "",
     memory.memory ? `# Memories & Learnings\n\n${memory.memory}` : "",
+    memory.responseStyleLearnings ? `# Response Style Learnings\n\n${memory.responseStyleLearnings}` : "",
     memory.recentSummaries ? `# Recent Conversation History\n\n${memory.recentSummaries}` : "",
     memory.recentJournal ? `# Your Recent Journal\n\n${memory.recentJournal}` : "",
     memory.skillIndex ? `# Available Skills\n\n${memory.skillIndex}` : "",
@@ -134,6 +136,7 @@ describe("assistant runtime prompt contract", () => {
       expect(prompt).toContain("Discussed recovery planning.");
       expect(prompt).toContain("# Recalled Memories");
       expect(prompt).toContain("Chris is building My Trading Agent");
+      expect(prompt).toContain("Prefer brief implementation updates");
       expect(prompt).toContain("# Current Date & Time");
       expect(prompt).toContain("Europe/London");
     }
@@ -201,6 +204,7 @@ describe("prompt inspection", () => {
 
     expect(report).toContain("identity: present");
     expect(report).toContain("skillIndex: present");
+    expect(report).toContain("responseStyleLearnings: present");
     expect(report).toContain("Raw memory bodies, tokens, and environment values are intentionally redacted.");
     expect(report).not.toContain("Chris prefers concise engineering updates.");
     expect(report).not.toContain("Discussed recovery planning.");

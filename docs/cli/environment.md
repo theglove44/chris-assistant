@@ -49,6 +49,7 @@ OpenAI authenticates via browser OAuth + PKCE (`chris openai login`). MiniMax us
 | `~/.chris-assistant/openai-auth.json` | OpenAI OAuth tokens + account ID |
 | `~/.chris-assistant/minimax-auth.json` | MiniMax OAuth tokens |
 | `~/.chris-assistant/claude-sessions.json` | Claude Agent SDK session IDs per chat |
+| `~/.chris-assistant/feedback/` | Daily local JSONL reaction feedback and temporary message context |
 | `~/.chris-assistant/archive/` | Daily JSONL message archives |
 | `~/.chris-assistant/journal/` | Daily bot journal entries |
 

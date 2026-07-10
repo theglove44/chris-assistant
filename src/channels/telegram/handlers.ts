@@ -104,9 +104,16 @@ async function handleAiResponse(
 
     for (let i = 1; i < chunks.length; i++) {
       const chunk = chunks[i];
-      await ctx.reply(toMarkdownV2(chunk), { parse_mode: "HTML" }).catch(
+      const extraMessage = await ctx.reply(toMarkdownV2(chunk), { parse_mode: "HTML" }).catch(
         () => ctx.reply(stripMarkdown(chunk)),
       );
+      recordAssistantMessage({
+        chatId,
+        messageId: extraMessage.message_id,
+        userMessage,
+        assistantMessage: chunk,
+        responseTs: Date.now(),
+      });
     }
 
     void reactTo(ctx, "✅");
