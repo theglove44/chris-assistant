@@ -1,46 +1,15 @@
 import { z } from "zod";
 import { registerTool } from "./registry.js";
-import {
-  CALENDAR_APP,
-  CALENDAR_TIMEOUT,
-  CALENDAR_SETUP_CMD,
-  DEFAULT_CALENDAR,
-  IS_DARWIN,
-  runSwiftHelper,
-} from "./macos/shared.js";
+import { DEFAULT_CALENDAR, IS_DARWIN } from "./macos/shared.js";
+import { formatCalendarEvents, runCalendarCommand } from "./macos/calendar-client.js";
 
 // ---------------------------------------------------------------------------
 // Calendar: Swift EventKit binary (fast, <1s)
 // ---------------------------------------------------------------------------
 
-async function runCalendar(args: string[]): Promise<string> {
-  return runSwiftHelper(CALENDAR_APP, args, {
-    timeoutMs: CALENDAR_TIMEOUT,
-    filePrefix: "chris-cal",
-    notFoundMessage:
-      `Error: Calendar helper not found at ${CALENDAR_APP}. ` +
-      `Install it with: ${CALENDAR_SETUP_CMD}`,
-  });
-}
-
 function formatEvents(json: string): string {
   try {
-    const events = JSON.parse(json);
-    if (!Array.isArray(events) || events.length === 0) return "No events found.";
-    return events.map((e: any) => {
-      const start = new Date(e.start);
-      const end = new Date(e.end);
-      const timeFmt = (d: Date) =>
-        d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-      const dateFmt = (d: Date) =>
-        d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
-
-      let line = e.allDay
-        ? `${dateFmt(start)} (all day) — ${e.title}`
-        : `${dateFmt(start)} ${timeFmt(start)}–${timeFmt(end)} — ${e.title}`;
-      if (e.location) line += ` 📍 ${e.location}`;
-      return line;
-    }).join("\n");
+    return formatCalendarEvents(JSON.parse(json));
   } catch {
     return json; // Return raw if parse fails
   }
@@ -136,7 +105,7 @@ if (!IS_DARWIN) {
       try {
         switch (action) {
           case "list_calendars":
-            return await runCalendar(["list-calendars"]);
+            return await runCalendarCommand(["list-calendars"]);
 
           case "get_events": {
             if (!start_date) return "Error: start_date is required for get_events";
@@ -148,7 +117,7 @@ if (!IS_DARWIN) {
               d.setDate(d.getDate() + 1);
               end = d.toISOString().split("T")[0];
             }
-            const raw = await runCalendar(["get-events", cal, start_date, end]);
+            const raw = await runCalendarCommand(["get-events", cal, start_date, end]);
             // Try to format nicely, fall back to raw
             if (raw.startsWith("Error:")) return raw;
             try {
@@ -171,7 +140,7 @@ if (!IS_DARWIN) {
             if (location) cmdArgs.push("--location", location);
             if (notes) cmdArgs.push("--notes", notes);
             if (all_day) cmdArgs.push("--allday");
-            return await runCalendar(cmdArgs);
+            return await runCalendarCommand(cmdArgs);
           }
 
           case "update_event": {
@@ -192,7 +161,7 @@ if (!IS_DARWIN) {
             }
             if (all_day === true) cmdArgs.push("--allday");
             if (all_day === false) cmdArgs.push("--no-allday");
-            const updateRaw = await runCalendar(cmdArgs);
+            const updateRaw = await runCalendarCommand(cmdArgs);
             if (updateRaw.startsWith("Error:")) return updateRaw;
             // Format the returned updated event
             try {
@@ -209,7 +178,7 @@ if (!IS_DARWIN) {
             if (start_date) cmdArgs.push("--from", start_date);
             if (end_date) cmdArgs.push("--to", end_date);
             if (max_results) cmdArgs.push("--max", String(max_results));
-            const searchRaw = await runCalendar(cmdArgs);
+            const searchRaw = await runCalendarCommand(cmdArgs);
             if (searchRaw.startsWith("Error:")) return searchRaw;
             try {
               const parsed = JSON.parse(searchRaw);
@@ -230,7 +199,7 @@ if (!IS_DARWIN) {
               if (!start_date) return "Error: start_date is required when deleting by title (scopes to a single day)";
               cmdArgs.push(title!, "--date", start_date);
             }
-            return await runCalendar(cmdArgs);
+            return await runCalendarCommand(cmdArgs);
           }
 
           default:
