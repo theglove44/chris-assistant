@@ -48,6 +48,8 @@ Lists all memory files from the GitHub-backed memory repo (identity, knowledge, 
 
 Shows Telegram reaction feedback captured during the previous seven days: event count, added-reaction trend, reaction distribution, timing, and a short assistant-response preview. The trend is intentionally limited to known positive and negative emoji; ambiguous emoji remain neutral. Raw feedback remains local in `~/.chris-assistant/feedback/`; only the weekly distilled, auditable `memory/response_style_learnings.md` is written to the memory repo.
 
+Telegram excludes reaction updates by default. Both polling and webhook transports explicitly subscribe to `message_reaction`; the bot must also be a chat administrator for Telegram to deliver user reaction updates.
+
 ### Logs
 
 Tails pm2 stdout and stderr logs. Supports live streaming via SSE for real-time log watching.

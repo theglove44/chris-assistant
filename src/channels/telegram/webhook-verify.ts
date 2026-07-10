@@ -1,6 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
 
-export const TELEGRAM_WEBHOOK_UPDATES = ["message", "edited_message", "callback_query", "channel_post", "message_reaction"] as const;
+// Both transports must explicitly request reactions. Telegram excludes
+// message_reaction from its default allowed_updates list.
+export const TELEGRAM_ALLOWED_UPDATES = ["message", "edited_message", "callback_query", "channel_post", "message_reaction"] as const;
 
 // Telegram stamps every delivery with X-Telegram-Bot-Api-Secret-Token when
 // secret_token is set on setWebhook — verifying it rejects forged updates from

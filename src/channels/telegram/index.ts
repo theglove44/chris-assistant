@@ -12,6 +12,7 @@ import {
 import { startWebhook, type WebhookRuntime } from "./webhook.js";
 import { registerTelegramCallbackHandlers } from "./callbacks.js";
 import { registerTelegramReactionHandlers } from "./reactions.js";
+import { TELEGRAM_ALLOWED_UPDATES } from "./webhook-verify.js";
 
 // Transport selection (env vars):
 //   TELEGRAM_TRANSPORT       = "polling" (default) | "webhook"
@@ -95,7 +96,7 @@ export function startTelegram(onStart: (botInfo: any) => void): void {
 
   const run = async (): Promise<void> => {
     try {
-      await bot.start({ onStart: fireOnStartOnce });
+      await bot.start({ onStart: fireOnStartOnce, allowed_updates: TELEGRAM_ALLOWED_UPDATES });
     } catch (err) {
       if (err instanceof GrammyError && err.error_code === 409) {
         console.warn(

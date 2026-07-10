@@ -71,3 +71,15 @@ npm run docs:build
 - Local continuation branch: `codex/82-reaction-learning`, based on draft PR #126 head.
 - No commit, push, PR update, merge, or live Telegram operation performed.
 - Live Telegram reaction acceptance remains an operator validation after deployment.
+
+## Follow-up — polling delivery gap
+
+### Trigger / symptom
+
+Manual reaction-file check found no JSONL output while no bot was running. Review then found polling startup did not pass `allowed_updates`; Telegram excludes `message_reaction` from defaults and retains prior allowed-update configuration.
+
+### Findings and surgical fix
+
+- Webhook startup already requested `message_reaction`; polling did not.
+- Renamed the shared update list to `TELEGRAM_ALLOWED_UPDATES` and pass it to both `bot.start()` and `setWebhook()`.
+- Added an explicit comment and regression assertion. Runtime testing still requires a running bot administered in the target Telegram chat.
