@@ -20,6 +20,7 @@ chris-assistant-memory/
 │   ├── SUMMARY.md            # Weekly-consolidated curated summary (read-only)
 │   ├── DASHBOARD.md          # Operator-facing status and notes
 │   ├── learnings.md          # Self-improvement notes
+├── decisions/                # Structured counterfactual decision records
 ├── HEARTBEAT.md              # Bot status snapshot (updated every 3h)
 ├── archive/                  # Daily JSONL message logs
 ├── journal/                  # Bot's daily journal notes
@@ -71,6 +72,48 @@ The tool targets specific memory file categories: `about-chris`, `preferences`, 
 | `people` | `USER.md` | People you mention — names, context |
 | `decisions` | `memory/learnings.md` | Important decisions and reasoning |
 | `learnings` | `memory/learnings.md` | Things the bot learned about how to help you better |
+
+## Counterfactual Decision Records
+
+Important choices should use `update_memory` with `category: decisions`, `action: add`, and a structured `decision` payload. This preserves rejected options and review triggers instead of recording only final choice. Each record is committed to `decisions/YYYY-MM-DD-<choice>.md`; a readable summary is also appended to `memory/learnings.md` and indexed locally for recall.
+
+Schema:
+
+```yaml
+type: decision
+date: YYYY-MM-DD
+chose: selected option
+alternatives:
+  - name: rejected option
+    rejected_because: evidence-based reason
+reasoning_trace:
+  - evidence or constraint that influenced choice
+revisit_conditions:
+  - condition: event that would justify reviewing choice
+    review_on: YYYY-MM-DD # optional
+    status: pending # pending, met, or dismissed; optional
+```
+
+Representative example (documentation fixture, not user memory):
+
+```yaml
+type: decision
+date: "2026-07-01"
+chose: Keep SQLite for v1
+alternatives:
+  - name: Move to Postgres
+    rejected_because: Migration cost exceeds current scale benefit
+reasoning_trace:
+  - Single-node workload remains within SQLite limits
+revisit_conditions:
+  - condition: Concurrent writes become a bottleneck
+    status: pending
+  - condition: Quarterly architecture review
+    review_on: "2026-10-01"
+    status: pending
+```
+
+`decisions_due_for_revisit` scans structured local decision files. It returns records with `status: met` or `review_on` at/before requested `as_of` date. `dismissed` conditions never make record due.
 
 ## Memory Guard
 

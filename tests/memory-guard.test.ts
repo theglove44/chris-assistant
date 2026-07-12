@@ -43,6 +43,8 @@ import {
   setGlobalBucketClock,
 } from "../src/domain/memory/update-service.js";
 import { updateVoyageEntry } from "../src/domain/memory/voyage-index.js";
+import { appendToMemoryFile } from "../src/domain/memory/repository.js";
+import { writeMemoryFile } from "../src/domain/memory/repository.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -76,6 +78,8 @@ beforeEach(() => {
   setGlobalBucketClock(() => Date.now());
   resetGlobalBucket();
   vi.mocked(updateVoyageEntry).mockClear();
+  vi.mocked(appendToMemoryFile).mockClear();
+  vi.mocked(writeMemoryFile).mockClear();
 });
 
 // ---------------------------------------------------------------------------
@@ -83,6 +87,33 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("global token bucket", () => {
+  it("captures structured decisions with counterfactual context", async () => {
+    const result = await executeMemoryTool({
+      category: "decisions",
+      action: "add",
+      decision: {
+        date: "2026-07-12",
+        chose: "Ship smallest safe slice",
+        alternatives: [{ name: "Big-bang rewrite", rejected_because: "risk and review cost" }],
+        reasoning_trace: ["Incremental delivery preserves rollback"],
+        revisit_conditions: [{ condition: "Incremental path blocks required migration", status: "pending" }],
+      },
+    });
+
+    expect(result).toBe("Memory updated (decisions/add)");
+    expect(appendToMemoryFile).toHaveBeenCalledWith(
+      "memory/learnings.md",
+      expect.stringContaining("### Alternatives"),
+      "memory: add to decisions",
+    );
+    expect(writeMemoryFile).toHaveBeenCalledWith(
+      "decisions/2026-07-12-ship-smallest-safe-slice.md",
+      expect.stringContaining("type: decision"),
+      "memory: record decision Ship smallest safe slice",
+    );
+    expect(updateVoyageEntry).toHaveBeenCalledWith(expect.objectContaining({ type: "decision" }));
+  });
+
   it("updates the Voyage index after writing a local recall file", async () => {
     const result = await callUpdate("preferences", "Chris prefers concise updates");
     expect(result).toBe("Memory updated (preferences/add)");

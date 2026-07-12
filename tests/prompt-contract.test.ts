@@ -127,6 +127,15 @@ describe("assistant runtime prompt contract", () => {
     expect(prompt).toContain("Tools Available");
   });
 
+  it("guides counterfactual decision capture and revisit queries", async () => {
+    for (const prompt of await assembledPrompts()) {
+      expect(prompt).toContain("rejected alternatives and why");
+      expect(prompt).toContain("reasoning trace");
+      expect(prompt).toContain("revisit conditions");
+      expect(prompt).toContain("decisions_due_for_revisit");
+    }
+  });
+
   it("assembles identity, curated memory, recent summaries, recalled memories, and current time for every provider", async () => {
     for (const prompt of await assembledPrompts("what should you remember about my trading agent?")) {
       expect(prompt).toContain("Chris Assistant is warm, direct, and continuous.");

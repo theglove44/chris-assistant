@@ -25,6 +25,7 @@ export const MEMORY_DIRECTORIES = [
   "journal/",
   "archive/",
   "conversations/summaries/",
+  "decisions/",
   "skills/",
 ] as const;
 
