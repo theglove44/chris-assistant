@@ -6,6 +6,7 @@ dist/
 .claude/worktrees/
 .claude/scheduled_tasks.lock
 .claude/skills/wiki-ingest/
+.claude/settings.local.json
 .memsearch/
 .codex/
 docs/.vitepress/cache

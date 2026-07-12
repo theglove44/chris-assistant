@@ -69,6 +69,8 @@ Critical ones inline, full list in `docs/development/gotchas.md`:
 - **SSH + pm2**: `~/.ssh/config` `Host` line must include IP for pm2 to resolve correct user
 - **Codex API**: Requires `stream: true`, `store: false`, `chatgpt-account-id` header. Only GPT-5.x models
 - **Memory cache**: 5-min TTL, invalidated after each conversation
+- **Stacked PRs + squash merge**: if PR-B branches from PR-A and PR-A gets squash-merged, GitHub deletes PR-A's branch and falsely marks PR-B "merged" even though its commits never landed on `main` (squash merge isn't a fast-forward). Before squash-merging a base PR, retarget dependent PRs to `main` first (`gh pr edit <n> --base main`); otherwise recreate via cherry-pick. Prefer independent PRs off `main` over stacking; when rebasing is unavoidable after a sequential merge, use `git push --force-with-lease` (never bare `--force`)
+- **Docs deploy**: `docs.mjoln1r.com` is VitePress output rsynced to the `tuckinandtalk` VM. Deploy with `npm run docs:deploy`; `.git/hooks/post-merge` auto-deploys on `docs/` changes after `git pull` (hook source tracked at `scripts/post-merge-hook` for reinstall)
 
 ## Environment
 
