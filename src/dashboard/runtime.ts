@@ -16,6 +16,7 @@ import { getBotProcess } from "../cli/pm2-helper.js";
 import { loadSkillIndex, loadSkill } from "../skills/loader.js";
 import { LIMITS } from "../infra/config/limits.js";
 import { REQUIRED_MEMORY_FILES } from "../domain/memory/constants.js";
+import { readReactionFeedback, summarizeReactionFeedback } from "../domain/feedback/reaction-service.js";
 
 const BOT_STARTED_AT = new Date().toISOString();
 const PM2_LOG_DIR = path.join(os.homedir(), ".pm2", "logs");
@@ -109,6 +110,10 @@ async function handleStatus(res: ServerResponse): Promise<void> {
 
 function handleHealth(res: ServerResponse): void {
   json(res, getHealthStatus());
+}
+
+function handleFeedback(res: ServerResponse): void {
+  json(res, summarizeReactionFeedback(readReactionFeedback()));
 }
 
 async function fetchSymphonyState(): Promise<any | null> {
@@ -390,6 +395,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, getHtml:
 
     if (req.method === "GET" && pathname === "/api/status") return await handleStatus(res);
     if (req.method === "GET" && pathname === "/api/health") return handleHealth(res);
+    if (req.method === "GET" && pathname === "/api/feedback") return handleFeedback(res);
     if (req.method === "GET" && pathname === "/api/symphony/state") return json(res, await fetchSymphonyState());
     if (req.method === "GET" && pathname === "/api/schedules") return handleSchedules(res);
 

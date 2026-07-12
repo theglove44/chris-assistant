@@ -14,6 +14,7 @@ import { startWebhook, stopWebhook } from "../webhook.js";
 import { ensureLocalMemoryDir } from "../domain/memory/recall.js";
 import { setTelegramCommandMenu } from "../channels/telegram/index.js";
 import { startNoticeLoop, stopNoticeLoop } from "../domain/notice/runtime.js";
+import { startReactionLearning, stopReactionLearning } from "../domain/feedback/learning-service.js";
 
 export function createPreTelegramRegistry(): ServiceRegistry {
   return new ServiceRegistry([
@@ -43,6 +44,7 @@ export function createPostTelegramRegistry(): ServiceRegistry {
     createService("memory-consolidation", () => startMemoryConsolidation(), () => stopMemoryConsolidation()),
     createService("heartbeat", () => startHeartbeat(), () => stopHeartbeat()),
     createService("notice-loop", () => startNoticeLoop(), () => stopNoticeLoop()),
+    createService("reaction-learning", () => startReactionLearning(), () => stopReactionLearning()),
     createService("dashboard", () => startDashboard(), () => stopDashboard()),
     createService("discord", () => startDiscord(), () => stopDiscord()),
     createService("webhook", () => startWebhook(), () => stopWebhook()),

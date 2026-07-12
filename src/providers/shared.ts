@@ -236,6 +236,7 @@ export async function inspectPrompt(): Promise<string> {
     `curatedSummary: ${memory.curatedSummary ? "present" : "missing"}`,
     `knowledge: ${memory.knowledge ? "present" : "missing"}`,
     `memory: ${memory.memory ? "present" : "missing"}`,
+    `responseStyleLearnings: ${memory.responseStyleLearnings ? "present" : "missing"}`,
     `recentSummaries: ${memory.recentSummaries ? "present" : "missing"}`,
     `recentJournal: ${memory.recentJournal ? "present" : "missing"}`,
     `skillIndex: ${memory.skillIndex ? "present" : "missing"}`,
