@@ -8,10 +8,12 @@ import {
   formatDecisionDocument,
   formatDecisionFrontmatter,
   formatDecisionsDue,
+  isIsoCalendarDate,
   validateDecision,
   type DecisionInput,
 } from "../src/domain/memory/decision-service.js";
 import { scanMemoryFiles } from "../src/domain/memory/memory-scan.js";
+import { executeDecisionsDueForRevisit } from "../src/tools/decisions.js";
 
 let tempDir: string | null = null;
 
@@ -45,6 +47,13 @@ describe("counterfactual decision memory", () => {
     expect(validateDecision(decision)).toBeNull();
     expect(validateDecision({ ...decision, alternatives: [] })).toContain("at least one rejected option");
     expect(validateDecision({ ...decision, date: "01/07/2026" })).toContain("YYYY-MM-DD");
+    expect(validateDecision({ ...decision, date: "2026-02-29" })).toContain("valid YYYY-MM-DD");
+    expect(validateDecision({
+      ...decision,
+      revisit_conditions: [{ condition: "Impossible review", review_on: "2026-13-01" }],
+    })).toContain("valid YYYY-MM-DD");
+    expect(isIsoCalendarDate("2024-02-29")).toBe(true);
+    expect(isIsoCalendarDate("2026-02-29")).toBe(false);
   });
 
   it("serializes stable YAML schema", async () => {
@@ -82,6 +91,11 @@ describe("counterfactual decision memory", () => {
 
     expect(due.map((record) => record.chose)).toEqual(["Keep SQLite for v1"]);
     expect(formatDecisionsDue(due, "2026-07-12")).toContain("Quarterly architecture review");
+  });
+
+  it("rejects impossible as_of dates", async () => {
+    expect(await executeDecisionsDueForRevisit({ as_of: "2026-02-29" }))
+      .toBe("Invalid as_of date; expected a valid YYYY-MM-DD date");
   });
 
   it("returns met conditions immediately and excludes dismissed conditions", async () => {

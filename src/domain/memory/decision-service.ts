@@ -27,8 +27,17 @@ export type DecisionInput = Omit<DecisionRecord, "type">;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+export function isIsoCalendarDate(value: string): boolean {
+  if (!ISO_DATE.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  if (month < 1 || month > 12 || day < 1) return false;
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return day <= daysInMonth[month - 1];
+}
+
 export function validateDecision(input: DecisionInput): string | null {
-  if (!ISO_DATE.test(input.date)) return "decision.date must use YYYY-MM-DD";
+  if (!isIsoCalendarDate(input.date)) return "decision.date must be a valid YYYY-MM-DD date";
   if (!input.chose.trim()) return "decision.chose must not be empty";
   if (input.alternatives.length === 0) return "decision.alternatives must include at least one rejected option";
   if (input.alternatives.some((item) => !item.name.trim() || !item.rejected_because.trim())) {
@@ -40,8 +49,8 @@ export function validateDecision(input: DecisionInput): string | null {
   if (input.revisit_conditions.some((item) => !item.condition.trim())) {
     return "each revisit condition needs a condition";
   }
-  if (input.revisit_conditions.some((item) => item.review_on && !ISO_DATE.test(item.review_on))) {
-    return "revisit condition review_on must use YYYY-MM-DD";
+  if (input.revisit_conditions.some((item) => item.review_on && !isIsoCalendarDate(item.review_on))) {
+    return "revisit condition review_on must be a valid YYYY-MM-DD date";
   }
   return null;
 }

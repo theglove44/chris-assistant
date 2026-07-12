@@ -114,6 +114,35 @@ describe("global token bucket", () => {
     expect(updateVoyageEntry).toHaveBeenCalledWith(expect.objectContaining({ type: "decision" }));
   });
 
+  it("retries structured decisions without duplicating the summary append", async () => {
+    const structuredArgs = {
+      category: "decisions" as const,
+      action: "add" as const,
+      decision: {
+        date: "2026-07-12",
+        chose: "Use stable writes before append",
+        alternatives: [{ name: "Append first", rejected_because: "retries can duplicate summaries" }],
+        reasoning_trace: ["Stable-path writes are idempotent"],
+        revisit_conditions: [],
+      },
+    };
+    vi.mocked(appendToMemoryFile)
+      .mockRejectedValueOnce(new Error("summary write failed"))
+      .mockResolvedValueOnce(undefined);
+
+    expect(await executeMemoryTool(structuredArgs)).toBe("Failed to update memory: summary write failed");
+    expect(await executeMemoryTool(structuredArgs)).toBe("Memory updated (decisions/add)");
+
+    expect(writeMemoryFile).toHaveBeenCalledTimes(2);
+    expect(writeMemoryFile).toHaveBeenNthCalledWith(
+      1,
+      "decisions/2026-07-12-use-stable-writes-before-append.md",
+      expect.stringContaining("type: decision"),
+      "memory: record decision Use stable writes before append",
+    );
+    expect(appendToMemoryFile).toHaveBeenCalledTimes(2);
+  });
+
   it("updates the Voyage index after writing a local recall file", async () => {
     const result = await callUpdate("preferences", "Chris prefers concise updates");
     expect(result).toBe("Memory updated (preferences/add)");

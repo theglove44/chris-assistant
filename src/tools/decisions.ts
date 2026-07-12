@@ -1,6 +1,16 @@
 import { z } from "zod";
-import { decisionsDueForRevisit, formatDecisionsDue } from "../domain/memory/decision-service.js";
+import {
+  decisionsDueForRevisit,
+  formatDecisionsDue,
+  isIsoCalendarDate,
+} from "../domain/memory/decision-service.js";
 import { registerTool } from "./registry.js";
+
+export async function executeDecisionsDueForRevisit({ as_of }: { as_of?: string }): Promise<string> {
+  const asOf = as_of ?? new Date().toISOString().slice(0, 10);
+  if (!isIsoCalendarDate(asOf)) return "Invalid as_of date; expected a valid YYYY-MM-DD date";
+  return formatDecisionsDue(await decisionsDueForRevisit(asOf), asOf);
+}
 
 registerTool({
   name: "decisions_due_for_revisit",
@@ -16,9 +26,5 @@ registerTool({
       as_of: { type: "string", description: "Optional cutoff date in YYYY-MM-DD format" },
     },
   },
-  execute: async ({ as_of }: { as_of?: string }) => {
-    const asOf = as_of ?? new Date().toISOString().slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(asOf)) return "Invalid as_of date; expected YYYY-MM-DD";
-    return formatDecisionsDue(await decisionsDueForRevisit(asOf), asOf);
-  },
+  execute: executeDecisionsDueForRevisit,
 });

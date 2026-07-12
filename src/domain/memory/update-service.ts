@@ -274,19 +274,21 @@ export async function executeMemoryTool(args: {
   const entry = `<!-- Updated: ${timestamp} -->\n${content}`;
 
   try {
-    if (action === "replace") {
-      await writeMemoryFile(filePath, entry, `memory: replace ${category}`);
-      lastReplaceTime.set(category, Date.now());
-    } else {
-      await appendToMemoryFile(filePath, entry, `memory: add to ${category}`);
-    }
-
+    // Write structured record first. Its stable path makes retries idempotent:
+    // a retry replaces the same record before attempting the append again.
     if (args.decision) {
       await writeMemoryFile(
         decisionRecordPath(args.decision),
         formatDecisionDocument(args.decision),
         `memory: record decision ${args.decision.chose.slice(0, 60)}`,
       );
+    }
+
+    if (action === "replace") {
+      await writeMemoryFile(filePath, entry, `memory: replace ${category}`);
+      lastReplaceTime.set(category, Date.now());
+    } else {
+      await appendToMemoryFile(filePath, entry, `memory: add to ${category}`);
     }
 
     // Dual-write: also persist as a local topic file for recall. GitHub remains
