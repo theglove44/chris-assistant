@@ -50,4 +50,27 @@ Attempt: {{ attempt }}
     expect(rendered).toContain("Title: Build Symphony");
     expect(rendered).toContain("Attempt: 2");
   });
+
+  it("enforces a test-first implementation sequence in the repository workflow", async () => {
+    const workflowPath = path.resolve("WORKFLOW.md");
+    const workflow = loadWorkflow(workflowPath);
+    const rendered = await renderWorkflowPrompt(workflow, {
+      attempt: 1,
+      issue: {
+        identifier: "#84",
+        title: "Enforce test-first Symphony workflow",
+        description: "Stage 1 prompt contract",
+      },
+    });
+
+    const failingTest = rendered.indexOf("Write or update the smallest relevant test first");
+    const verifyFailure = rendered.indexOf("Run that test and confirm it fails for the expected reason");
+    const implementation = rendered.indexOf("Implement the smallest change that makes the test pass");
+    const verifyPass = rendered.indexOf("Run the focused test again and confirm it passes");
+
+    expect(failingTest).toBeGreaterThan(-1);
+    expect(verifyFailure).toBeGreaterThan(failingTest);
+    expect(implementation).toBeGreaterThan(verifyFailure);
+    expect(verifyPass).toBeGreaterThan(implementation);
+  });
 });
