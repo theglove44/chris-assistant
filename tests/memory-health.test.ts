@@ -94,4 +94,3 @@ describe("checkMemoryHealth", () => {
     expect(report.files.find((f) => f.path === "IDENTITY.md")?.status).toBe("present");
   });
 });
-

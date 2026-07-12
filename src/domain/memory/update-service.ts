@@ -5,6 +5,14 @@ import { MEMORY_CATEGORY_FILES } from "./constants.js";
 import { LOCAL_MEMORY_DIR } from "./recall.js";
 import { updateVoyageEntry } from "./voyage-index.js";
 import type { MemoryHeader } from "./memory-scan.js";
+import {
+  formatDecisionFrontmatter,
+  formatDecisionDocument,
+  formatDecisionMemory,
+  decisionRecordPath,
+  validateDecision,
+  type DecisionInput,
+} from "./decision-service.js";
 
 const CONTENT_MAX_CHARS = 2000;
 const REPLACE_THROTTLE_MS = 5 * 60 * 1000;
@@ -198,20 +206,22 @@ function autoDescription(content: string, category: string): string {
 async function writeLocalMemoryFile(
   category: string,
   content: string,
+  decision?: DecisionInput,
 ): Promise<MemoryHeader | null> {
   try {
     await mkdir(LOCAL_MEMORY_DIR, { recursive: true });
-    const type = CATEGORY_TO_TYPE[category] || "reference";
+    const type = decision ? "decision" : (CATEGORY_TO_TYPE[category] || "reference");
     const timestamp = new Date().toISOString().split("T")[0];
     const slug = slugify(content);
     const filename = `${category}_${timestamp}_${slug}.md`;
     const filePath = path.join(LOCAL_MEMORY_DIR, filename);
     const description = autoDescription(content, category);
 
+    const frontmatter = decision
+      ? `${formatDecisionFrontmatter(decision)}\ndescription: ${JSON.stringify(description)}`
+      : `name: ${category} — ${slug.replace(/-/g, " ")}\ndescription: ${description}\ntype: ${type}`;
     const fileContent = `---
-name: ${category} — ${slug.replace(/-/g, " ")}
-description: ${description}
-type: ${type}
+${frontmatter}
 ---
 
 ${content}
@@ -231,13 +241,32 @@ ${content}
   }
 }
 
-export async function executeMemoryTool(args: { category: string; action: "add" | "replace"; content: string }): Promise<string> {
-  const validation = validateMemoryContent(args);
+export async function executeMemoryTool(args: {
+  category: string;
+  action: "add" | "replace";
+  content?: string;
+  decision?: DecisionInput;
+}): Promise<string> {
+  if (args.decision && args.category !== "decisions") {
+    return "Memory update rejected: structured decision requires category decisions";
+  }
+  if (args.decision && args.action !== "add") {
+    return "Memory update rejected: structured decisions only support add";
+  }
+  if (!args.decision && !args.content?.trim()) {
+    return "Memory update rejected: content is required";
+  }
+  if (args.decision) {
+    const decisionError = validateDecision(args.decision);
+    if (decisionError) return `Memory update rejected: ${decisionError}`;
+  }
+  const content = args.decision ? formatDecisionMemory(args.decision) : args.content!;
+  const validation = validateMemoryContent({ ...args, content });
   if (!validation.valid) {
     return `Memory update rejected: ${validation.reason}`;
   }
 
-  const { category, action, content } = args;
+  const { category, action } = args;
   const filePath = MEMORY_CATEGORY_FILES[category];
   if (!filePath) return `Unknown category: ${category}`;
 
@@ -245,6 +274,16 @@ export async function executeMemoryTool(args: { category: string; action: "add" 
   const entry = `<!-- Updated: ${timestamp} -->\n${content}`;
 
   try {
+    // Write structured record first. Its stable path makes retries idempotent:
+    // a retry replaces the same record before attempting the append again.
+    if (args.decision) {
+      await writeMemoryFile(
+        decisionRecordPath(args.decision),
+        formatDecisionDocument(args.decision),
+        `memory: record decision ${args.decision.chose.slice(0, 60)}`,
+      );
+    }
+
     if (action === "replace") {
       await writeMemoryFile(filePath, entry, `memory: replace ${category}`);
       lastReplaceTime.set(category, Date.now());
@@ -254,7 +293,7 @@ export async function executeMemoryTool(args: { category: string; action: "add" 
 
     // Dual-write: also persist as a local topic file for recall. GitHub remains
     // the source of truth; local/Voyage failures are logged but non-fatal.
-    const localHeader = await writeLocalMemoryFile(category, content);
+    const localHeader = await writeLocalMemoryFile(category, content, args.decision);
     if (localHeader) {
       await updateVoyageEntry(localHeader);
     }

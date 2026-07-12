@@ -22,6 +22,7 @@ __DASHBOARD_DOCS_LINK__  </header>
     <button class="tab" data-tab="schedules">Schedules</button>
     <button class="tab" data-tab="conversations">Conversations</button>
     <button class="tab" data-tab="memory">Memory</button>
+    <button class="tab" data-tab="feedback">Feedback</button>
     <button class="tab" data-tab="logs">Logs</button>
     <button class="tab" data-tab="calendar">Calendar</button>
     <button class="tab" data-tab="skills">Skills</button>
@@ -92,6 +93,18 @@ __DASHBOARD_DOCS_LINK__  </header>
       <div id="memory-files" class="file-list"><div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div></div></div>
     </div>
     <div id="memory-editor"><div class="empty-state"><div class="empty-state-icon">🗂</div><div class="empty-state-heading">Select a file</div><div class="empty-state-description">Choose a memory file from the list to view or edit it</div></div></div>
+  </div>
+
+  <!-- Feedback -->
+  <div class="section" id="sec-feedback">
+    <div class="card">
+      <h3>Reaction Feedback — Last 7 Days</h3>
+      <div class="stat-grid" id="feedback-stats"><div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-stat"></div></div>
+    </div>
+    <div class="card">
+      <h3>Recent Reactions</h3>
+      <div id="feedback-recent"><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row short"></div></div>
+    </div>
   </div>
 
   <!-- Schedule Editor Modal (hidden by default) -->
@@ -279,6 +292,7 @@ function activateTab(tab) {
   if (tab === "schedules") loadSchedules();
   if (tab === "conversations") loadArchiveDates();
   if (tab === "memory") loadMemoryFiles();
+  if (tab === "feedback") loadFeedback();
   if (tab === "logs") startLogStream();
   if (tab === "calendar") loadCalendar();
   if (tab === "skills") loadSkills();
@@ -356,6 +370,35 @@ async function loadStatus() {
   } catch (e) {
     document.getElementById("status-stats").innerHTML = '<span class="loading">Error: ' + esc(e.message) + '</span>';
     document.getElementById("symphony-stats").innerHTML = '<span class="loading">Error: ' + esc(e.message) + '</span>';
+  }
+}
+
+// --- Feedback ---
+async function loadFeedback() {
+  try {
+    var feedback = await api("/api/feedback");
+    document.getElementById("feedback-stats").innerHTML = [
+      stat("Reaction Events", feedback.totalEvents),
+      stat("Reaction Changes", feedback.reactionChanges),
+      stat("Trend", feedback.trend),
+      stat("Positive", feedback.positive),
+      stat("Negative", feedback.negative),
+      stat("Neutral", feedback.neutral),
+      stat("Top Reactions", (feedback.byReaction || []).slice(0, 5).map(function(item) { return item.reaction + " " + item.count; }).join(" · ") || "None"),
+    ].join("");
+
+    var recent = feedback.recent || [];
+    document.getElementById("feedback-recent").innerHTML = recent.length === 0
+      ? '<div class="empty-state"><div class="empty-state-icon">👍</div><div class="empty-state-heading">No reactions yet</div><div class="empty-state-description">React to an assistant message in Telegram to add a feedback signal</div></div>'
+      : recent.map(function(event) {
+          var reactions = event.added && event.added.length ? event.added.join(" ") : "reaction updated";
+          var preview = (event.assistantMessage || "").slice(0, 180);
+          var delay = event.reactionDelayMs < 60000 ? Math.round(event.reactionDelayMs / 1000) + "s" : Math.round(event.reactionDelayMs / 60000) + "m";
+          return '<div class="health-row"><span style="font-size:18px">' + esc(reactions) + '</span><span style="margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(preview || "Assistant response") + '</span><span style="color:var(--text2);font-size:12px;margin-left:auto;white-space:nowrap">' + esc(delay) + '</span></div>';
+        }).join("");
+  } catch (e) {
+    document.getElementById("feedback-stats").innerHTML = '<span class="loading">Error: ' + esc(e.message) + '</span>';
+    document.getElementById("feedback-recent").innerHTML = "";
   }
 }
 

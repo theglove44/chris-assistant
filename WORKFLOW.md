@@ -73,6 +73,12 @@ Working rules:
 
 - Follow the repository's `AGENTS.md` and any repo-local `.codex/skills`.
 - Work inside the current issue workspace only.
+- For behavior changes, use this test-first sequence before editing implementation code:
+  1. Write or update the smallest relevant test first.
+  2. Run that test and confirm it fails for the expected reason.
+  3. Implement the smallest change that makes the test pass.
+  4. Run the focused test again and confirm it passes.
+- Include the failing and passing test commands in the proof-of-work summary. Documentation-only and non-behavioral configuration changes may use a focused validation instead.
 - Prefer small, reviewable commits and keep the branch state clean.
 - If the issue already names the file to change, open that file directly and avoid broad repo exploration.
 - For small documentation-only edits, stay scoped to the named doc section, keep the patch minimal, and verify with a quick diff instead of wandering through unrelated files.

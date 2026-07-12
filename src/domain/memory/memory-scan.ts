@@ -11,7 +11,7 @@ import { readdir, stat, readFile } from "fs/promises";
 import { basename, join } from "path";
 import { parse as parseYaml } from "yaml";
 
-export type MemoryType = "user" | "feedback" | "project" | "reference";
+export type MemoryType = "user" | "feedback" | "project" | "reference" | "decision";
 
 export interface MemoryHeader {
   filename: string;
@@ -24,7 +24,7 @@ export interface MemoryHeader {
 const MAX_MEMORY_FILES = 200;
 const FRONTMATTER_BYTES = 2048; // read first 2KB — enough for any frontmatter
 
-const VALID_TYPES = new Set<MemoryType>(["user", "feedback", "project", "reference"]);
+const VALID_TYPES = new Set<MemoryType>(["user", "feedback", "project", "reference", "decision"]);
 
 function parseMemoryType(raw: unknown): MemoryType | undefined {
   if (typeof raw !== "string") return undefined;

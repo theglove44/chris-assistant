@@ -7,6 +7,7 @@ import { downloadTelegramFile } from "./bot.js";
 import { config } from "../../config.js";
 import { BotMessageGuard } from "./bot-message-guard.js";
 import { withEventContext } from "../../domain/events/context.js";
+import { recordAssistantMessage } from "../../domain/feedback/reaction-service.js";
 
 const RETRY_DELAY_MS = 2000;
 const MAX_TEXT_BYTES = 50_000;
@@ -83,9 +84,16 @@ async function handleAiResponse(
       void addMessage(chatId, "assistant", cleaned, meta);
       return cleaned;
     });
-
     const chunks = response.length <= 4096 ? [response] : splitMessage(response, 4096);
     const firstChunk = chunks[0];
+
+    recordAssistantMessage({
+      chatId,
+      messageId,
+      userMessage,
+      assistantMessage: firstChunk,
+      responseTs: Date.now(),
+    });
 
     await ctx.api
       .editMessageText(chatId, messageId, toMarkdownV2(firstChunk), {
@@ -97,9 +105,16 @@ async function handleAiResponse(
 
     for (let i = 1; i < chunks.length; i++) {
       const chunk = chunks[i];
-      await ctx.reply(toMarkdownV2(chunk), { parse_mode: "HTML" }).catch(
+      const extraMessage = await ctx.reply(toMarkdownV2(chunk), { parse_mode: "HTML" }).catch(
         () => ctx.reply(stripMarkdown(chunk)),
       );
+      recordAssistantMessage({
+        chatId,
+        messageId: extraMessage.message_id,
+        userMessage,
+        assistantMessage: chunk,
+        responseTs: Date.now(),
+      });
     }
 
     void reactTo(ctx, "✅");
