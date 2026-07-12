@@ -6,6 +6,7 @@ import { isOpenAiModel, isClaudeModel, isCodexAgentModel } from "../providers/mo
 import { createOpenAiProvider } from "../providers/openai.js";
 import { resetLoopDetection } from "../tools/index.js";
 import type { Provider, ImageAttachment } from "../providers/types.js";
+import { withEventContext } from "../domain/events/context.js";
 
 export interface ChatRequest {
   chatId: number;
@@ -44,15 +45,17 @@ export class ChatService {
   async sendMessage({ chatId, userMessage, onChunk, images, allowedTools, maxTurns }: ChatRequest): Promise<string> {
     resetLoopDetection();
 
-    if (images && images.length > 0) {
-      const imageModel = config.imageModel;
-      console.log("[provider] %d image(s) detected — routing to image model: %s", images.length, imageModel);
-      const response = await createOpenAiProvider(imageModel).chat(chatId, userMessage, onChunk, images, allowedTools);
-      this.clearSession(chatId);
-      return response;
-    }
+    return withEventContext(chatId, async () => {
+      if (images && images.length > 0) {
+        const imageModel = config.imageModel;
+        console.log("[provider] %d image(s) detected — routing to image model: %s", images.length, imageModel);
+        const response = await createOpenAiProvider(imageModel).chat(chatId, userMessage, onChunk, images, allowedTools);
+        this.clearSession(chatId);
+        return response;
+      }
 
-    return this.getProvider().chat(chatId, userMessage, onChunk, images, allowedTools, maxTurns);
+      return this.getProvider().chat(chatId, userMessage, onChunk, images, allowedTools, maxTurns);
+    });
   }
 
   clearSession(chatId: number): void {

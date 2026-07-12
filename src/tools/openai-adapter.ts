@@ -2,6 +2,7 @@ import type { ChatCompletionTool } from "openai/resources/chat/completions";
 import { checkToolLoop } from "./loop-guard.js";
 import { filterTools } from "./filtering.js";
 import { getRegisteredTool } from "./store.js";
+import { recordToolCompleted } from "../domain/events/tool-events.js";
 
 export function getOpenAiToolDefinitions(includeCoding = true, allowedTools?: string[]): ChatCompletionTool[] {
   return filterTools(includeCoding, allowedTools).map((t) => ({
@@ -24,9 +25,13 @@ export async function dispatchToolCall(name: string, argsJson: string, logPrefix
 
     const args = JSON.parse(argsJson);
     console.log("[%s] Tool call: %s(%s)", logPrefix, name, JSON.stringify(args).slice(0, 100));
-    return await tool.execute(args);
+    const result = await tool.execute(args);
+    await recordToolCompleted({ name, provider: logPrefix, args, result });
+    return result;
   } catch (err: any) {
     console.error("[%s] Bad tool call arguments for %s:", logPrefix, name, argsJson);
-    return `Failed to parse tool arguments: ${err.message}`;
+    const result = `Failed to parse tool arguments: ${err.message}`;
+    await recordToolCompleted({ name, provider: logPrefix, args: argsJson, result, isError: true });
+    return result;
   }
 }

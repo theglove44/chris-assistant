@@ -119,6 +119,8 @@ Telegram is now implemented under `src/channels/telegram/`:
 ### Persistent History
 Last 20 messages per chat in `~/.chris-assistant/conversations.json`. Loaded lazily, saved async via write queue. Fire-and-forget `addMessage()`, await `clearHistory()`. Metadata (`{ source?, channelName? }`) passed through to archive. `/clear` wipes history plus the active provider session. `/purge` also redacts today's archive.
 
+The v1 event store double-writes incoming messages, outgoing responses, and registered-tool results to daily `~/.chris-assistant/events/YYYY-MM-DD.jsonl` shards. Each event has an ID, correlation ID, timestamp, type, optional chat ID, and typed payload. `src/domain/events/projections/conversation-history.ts` can rebuild the `conversations.json`-compatible in-memory view or replay it up to a timestamp; existing conversation reads remain authoritative during this migration stage. Dashboard Conversations exposes raw daily event shards for inspection.
+
 ### Archive
 `conversation-archive.ts` — sync `appendFileSync` to `~/.chris-assistant/archive/YYYY-MM-DD.jsonl`. Each entry has optional `source` and `channelName` fields. Uploads to GitHub every 5 minutes (SHA-256 dedup). Exports: `readLocalArchive()`, `listLocalArchiveDates()`, `datestamp()`, `localArchivePath()`, `uploadArchives()`, `redactArchiveEntries()`.
 
