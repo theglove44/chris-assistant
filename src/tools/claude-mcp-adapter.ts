@@ -2,6 +2,7 @@ import { tool as createMcpTool } from "@anthropic-ai/claude-agent-sdk";
 import { checkToolLoop } from "./loop-guard.js";
 import { filterTools } from "./filtering.js";
 import { getRegisteredTools } from "./store.js";
+import { recordToolCompleted } from "../domain/events/tool-events.js";
 
 const NATIVE_CLAUDE_TOOLS = new Set([
   "read_file",
@@ -30,6 +31,7 @@ function toMcpTool(tool: ReturnType<typeof getRegisteredTools>[number]) {
 
     const result = await tool.execute(args);
     const isError = /^(Unknown|Failed|Error|rejected|denied)/i.test(result) || result.includes("rejected:");
+    await recordToolCompleted({ name: tool.name, provider: "claude", args, result, isError });
     return {
       content: [{ type: "text" as const, text: result }],
       ...(isError && { isError: true }),

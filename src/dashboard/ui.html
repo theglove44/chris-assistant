@@ -79,6 +79,11 @@ __DASHBOARD_DOCS_LINK__  </header>
       <div id="archive-dates" class="date-list"><div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div><div class="skeleton skeleton-pill"></div></div></div>
     </div>
     <div id="conversation-view"></div>
+    <div class="card">
+      <h3>Raw Event Stream</h3>
+      <div id="event-dates" class="date-list"><span class="loading">Loading events...</span></div>
+    </div>
+    <div id="event-view"></div>
   </div>
 
   <!-- Memory -->
@@ -669,6 +674,7 @@ async function deleteSchedule() {
 // --- Conversations ---
 let archiveDates = [];
 async function loadArchiveDates() {
+  loadEventDates();
   try {
     const data = await api("/api/archives");
     archiveDates = data.dates.reverse(); // newest first
@@ -687,6 +693,46 @@ async function loadArchiveDates() {
     }));
   } catch (e) {
     document.getElementById("archive-dates").innerHTML = '<span class="loading">Error: ' + esc(e.message) + '</span>';
+  }
+}
+
+async function loadEventDates() {
+  const el = document.getElementById("event-dates");
+  try {
+    const data = await api("/api/events");
+    const dates = data.dates.reverse();
+    if (dates.length === 0) {
+      el.innerHTML = '<span class="loading">No events recorded</span>';
+      return;
+    }
+    el.innerHTML = dates.map(d =>
+      '<button class="date-btn" data-event-date="' + d + '">' + d + '</button>'
+    ).join("");
+    el.querySelectorAll("[data-event-date]").forEach(b => b.addEventListener("click", () => {
+      el.querySelectorAll("[data-event-date]").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+      loadEvents(b.dataset.eventDate);
+    }));
+  } catch (e) {
+    el.innerHTML = '<span class="loading">Error: ' + esc(e.message) + '</span>';
+  }
+}
+
+async function loadEvents(date) {
+  const view = document.getElementById("event-view");
+  view.innerHTML = '<div class="card"><span class="loading">Loading events...</span></div>';
+  try {
+    const data = await api("/api/events/" + date);
+    let html = '<div class="card"><h3>Events (' + data.events.length + ')</h3>';
+    for (const event of data.events) {
+      const time = new Date(event.ts).toLocaleTimeString();
+      html += '<div class="msg"><div class="meta">' + esc(event.type) + ' &middot; ' + time +
+        ' &middot; ' + esc(event.correlationId) + '</div><pre>' + esc(JSON.stringify(event.payload, null, 2)) + '</pre></div>';
+    }
+    html += '</div>';
+    view.innerHTML = html;
+  } catch (e) {
+    view.innerHTML = '<div class="card"><span class="loading">Error: ' + esc(e.message) + '</span></div>';
   }
 }
 

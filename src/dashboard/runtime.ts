@@ -16,6 +16,7 @@ import { getBotProcess } from "../cli/pm2-helper.js";
 import { loadSkillIndex, loadSkill } from "../skills/loader.js";
 import { LIMITS } from "../infra/config/limits.js";
 import { REQUIRED_MEMORY_FILES } from "../domain/memory/constants.js";
+import { listEventDates, readEvents } from "../domain/events/log.js";
 import { readReactionFeedback, summarizeReactionFeedback } from "../domain/feedback/reaction-service.js";
 
 const BOT_STARTED_AT = new Date().toISOString();
@@ -407,6 +408,10 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, getHtml:
     if (req.method === "GET" && pathname === "/api/conversation/stream") return handleConversationStream(req, res);
     if (req.method === "POST" && pathname === "/api/chat") return await handleChatPost(req, res);
     if (req.method === "GET" && pathname === "/api/archives") return handleArchives(res);
+    if (req.method === "GET" && pathname === "/api/events") return json(res, { dates: listEventDates() });
+
+    const eventDateMatch = pathname.match(/^\/api\/events\/(\d{4}-\d{2}-\d{2})$/);
+    if (req.method === "GET" && eventDateMatch) return json(res, { events: await readEvents(eventDateMatch[1]) });
 
     const archiveDateMatch = pathname.match(/^\/api\/archives\/(\d{4}-\d{2}-\d{2})$/);
     if (req.method === "GET" && archiveDateMatch) return handleArchiveDate(res, archiveDateMatch[1]);
