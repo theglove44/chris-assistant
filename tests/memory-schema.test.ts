@@ -55,6 +55,7 @@ describe("canonical memory schema", () => {
       "journal/",
       "archive/",
       "conversations/summaries/",
+      "decisions/",
       "skills/",
     ]);
   });
