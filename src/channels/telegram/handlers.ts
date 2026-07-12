@@ -81,18 +81,17 @@ async function handleAiResponse(
     const rawResponse = await chatWithRetry(chatId, userMessage, onChunk, image);
 
     const response = stripThinking(rawResponse);
+    const chunks = response.length <= 4096 ? [response] : splitMessage(response, 4096);
+    const firstChunk = chunks[0];
 
     void addMessage(chatId, "assistant", response, meta);
     recordAssistantMessage({
       chatId,
       messageId,
       userMessage,
-      assistantMessage: response,
+      assistantMessage: firstChunk,
       responseTs: Date.now(),
     });
-
-    const chunks = response.length <= 4096 ? [response] : splitMessage(response, 4096);
-    const firstChunk = chunks[0];
 
     await ctx.api
       .editMessageText(chatId, messageId, toMarkdownV2(firstChunk), {

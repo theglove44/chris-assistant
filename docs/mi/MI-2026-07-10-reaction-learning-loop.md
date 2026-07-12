@@ -83,3 +83,20 @@ Manual reaction-file check found no JSONL output while no bot was running. Revie
 - Webhook startup already requested `message_reaction`; polling did not.
 - Renamed the shared update list to `TELEGRAM_ALLOWED_UPDATES` and pass it to both `bot.start()` and `setWebhook()`.
 - Added an explicit comment and regression assertion. Runtime testing still requires a running bot administered in the target Telegram chat.
+
+## Follow-up — PR #126 fast-track audit (2026-07-12)
+
+### Scope and findings
+
+- Fetched latest `origin/main` and reviewed all three PR commits against issue #82 acceptance.
+- PR head is mergeable with clean merge state; GitHub Actions `check` succeeded.
+- Long Telegram replies stored the complete response against the first message ID, while later message IDs stored their exact chunks. A reaction on the first chunk therefore archived context not present in that Telegram message.
+- Changed first-message context to store `firstChunk`, making every archived assistant message match the reacted-to Telegram message.
+- Live Telegram delivery remains an operator validation after deployment; no live bot or chat was mutated during this audit.
+
+### Validation
+
+- `npm run typecheck` — passed.
+- `npm test` — passed: 35 files, 263 tests.
+- `npm run docs:build` — passed: VitePress build, 34 extensionless route aliases, 5 deep-route smoke checks.
+- CI warning only: GitHub forces Node.js 24 for actions still declaring Node.js 20; unrelated to this feature.
