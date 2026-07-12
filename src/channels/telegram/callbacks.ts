@@ -3,6 +3,7 @@ import { InlineKeyboard } from "grammy";
 import { clearHistory } from "../../conversation.js";
 import { chatService } from "../../agent/chat-service.js";
 import { datestamp, redactArchiveEntries, uploadArchives } from "../../conversation-archive.js";
+import { eventDate, redactEventEntries } from "../../domain/events/log.js";
 import { encodeCallback, parseCallbackData } from "./callback-data.js";
 
 export function purgeConfirmKeyboard(): InlineKeyboard {
@@ -50,6 +51,7 @@ export function registerTelegramCallbackHandlers(bot: Bot<Context>): void {
         chatService.clearSession(chatId);
         const today = datestamp();
         const removed = redactArchiveEntries(chatId, today);
+        const removedEvents = await redactEventEntries(chatId, eventDate(Date.now()));
         if (removed > 0) {
           uploadArchives().catch((err: any) => {
             console.error("[telegram] Failed to upload redacted archive:", err.message);
@@ -58,9 +60,9 @@ export function registerTelegramCallbackHandlers(bot: Bot<Context>): void {
         await clearKeyboard(ctx);
         await ctx.answerCallbackQuery({ text: "Purged" }).catch(() => {});
         await ctx.reply(
-          removed > 0
-            ? `Conversation purged. ${removed} archive entries removed from today's log.`
-            : "Conversation cleared. No archive entries found for today.",
+          removed > 0 || removedEvents > 0
+            ? `Conversation purged. ${removed} archive entries and ${removedEvents} events removed from today's logs.`
+            : "Conversation cleared. No archive entries or events found for today.",
         );
         return;
       }

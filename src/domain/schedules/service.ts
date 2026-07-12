@@ -6,6 +6,7 @@ import { toMarkdownV2, stripThinking } from "../../markdown.js";
 import { matchesCron } from "./cron.js";
 import { readSchedules, readSchedulesWithRecovery, writeSchedules } from "./store.js";
 import type { NewSchedule, Schedule, ScheduleUpdates } from "./types.js";
+import { withEventContext } from "../events/context.js";
 
 async function sendTelegramMessage(text: string, title?: string): Promise<void> {
   const url = `https://api.telegram.org/bot${config.telegram.botToken}/sendMessage`;
@@ -59,39 +60,42 @@ async function executeTask(task: Schedule): Promise<void> {
   const meta = { source: "scheduled" as const };
 
   try {
-    const response = await chatService.sendMessage({
-      chatId,
-      userMessage: task.prompt,
-      allowedTools: task.allowedTools,
-    });
+    await withEventContext(chatId, async () => {
+      const response = await chatService.sendMessage({
+        chatId,
+        userMessage: task.prompt,
+        allowedTools: task.allowedTools,
+      });
+      const trimmed = stripThinking(response);
 
-    const trimmed = stripThinking(response);
-
-    // Detect error fallback strings that indicate the AI call failed.
-    // claude.ts now throws on non-abort errors, but guard here too in case
-    // another provider returns an error string instead of throwing.
-    if (trimmed && (trimmed.startsWith("API Error:") || trimmed.startsWith("I hit an issue:"))) {
-      throw new Error(trimmed.slice(0, 200));
-    }
-
-    if (!trimmed || trimmed.startsWith("NOUPDATE:")) {
-      console.log("[scheduler] No update for task: %s — staying quiet", task.name);
-    } else {
-      // Store the prompt and response in conversation history so the user
-      // can ask follow-up questions and the bot retains context
-      void addMessage(chatId, "user", `[Scheduled: ${task.name}] ${task.prompt}`, meta);
-      void addMessage(chatId, "assistant", trimmed, meta);
-
-      if (task.discordChannel) {
-        await sendToDiscordChannel(task.discordChannel, trimmed);
-      } else {
-        await sendTelegramMessage(toMarkdownV2(trimmed), task.name);
+      // Detect error fallback strings that indicate the AI call failed.
+      // claude.ts now throws on non-abort errors, but guard here too in case
+      // another provider returns an error string instead of throwing.
+      if (trimmed && (trimmed.startsWith("API Error:") || trimmed.startsWith("I hit an issue:"))) {
+        throw new Error(trimmed.slice(0, 200));
       }
-    }
 
-    task.lastRun = Date.now();
-    writeSchedules(readSchedules());
-    console.log("[scheduler] Task completed: %s", task.name);
+      if (!trimmed || trimmed.startsWith("NOUPDATE:")) {
+        console.log("[scheduler] No update for task: %s — staying quiet", task.name);
+      } else {
+        // Store the prompt and response in conversation history so the user
+        // can ask follow-up questions and the bot retains context
+        await withEventContext(chatId, async () => {
+          void addMessage(chatId, "user", `[Scheduled: ${task.name}] ${task.prompt}`, meta);
+          void addMessage(chatId, "assistant", trimmed, meta);
+        });
+
+        if (task.discordChannel) {
+          await sendToDiscordChannel(task.discordChannel, trimmed);
+        } else {
+          await sendTelegramMessage(toMarkdownV2(trimmed), task.name);
+        }
+      }
+
+      task.lastRun = Date.now();
+      writeSchedules(readSchedules());
+      console.log("[scheduler] Task completed: %s", task.name);
+    });
   } catch (err: any) {
     console.error("[scheduler] Task failed: %s — %s", task.name, err.message);
     await sendTelegramMessage(`[${task.name}] Failed: ${err.message}`).catch(() => {});

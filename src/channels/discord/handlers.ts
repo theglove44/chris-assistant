@@ -1,6 +1,7 @@
 import { ChannelType, Message, TextChannel } from "discord.js";
 import { config } from "../../config.js";
 import { addMessage } from "../../conversation.js";
+import { withEventContext } from "../../domain/events/context.js";
 import { stripMarkdown } from "../../markdown.js";
 import type { ImageAttachment } from "../../providers/types.js";
 import { chatService } from "../../agent/chat-service.js";
@@ -115,22 +116,22 @@ export function registerDiscordHandlers(): void {
       const channelName = message.channel.type === ChannelType.DM ? "dm" : (message.channel as TextChannel).name ?? "unknown";
       const meta = { source: "discord" as const, channelName };
 
-      void addMessage(chatId, "user", userMessage, meta);
-
-      const rawResponse = await chatService.sendMessage({
-        chatId,
-        userMessage,
-        images: imageAttachments.length > 0 ? imageAttachments : undefined,
-      });
-
       const thinkClose = "<" + "/think>";
       const thinkingClose = "<" + "/thinking>";
-      const response = rawResponse
-        .replace(new RegExp("<think>[\\s\\S]*?" + thinkClose, "g"), "")
-        .replace(new RegExp("<thinking>[\\s\\S]*?" + thinkingClose, "g"), "")
-        .trim();
-
-      void addMessage(chatId, "assistant", response, meta);
+      const response = await withEventContext(chatId, async () => {
+        void addMessage(chatId, "user", userMessage, meta);
+        const rawResponse = await chatService.sendMessage({
+          chatId,
+          userMessage,
+          images: imageAttachments.length > 0 ? imageAttachments : undefined,
+        });
+        const cleaned = rawResponse
+          .replace(new RegExp("<think>[\\s\\S]*?" + thinkClose, "g"), "")
+          .replace(new RegExp("<thinking>[\\s\\S]*?" + thinkingClose, "g"), "")
+          .trim();
+        void addMessage(chatId, "assistant", cleaned, meta);
+        return cleaned;
+      });
 
       const formatted = toDiscordMarkdown(response);
       const chunks = formatted.length <= 2000 ? [formatted] : splitDiscordMessage(formatted, 2000);

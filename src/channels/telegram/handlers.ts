@@ -6,6 +6,7 @@ import { chatService } from "../../agent/chat-service.js";
 import { downloadTelegramFile } from "./bot.js";
 import { config } from "../../config.js";
 import { BotMessageGuard } from "./bot-message-guard.js";
+import { withEventContext } from "../../domain/events/context.js";
 
 const RETRY_DELAY_MS = 2000;
 const MAX_TEXT_BYTES = 50_000;
@@ -75,13 +76,13 @@ async function handleAiResponse(
 
   try {
     const meta = { source: "telegram" as const };
-    void addMessage(chatId, "user", userMessage, meta);
-
-    const rawResponse = await chatWithRetry(chatId, userMessage, onChunk, image);
-
-    const response = stripThinking(rawResponse);
-
-    void addMessage(chatId, "assistant", response, meta);
+    const response = await withEventContext(chatId, async () => {
+      void addMessage(chatId, "user", userMessage, meta);
+      const rawResponse = await chatWithRetry(chatId, userMessage, onChunk, image);
+      const cleaned = stripThinking(rawResponse);
+      void addMessage(chatId, "assistant", cleaned, meta);
+      return cleaned;
+    });
 
     const chunks = response.length <= 4096 ? [response] : splitMessage(response, 4096);
     const firstChunk = chunks[0];

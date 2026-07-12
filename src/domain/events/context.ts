@@ -9,6 +9,8 @@ interface EventContext {
 const eventContext = new AsyncLocalStorage<EventContext>();
 
 export function withEventContext<T>(chatId: number, operation: () => Promise<T>): Promise<T> {
+  const existing = eventContext.getStore();
+  if (existing?.chatId === chatId) return operation();
   return eventContext.run({ chatId, correlationId: randomUUID() }, operation);
 }
 

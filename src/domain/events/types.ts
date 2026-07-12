@@ -20,7 +20,7 @@ export interface MessageEventPayload {
 export interface ToolCompletedEventPayload {
   name: string;
   provider: string;
-  args: unknown;
-  result: string;
+  argsBytes: number;
+  resultBytes: number;
   isError: boolean;
 }

@@ -4,7 +4,7 @@ import { ensureConversationStoreLoaded, saveConversationStore } from "./store.js
 import type { ConversationMessage, ConversationMeta } from "./types.js";
 import { tryDream } from "../memory/dream-service.js";
 import { LIMITS } from "../../infra/config/limits.js";
-import { appendEvent } from "../events/log.js";
+import { recordMessageEvent } from "../events/message-events.js";
 
 const MAX_HISTORY = LIMITS.historyWindow;
 // Token budget for history injected into new Claude sessions.
@@ -33,16 +33,7 @@ export async function addMessage(
   const now = Date.now();
   history.push({ role, content, timestamp: now });
   archiveMessage(chatId, role, content, now, meta);
-  try {
-    await appendEvent({
-      type: role === "user" ? "message.received" : "message.sent",
-      chatId,
-      ts: now,
-      payload: { role, content, meta },
-    });
-  } catch (error: any) {
-    console.error("[events] Failed to append message event:", error.message);
-  }
+  await recordMessageEvent({ chatId, role, content, meta, ts: now });
   conversationEvents.emit("message", { chatId, role, content, timestamp: now, meta });
 
   if (history.length > MAX_HISTORY) {

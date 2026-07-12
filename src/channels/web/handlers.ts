@@ -2,6 +2,7 @@ import { addMessage } from "../../conversation.js";
 import { chatService } from "../../agent/chat-service.js";
 import { config } from "../../config.js";
 import type { ImageAttachment } from "../../providers/types.js";
+import { withEventContext } from "../../domain/events/context.js";
 
 export interface HandleWebMessageOptions {
   text: string;
@@ -20,14 +21,16 @@ export async function handleWebMessage(opts: HandleWebMessageOptions): Promise<v
   opts.signal.addEventListener("abort", onAbort, { once: true });
 
   try {
-    await addMessage(chatId, "user", opts.text, meta);
-    const reply = await chatService.sendMessage({
-      chatId,
-      userMessage: opts.text,
-      onChunk: opts.onChunk,
-      images: opts.images,
+    await withEventContext(chatId, async () => {
+      await addMessage(chatId, "user", opts.text, meta);
+      const reply = await chatService.sendMessage({
+        chatId,
+        userMessage: opts.text,
+        onChunk: opts.onChunk,
+        images: opts.images,
+      });
+      await addMessage(chatId, "assistant", reply, meta);
     });
-    await addMessage(chatId, "assistant", reply, meta);
   } finally {
     opts.signal.removeEventListener("abort", onAbort);
   }
