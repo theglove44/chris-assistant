@@ -16,7 +16,6 @@ describe("canonical memory schema", () => {
       ...IDENTITY_FILES,
       ...KNOWLEDGE_FILES,
       ...MEMORY_FILES,
-      RESPONSE_STYLE_LEARNINGS_PATH,
     ]);
     expect([...REQUIRED_MEMORY_FILES]).toEqual([
       "SOUL.md",
@@ -25,7 +24,6 @@ describe("canonical memory schema", () => {
       "memory/SUMMARY.md",
       "memory/DASHBOARD.md",
       "memory/learnings.md",
-      "memory/response_style_learnings.md",
     ]);
   });
 

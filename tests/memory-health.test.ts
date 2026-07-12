@@ -89,7 +89,6 @@ describe("checkMemoryHealth", () => {
       "memory/SUMMARY.md",
       "memory/DASHBOARD.md",
       "memory/learnings.md",
-      "memory/response_style_learnings.md",
     ]);
     expect(report.files.find((f) => f.path === "SOUL.md")?.status).toBe("present");
     expect(report.files.find((f) => f.path === "IDENTITY.md")?.status).toBe("present");

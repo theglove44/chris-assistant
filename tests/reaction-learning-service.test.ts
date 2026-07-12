@@ -11,6 +11,7 @@ vi.mock("../src/domain/memory/repository.js", () => ({
 import {
   RESPONSE_STYLE_LEARNINGS_PATH,
   buildReactionLearningPrompt,
+  isReactionLearningDue,
   runReactionLearning,
 } from "../src/domain/feedback/learning-service.js";
 import type { ReactionFeedbackEvent } from "../src/domain/feedback/reaction-service.js";
@@ -30,6 +31,14 @@ const event: ReactionFeedbackEvent = {
 };
 
 describe("reaction learning service", () => {
+  it("runs throughout the scheduled minute window and retries an unfinished week", () => {
+    const scheduled = new Date(2026, 6, 12, 23, 37);
+    expect(isReactionLearningDue(scheduled, "")).toBe(true);
+    expect(isReactionLearningDue(scheduled, "2026-07-12")).toBe(false);
+    expect(isReactionLearningDue(new Date(2026, 6, 12, 22, 59), "")).toBe(false);
+    expect(isReactionLearningDue(new Date(2026, 6, 13, 23, 37), "")).toBe(false);
+  });
+
   it("writes an auditable no-feedback record without calling a model", async () => {
     const summarize = vi.fn();
     const writeLearnings = vi.fn(async () => {});

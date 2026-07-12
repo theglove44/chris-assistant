@@ -21,7 +21,6 @@ export const REQUIRED_MEMORY_FILES = [
   ...IDENTITY_FILES,
   ...KNOWLEDGE_FILES,
   ...MEMORY_FILES,
-  RESPONSE_STYLE_LEARNINGS_PATH,
 ] as const;
 
 export const MEMORY_DIRECTORIES = [
@@ -36,7 +35,6 @@ export const STALE_MEMORY_FILES = [
   "memory/SUMMARY.md",
   "memory/DASHBOARD.md",
   "memory/learnings.md",
-  RESPONSE_STYLE_LEARNINGS_PATH,
 ] as const;
 
 export const MEMORY_STALE_AFTER_DAYS = 30;

@@ -25,6 +25,13 @@ export interface ReactionLearningOptions {
   writeLearnings?: (path: string, content: string, message: string) => Promise<void>;
 }
 
+export function isReactionLearningDue(now: Date, completedWeek: string): boolean {
+  return now.getDay() === LEARNING_DAY
+    && now.getHours() === LEARNING_HOUR
+    && now.getMinutes() >= LEARNING_MINUTE
+    && weekKey(now) !== completedWeek;
+}
+
 function weekKey(date: Date): string {
   const start = new Date(date);
   start.setHours(0, 0, 0, 0);
@@ -134,13 +141,12 @@ export async function runReactionLearning(options: ReactionLearningOptions = {})
 
 async function tick(): Promise<void> {
   const now = new Date();
-  if (now.getDay() !== LEARNING_DAY || now.getHours() !== LEARNING_HOUR || now.getMinutes() !== LEARNING_MINUTE) return;
+  if (!isReactionLearningDue(now, lastLearningWeek)) return;
   const week = weekKey(now);
-  if (week === lastLearningWeek) return;
-  lastLearningWeek = week;
 
   try {
     await runReactionLearning({ now });
+    lastLearningWeek = week;
   } catch (error: any) {
     console.error("[feedback] Weekly reaction learning failed: %s", error.message);
   }
