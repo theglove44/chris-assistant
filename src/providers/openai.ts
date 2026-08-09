@@ -6,8 +6,10 @@ import { getValidAccessToken, getAccountId } from "./openai-oauth.js";
 import { needsCompaction, compactCodexInput } from "./compaction.js";
 import { recordUsage } from "../usage-tracker.js";
 import type { Provider, ImageAttachment } from "./types.js";
+import { resolveReasoningEffort, type ReasoningEffort } from "./model-routing.js";
 
 const CODEX_API_URL = "https://chatgpt.com/backend-api/codex/responses";
+const activeControllers = new Map<number, AbortController>();
 
 // ---------------------------------------------------------------------------
 // Responses API types
@@ -122,7 +124,10 @@ async function parseCodexStream(
       } else if (eventType === "response.failed") {
         const errorInfo = event.response?.error || event.error;
         if (errorInfo) {
-          throw new Error(`Codex API error: ${errorInfo.message || errorInfo.code || JSON.stringify(errorInfo)}`);
+          const code = typeof errorInfo.code === "string" && /^[A-Za-z0-9_.-]{1,80}$/.test(errorInfo.code)
+            ? errorInfo.code
+            : "request_failed";
+          throw new Error(`Codex API error: ${code}`);
         }
       }
     }
@@ -146,6 +151,8 @@ async function codexRequest(
   tools: ReturnType<typeof getCodexToolDefinitions>,
   accessToken: string,
   accountId: string | undefined,
+  reasoningEffort: ReasoningEffort | undefined,
+  signal: AbortSignal,
 ): Promise<Response> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -165,6 +172,12 @@ async function codexRequest(
     store: false,
   };
 
+  if (reasoningEffort) {
+    // Verified against the ChatGPT subscription backend. It rejects the
+    // public-looking top-level reasoning_effort field.
+    body.reasoning = { effort: reasoningEffort };
+  }
+
   if (tools.length > 0) {
     body.tools = tools;
     body.tool_choice = "auto";
@@ -174,24 +187,41 @@ async function codexRequest(
     method: "POST",
     headers,
     body: JSON.stringify(body),
+    signal,
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Codex API ${res.status}: ${text}`);
+    throw new Error(`Codex API request failed with status ${res.status}`);
   }
 
   return res;
+}
+
+export function abortOpenAiQuery(chatId?: number): boolean {
+  if (chatId !== undefined) {
+    const controller = activeControllers.get(chatId);
+    if (!controller) return false;
+    controller.abort();
+    activeControllers.delete(chatId);
+    return true;
+  }
+
+  if (activeControllers.size === 0) return false;
+  for (const controller of activeControllers.values()) controller.abort();
+  activeControllers.clear();
+  return true;
 }
 
 // ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
 
-export function createOpenAiProvider(model: string): Provider {
+export function createOpenAiProvider(model: string, requestedEffort = config.reasoningEffort): Provider {
   return {
     name: "openai",
     async chat(chatId, userMessage, onChunk, images?: ImageAttachment[], allowedTools?: string[]) {
+      const abortController = new AbortController();
+      const reasoning = resolveReasoningEffort(model, requestedEffort);
       const accessToken = await getValidAccessToken();
       const accountId = getAccountId();
 
@@ -226,15 +256,21 @@ export function createOpenAiProvider(model: string): Provider {
         { role: "user", content: userContentParts },
       ];
 
+      activeControllers.get(chatId)?.abort();
+      activeControllers.set(chatId, abortController);
       try {
         for (let turn = 0; turn < config.maxToolTurns; turn++) {
           // Check if context needs compaction before the API call
           if (needsCompaction(model, input)) {
-            input = await compactCodexInput(model, systemPrompt, input, accessToken, accountId);
+            input = await compactCodexInput(
+              model, systemPrompt, input, accessToken, accountId, 6,
+              reasoning?.effective ?? undefined, abortController.signal,
+            );
           }
 
           const response = await codexRequest(
             model, systemPrompt, input, tools, accessToken, accountId,
+            reasoning?.effective ?? undefined, abortController.signal,
           );
 
           const result = await parseCodexStream(response, onChunk);
@@ -270,6 +306,7 @@ export function createOpenAiProvider(model: string): Provider {
               });
 
               const toolResult = await dispatchToolCall(tc.name, tc.arguments, "openai");
+              if (abortController.signal.aborted) throw new DOMException("Stopped", "AbortError");
               input.push({
                 type: "function_call_output",
                 call_id: tc.call_id,
@@ -300,6 +337,7 @@ export function createOpenAiProvider(model: string): Provider {
 
           const summaryRes = await codexRequest(
             model, systemPrompt, summaryInput, [], accessToken, accountId,
+            reasoning?.effective ?? undefined, abortController.signal,
           );
           const summaryResult = await parseCodexStream(summaryRes, onChunk);
           if (summaryResult.usage) {
@@ -312,14 +350,26 @@ export function createOpenAiProvider(model: string): Provider {
           }
           invalidatePromptCache();
           return summaryResult.text || "I reached the processing limit. Please ask me to continue where I left off.";
-        } catch {
+        } catch (error) {
+          if (abortController.signal.aborted) throw error;
           invalidatePromptCache();
           return "I reached the processing limit. Please ask me to continue where I left off.";
         }
       } catch (error: any) {
-        console.error("[openai] Error:", error.message);
-        // Surface actionable errors to the user
+        if (abortController.signal.aborted || error?.name === "AbortError") {
+          return "Stopped.";
+        }
         const msg = error.message || "";
+        const status = msg.match(/request failed with status (\d{3})/)?.[1];
+        const diagnostic = status
+          ? `request failed with status ${status}`
+          : msg.includes("usage_limit_reached") || msg.includes("usage limit")
+            ? "usage limit reached"
+            : msg.includes("not supported")
+              ? "model unavailable"
+              : "request failed";
+        console.error("[openai] %s", diagnostic);
+        // Surface actionable errors to the user without reflecting upstream bodies.
         if (msg.includes("not supported")) {
           return `This model (${model}) isn't available via the ChatGPT backend API. Try a GPT-5.x model: /model set gpt5`;
         }
@@ -327,6 +377,8 @@ export function createOpenAiProvider(model: string): Provider {
           return "You've hit your ChatGPT usage limit. Wait a bit and try again.";
         }
         return "Sorry, I hit an error processing that. Try again in a moment.";
+      } finally {
+        if (activeControllers.get(chatId) === abortController) activeControllers.delete(chatId);
       }
     },
   };

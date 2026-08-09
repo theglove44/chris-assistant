@@ -9,7 +9,7 @@ The assistant has access to a set of tools that all providers pick up automatica
 
 ## Tool Registry
 
-`src/tools/registry.ts` provides a shared registration system. Tools register once with `registerTool()` and automatically generate both OpenAI and Claude MCP format definitions. Generic `dispatchToolCall()` handles execution for all providers.
+`src/tools/registry.ts` provides a shared registration system. Tools register once and generate OpenAI-compatible function definitions for OpenAI Responses and DeepSeek. Agent providers receive only explicitly bridged tools.
 
 ## Available Tools
 
@@ -35,7 +35,7 @@ The assistant has access to a set of tools that all providers pick up automatica
 | `ssh` | Always | SSH into Tailnet devices — 9 actions ([full guide](/tools/ssh)) |
 | `market_snapshot` | Always | SSH to Mac Mini to run tasty-coach for market data |
 | `browse_url` | Always | Browse a URL with headless Chromium (JS rendering). Use when `fetch_url` returns empty/broken content |
-| `get_usage_report` | Always | Token usage and cost report — today or multi-day summary |
+| `get_usage_report` | Always | Provider-neutral token usage and cost report for a UTC date |
 | `macos_calendar` | Always | macOS Calendar via native EventKit — list, get, add, update, delete, search events (~300ms) |
 | `macos_mail` | Always | macOS Mail via AppleScript — summary, inbox, search, read, reply, delete, move, mark, list mailboxes |
 | `macos_reminders` | Always | macOS Reminders via native EventKit — list, create, update, complete, search reminders |
@@ -59,4 +59,4 @@ Skills are higher-level — they're JSON definitions that compose existing tools
 
 ## Loop Detection
 
-The registry tracks consecutive identical tool calls (same name + first 500 chars of args). After 3 identical calls in a row, returns an error message telling the AI to try a different approach. Covers both OpenAI/MiniMax dispatch and Claude MCP execution. State resets between conversations.
+The registry tracks consecutive identical shared-tool calls. After three identical calls in a row, it returns an error asking the provider to try a different approach. State resets between conversations.

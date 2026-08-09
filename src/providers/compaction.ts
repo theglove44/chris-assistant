@@ -7,6 +7,7 @@
 import type OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { getModelLimits } from "./context-limits.js";
+import type { ReasoningEffort } from "./model-routing.js";
 
 // ---------------------------------------------------------------------------
 // Token estimation
@@ -199,6 +200,8 @@ export async function compactCodexInput(
   accessToken: string,
   accountId: string | undefined,
   keepRecentItems = 6,
+  reasoningEffort?: ReasoningEffort,
+  signal?: AbortSignal,
 ): Promise<any[]> {
   if (input.length < keepRecentItems + 3) {
     return input;
@@ -230,21 +233,24 @@ export async function compactCodexInput(
       headers["chatgpt-account-id"] = accountId;
     }
 
+    const body: Record<string, unknown> = {
+      model,
+      instructions: COMPACTION_PROMPT,
+      input: [{ role: "user", content: [{ type: "input_text", text: serialized }] }],
+      stream: true,
+      store: false,
+    };
+    if (reasoningEffort) body.reasoning = { effort: reasoningEffort };
+
     const res = await fetch(CODEX_COMPACTION_URL, {
       method: "POST",
       headers,
-      body: JSON.stringify({
-        model,
-        instructions: COMPACTION_PROMPT,
-        input: [{ role: "user", content: [{ type: "input_text", text: serialized }] }],
-        stream: true,
-        store: false,
-      }),
+      body: JSON.stringify(body),
+      signal,
     });
 
     if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Compaction request failed (${res.status}): ${errText}`);
+      throw new Error(`Compaction request failed with status ${res.status}`);
     }
 
     // Parse SSE stream to collect the full response text
@@ -290,7 +296,8 @@ export async function compactCodexInput(
       ...recent,
     ];
   } catch (error: any) {
-    console.error("[openai] Compaction failed:", error.message);
+    if (signal?.aborted || error?.name === "AbortError") throw error;
+    console.error("[openai] Compaction failed");
     return input;
   }
 }

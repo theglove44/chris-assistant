@@ -10,7 +10,7 @@ Message your bot on Telegram or Discord. That's it. On first contact, the assist
 ## What You Can Send
 
 - **Text messages** — normal conversation
-- **Photos** — the AI will describe or analyze them (OpenAI/MiniMax providers)
+- **Photos** — routed through the configured OpenAI image model, regardless of the active text provider
 - **Text documents** — .txt, .json, .csv, .md, .py, etc. are read inline and discussed
 
 ## Telegram Commands

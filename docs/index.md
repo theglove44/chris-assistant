@@ -18,7 +18,7 @@ hero:
 
 features:
   - title: Multi-Provider AI
-    details: Claude Agent, OpenAI Responses, OpenAI Codex Agent, and MiniMax via a single bot. Switch models on the fly with a simple command.
+    details: OpenAI Responses, Codex Agent, Grok Agent, and DeepSeek via one explicit model registry, with provider-valid thinking levels.
     icon: 🤖
   - title: Persistent Memory
     details: Long-term facts stored as markdown in a private GitHub repo. Every update is a git commit — fully auditable.

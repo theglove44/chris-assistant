@@ -22,32 +22,33 @@ chris logs -n 100        # Show last 100 lines
 ## Model / Provider
 
 ```bash
-chris model              # Show current model, provider, and available shortcuts
-chris model set <name>   # Switch model (e.g. sonnet, gpt5, codex, or full model ID)
+chris model              # Show current provider, model, and requested/effective effort
+chris model set <name>   # Switch to a registered model or shortcut
+chris model set <name> --effort <level> # Switch model and set a valid thinking level
 chris model search       # List all available models across all providers
 chris model search <q>   # Filter models by name, provider, or description
 ```
 
-`chris model` also prints capability metadata for the active provider: mode, memory read/write, semantic recall, journal access, native coding tools, vision, and scheduler suitability. The same metadata is used by Telegram `/model` and the dashboard status API.
+`chris model` prints capability metadata plus requested and effective reasoning effort. The central model registry also drives Telegram `/model` and the dashboard; `chris doctor` reports provider readiness separately.
 
 ### Available Shortcuts
 
 | Shortcut | Model ID | Provider |
 |----------|----------|----------|
-| `opus` | claude-opus-4-7 | Claude |
-| `sonnet` | claude-sonnet-4-6 | Claude |
-| `haiku` | claude-haiku-4-5-20251001 | Claude |
-| `opus-4-6` | claude-opus-4-6 | Claude |
-| `sonnet-4-5` | claude-sonnet-4-5-20250929 | Claude |
-| `gpt5` | gpt-5.5 | OpenAI |
-| `gpt54` | gpt-5.4 | OpenAI |
+| `terra` | gpt-5.6-terra | OpenAI Responses |
+| `sol` | gpt-5.6-sol | OpenAI Responses |
+| `luna` | gpt-5.6-luna | OpenAI Responses |
+| `codex-agent` | codex-agent-gpt-5.6 | Codex Agent |
+| `codex-sol` | codex-agent-gpt-5.6-sol | Codex Agent |
+| `codex-terra` | codex-agent-gpt-5.6-terra | Codex Agent |
+| `codex-luna` | codex-agent-gpt-5.6-luna | Codex Agent |
+| `grok` | grok-agent-grok-4.5 | Grok Agent |
+| `deepseek-flash` | deepseek-v4-flash | DeepSeek |
+| `deepseek-pro` | deepseek-v4-pro | DeepSeek |
 | `gpt54-mini` | gpt-5.4-mini | OpenAI |
 | `gpt54-nano` | gpt-5.4-nano | OpenAI |
 | `codex` | gpt-5.3-codex | OpenAI |
 | `codex-spark` | gpt-5.3-codex-spark | OpenAI |
-| `codex-agent` | codex-agent-gpt-5.5 | OpenAI Codex Agent |
-| `codex-agent-fast` | codex-agent-gpt-5.4-mini | OpenAI Codex Agent |
-| `codex-agent-coding` | codex-agent-gpt-5.3-codex | OpenAI Codex Agent |
 | `gpt52` | gpt-5.2 | OpenAI |
 | `gpt4o` | gpt-4o | OpenAI |
 | `gpt41` | gpt-4.1 | OpenAI |
@@ -85,7 +86,9 @@ chris config set <k> <v> # Set a value in .env (run chris restart to apply)
 ```bash
 chris openai login       # Authenticate via browser OAuth + PKCE (opens browser, callback on port 1455)
 chris openai status      # Check OAuth token status (auto-refreshes)
-
+codex login              # Authenticate the Codex CLI separately
+# Authenticate Grok through its CLI OAuth flow
+# Set DEEPSEEK_API_KEY in local .env for DeepSeek
 ```
 
 ## Diagnostics
@@ -99,7 +102,9 @@ chris doctor             # Run all health checks:
                          #   - GitHub token can access memory repo
                          #   - Memory schema health
                          #   - Telegram bot token is valid
-                         #   - OpenAI OAuth tokens (optional)
+                         #   - OpenAI Responses OAuth (when selected)
+                         #   - Codex and Grok CLI readiness (when selected)
+                         #   - DeepSeek key presence without printing it (when selected)
                          #   - Brave Search API key (optional)
                          #   - Bot process is running
 

@@ -1,9 +1,12 @@
-import { Codex, type ThreadItem } from "@openai/codex-sdk";
+import { Codex, type ModelReasoningEffort, type ThreadItem } from "@openai/codex-sdk";
+import { config } from "../config.js";
 import { resolveCodexBinary } from "../codex.js";
 import { getThreadId, setThreadId } from "../codex-sessions.js";
 import { getWorkspaceRoot } from "../tools/files.js";
 import { getCodexSystemPrompt, getRecalledMemoryPrompt, invalidatePromptCache } from "./shared.js";
 import type { ImageAttachment, Provider } from "./types.js";
+import { resolveReasoningEffort, underlyingOpenAiModel } from "./model-routing.js";
+import { buildAgentEnvironment } from "./agent-environment.js";
 
 const activeControllers = new Map<number, AbortController>();
 
@@ -14,18 +17,23 @@ function getCodex(): Codex {
 
   codexInstance = new Codex({
     codexPathOverride: resolveCodexBinary() ?? undefined,
+    env: buildAgentEnvironment(process.env, ["CODEX_HOME"]),
   });
 
   return codexInstance;
 }
 
 function underlyingModel(model: string): string {
-  return model.replace(/^codex-agent-?/i, "") || "o4-mini";
+  return underlyingOpenAiModel(model) || "o4-mini";
 }
 
 function buildThreadOptions(model: string) {
+  const reasoning = resolveReasoningEffort(model, config.reasoningEffort);
   return {
     model: underlyingModel(model),
+    // The 0.147 SDK passes this value through to the CLI. Its declaration
+    // currently lags the live CLI/backend values by omitting max and ultra.
+    modelReasoningEffort: reasoning?.effective as ModelReasoningEffort | undefined,
     approvalPolicy: "on-request" as const,
     sandboxMode: "workspace-write" as const,
     networkAccessEnabled: true,
@@ -67,7 +75,6 @@ export function createCodexAgentProvider(model: string): Provider {
         : codex.startThread(options);
 
       const abortController = new AbortController();
-      activeControllers.set(chatId, abortController);
 
       const imageNote = images && images.length > 0
         ? `[${images.length} image(s) were attached, but this Codex agent mode is running text-only here. The user's caption follows.]\n\n`
@@ -84,6 +91,8 @@ export function createCodexAgentProvider(model: string): Provider {
 
       let latestText = "";
 
+      activeControllers.get(chatId)?.abort();
+      activeControllers.set(chatId, abortController);
       try {
         const { events } = await thread.runStreamed(prompt, { signal: abortController.signal });
 
@@ -102,11 +111,11 @@ export function createCodexAgentProvider(model: string): Provider {
         if (abortController.signal.aborted) {
           latestText = latestText || "Stopped.";
         } else {
-          console.error("[codex-agent] Error:", err.message);
+          console.error("[codex-agent] Request failed");
           latestText = latestText || "Sorry, I hit an error processing that. Try again in a moment.";
         }
       } finally {
-        activeControllers.delete(chatId);
+        if (activeControllers.get(chatId) === abortController) activeControllers.delete(chatId);
       }
 
       invalidatePromptCache();

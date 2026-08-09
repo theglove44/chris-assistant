@@ -1,6 +1,5 @@
 import { buildTurnSandboxPolicy } from "./config.js";
 import { CodexAppServerSession } from "./codex/app-server.js";
-import { ClaudeCodeSession } from "./claude-code/session.js";
 import { appendIssueLog } from "./paths.js";
 import { renderWorkflowPrompt } from "./workflow.js";
 import { WorkspaceManager } from "./workspace.js";
@@ -31,9 +30,6 @@ function createSession(
   dynamicTools: DynamicToolHandler,
   onUpdate?: (update: AppServerUpdate) => void,
 ): AgentSession {
-  if (config.agent.provider === "claude-code") {
-    return new ClaudeCodeSession(config, workspacePath, issue, dynamicTools, onUpdate);
-  }
   return new CodexAppServerSession(config, workspacePath, issue, dynamicTools, onUpdate);
 }
 

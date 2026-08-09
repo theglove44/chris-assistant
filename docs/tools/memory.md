@@ -32,7 +32,7 @@ chris-assistant-memory/
 
 ## `update_memory` Tool
 
-Registered in `src/tools/memory.ts`. Claude uses MCP (in-process server), while OpenAI Responses and MiniMax use OpenAI-format function calling. Those shared-tool providers delegate to the same `executeMemoryTool()` function in `src/domain/memory/update-service.ts`. Codex Agent receives injected memory context and semantic recall, but direct memory writes are not wired into the Codex CLI subprocess yet.
+Registered in `src/tools/memory.ts`. OpenAI Responses and DeepSeek use OpenAI-format function calling and delegate to the same guarded `executeMemoryTool()` path. Codex Agent receives relevant memory context but no direct memory writes. Grok Agent currently receives neither private memory context nor direct memory writes.
 
 ### Actions
 
@@ -136,13 +136,13 @@ revisit_conditions:
 5. Recent journal entries (today + yesterday)
 6. Curated memory summary (SUMMARY.md)
 7. Skill discovery index (enabled skills with triggers)
-8. Project context (CLAUDE.md / README.md from active workspace)
+8. Project context (`AGENTS.md` / `README.md` from the active workspace)
 
 Results are cached for 5 minutes. Cache invalidates after any conversation (in case memory was updated).
 
 ## DreamTask — Automatic Memory Consolidation
 
-DreamTask is a background consolidation service (`src/domain/memory/dream-service.ts`) that runs after conversations to keep memory lean and up-to-date. Inspired by Claude Code's autoDream system.
+DreamTask is a background consolidation service (`src/domain/memory/dream-service.ts`) that runs after conversations to keep memory lean and up-to-date.
 
 ### How It Works
 

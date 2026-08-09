@@ -7,13 +7,13 @@ description: Key architectural decisions and their rationale
 
 ## Multi-Provider Routing
 
-The model string determines the provider. `gpt-*`/`o3*`/`o4-*` → OpenAI, `MiniMax-*` → MiniMax, everything else → Claude. No separate "provider" config key.
+One central registry maps every accepted model and alias to OpenAI Responses, Codex Agent, Grok Agent, or DeepSeek. Unknown values fail startup validation; there is no catch-all provider. The registry also owns capabilities, context limits, and valid reasoning-effort values.
 
 ## Tool Registry
 
-`src/tools/registry.ts` — shared tool registry. Tools register once with `registerTool()`, auto-generate both OpenAI and Claude MCP formats. Generic `dispatchToolCall()` replaces per-tool if/else in providers. New tools: create file in `src/tools/`, add import to `src/tools/index.ts`, done.
+`src/tools/registry.ts` is the shared text-tool registry. Tools register once and expose OpenAI-compatible definitions to OpenAI Responses and DeepSeek. Codex and Grok receive only explicitly bridged agent tools.
 
-Claude, OpenAI Responses, and MiniMax support direct `update_memory` calls. Claude uses MCP (in-process server). OpenAI and MiniMax use OpenAI-format function calling. All direct writes delegate to the same `executeMemoryTool()` function. Codex Agent receives injected memory context and semantic recall, but direct memory writes are not wired into the Codex CLI subprocess yet.
+OpenAI Responses and DeepSeek support direct guarded memory writes through the shared function-tool path. Codex receives injected identity and recalled context but no direct memory tools. Grok currently receives neither private memory context nor direct memory tools.
 
 ## Tool Categories
 
@@ -21,27 +21,23 @@ Claude, OpenAI Responses, and MiniMax support direct `update_memory` calls. Clau
 
 ## Tool Loop Detection
 
-`registry.ts` tracks consecutive identical tool calls (same name + first 500 chars of args). After 3 in a row, returns an error to the AI. Covers both `dispatchToolCall()` (OpenAI/MiniMax) and MCP executor (Claude). State resets between conversations via `invalidatePromptCache()`.
+`registry.ts` tracks consecutive identical shared-tool calls. After three in a row it returns an error to the provider. State resets between conversations via `invalidatePromptCache()`.
 
 ## Tool Turn Limit
 
-All three providers share `config.maxToolTurns` (default 200, env `MAX_TOOL_TURNS`). Set high because SSH investigations and coding work need many turns; context compaction keeps conversations within the model's window. The "ran out of processing turns" message fires if exhausted.
+Shared-loop providers use `config.maxToolTurns`. CLI agents use their own bounded-turn and elapsed-time controls. Every provider must expose cancellation.
 
-## Claude Agent SDK as Primary Agent
+## Shared tools vs agent-native tools
 
-When Claude is the active model, the bot uses the `@anthropic-ai/claude-agent-sdk` as a full agent. Claude Code's native tools (Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch, etc.) run natively — far better than hand-rolled equivalents. Custom tools (memory, SSH, scheduler, recall, journal) are exposed via an in-process MCP server using `createSdkMcpServer()`. The system prompt uses append mode (`{ type: 'preset', preset: 'claude_code', append: <identity/memory> }`) to extend Claude Code's default prompt with personality and knowledge. Session persistence via `resume` gives multi-turn conversation context without manual history management.
-
-## Custom vs Native Tools
-
-`registry.ts` has a `NATIVE_CLAUDE_TOOLS` set — tools Claude Code handles natively. `getCustomMcpTools()` returns only non-native tools for the Claude provider's MCP server. `getCustomMcpAllowedToolNames()` generates the corresponding allowed tool names. OpenAI/MiniMax providers still use all registered tools as before.
+OpenAI Responses and DeepSeek use the guarded shared tool registry. Codex and Grok are agent-native workspace providers. Their sandbox and process controls are part of the security boundary, and they do not receive live private runtime data by default.
 
 ## Per-Schedule Tool Allowlists
 
 Each schedule has an optional `allowedTools` field. When set, only those tools are available during execution (e.g. `["ssh", "web_search"]`). When omitted, all tools are available. Tool filtering threads through `chat()` → provider → `getOpenAiToolDefinitions()`/`getMcpAllowedToolNames()` via a `filterTools()` function in `registry.ts`.
 
-## Claude Bash Safety Hook
+## Agent sandbox policy
 
-When Claude is the primary agent, its native Bash tool bypasses the tool registry — so the `DANGEROUS_PATTERNS` blocklist in `run-code.ts` doesn't apply. A `PreToolUse` hook in `src/providers/claude.ts` intercepts every Bash command before execution and blocks: `pm2`, `kill chris-assistant`, `systemctl restart/stop`, `reboot`, `shutdown`, `rm -rf /`, `npm run start/dev`, and `chris start/stop/restart`. Denied commands return a message telling Claude to ask Chris to restart manually. This prevents restart loops caused by Claude running process management commands via native Bash.
+Codex and Grok must run with explicit workspaces, non-bypass permissions, bounded execution, cancellation, and secret-free environments. A command deny-list is supplementary; it is not a substitute for the sandbox boundary.
 
 ## Persistent Conversation History
 
@@ -73,7 +69,7 @@ Memory files are loaded from GitHub and cached for 5 minutes. Cache invalidates 
 
 ## Project Bootstrap Files
 
-`shared.ts` checks for `CLAUDE.md`, `AGENTS.md`, `README.md` (in that order) in the active workspace root. First found is loaded, truncated to 20K chars, and injected as a `# Project Context` section in the system prompt. Workspace change callback invalidates the prompt cache so bootstrap reloads for the new project.
+The prompt loader checks provider-neutral project guidance such as `AGENTS.md` and `README.md`, truncates it to a safe limit, and injects it as project context. Workspace changes invalidate the prompt cache.
 
 ## Workspace Root
 
@@ -85,7 +81,7 @@ File tools scope to `WORKSPACE_ROOT` (default `~/Projects`). Mutable at runtime 
 
 ## Health Monitor
 
-`health.ts` sends a Telegram startup notification, runs health checks every 5 minutes (GitHub access, token expiry), and alerts the owner with dedup (1 hour re-alert) and recovery messages. Token checks use two-tier warnings: MiniMax warns 30 minutes before expiry, OpenAI warns 1 hour before (only when no refresh token). Fully expired tokens get stronger wording.
+`health.ts` sends a Telegram startup notification and runs periodic GitHub/provider readiness checks with deduplicated recovery alerts. Diagnostics report presence and expiry state, never credential values.
 
 ## Scheduled Tasks
 
@@ -99,7 +95,7 @@ File tools scope to `WORKSPACE_ROOT` (default `~/Projects`). Mutable at runtime 
 
 **Execution**: `run_skill` loads the full skill definition, validates inputs, substitutes `{placeholder}` values in instructions, and calls `chat(0, prompt, undefined, undefined, skill.tools)` with filtered tool access. Same nested-`chat()` pattern the scheduler uses.
 
-**Why not register skills as real tools**: Adding/removing tools at runtime requires re-initializing the MCP server for Claude and regenerating OpenAI tool definitions mid-conversation. The registry is designed for static startup registration. `run_skill` as a stable entry point avoids this entirely.
+**Why not register skills as real tools**: The registry is designed for stable startup definitions. `run_skill` remains a stable entry point without regenerating provider tool schemas mid-conversation.
 
 **Guardrails**: 50 skill cap, 5000 char instruction limit, 10KB state cap, tool names validated against registry, input keys constrained to `[a-zA-Z0-9_-]+`, per-entry resilience in system prompt parsing.
 

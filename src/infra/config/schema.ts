@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { REASONING_EFFORTS } from "../../providers/model-routing.js";
 
 const envString = z.string().min(1);
 const optionalString = z.string().min(1).nullable();
@@ -6,8 +7,10 @@ const optionalBooleanString = z.enum(["true", "false"]).transform((value) => val
 
 export const envSchema = z.object({
   AI_MODEL: z.string().optional(),
-  CLAUDE_MODEL: z.string().optional(),
   IMAGE_MODEL: z.string().optional(),
+  AI_REASONING_EFFORT: z.enum(REASONING_EFFORTS).optional(),
+  DEEPSEEK_API_KEY: z.string().optional(),
+  DEEPSEEK_THINKING: z.enum(["enabled", "disabled"]).optional(),
   TELEGRAM_BOT_TOKEN: envString,
   TELEGRAM_ALLOWED_USER_ID: z.coerce.number().int(),
   TELEGRAM_ALLOW_BOT_MESSAGES: z.coerce.boolean().optional(),

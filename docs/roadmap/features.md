@@ -17,7 +17,7 @@ Tools and features that expand what the bot can do.
 | # | Impact | Status | Item | Description |
 |---|--------|--------|------|-------------|
 | 1 | 🔴 | ✅ | **Web search tool** | Brave Search API, conditionally registered when `BRAVE_SEARCH_API_KEY` is set. Returns top 5 results. |
-| 2 | 🟠 | ✅ | **Image and document handling** | Photos via Telegram → base64 → OpenAI/MiniMax vision. Text documents read inline. Claude gets text-only fallback. |
+| 2 | 🟠 | ✅ | **Image and document handling** | Photos route through the configured OpenAI image model. Text documents are read inline; the other text providers remain image-agnostic. |
 | 3 | 🟠 | ✅ | **File and URL reading** | Fetches any URL, strips HTML to readable text, 15s timeout, 50KB truncation. |
 | 4 | 🟡 | ✅ | **Code execution sandbox** | JS, TS, Python, shell via `execFile`. 10s timeout, 50KB output limit. |
 | 5 | 🟢 | ✅ | **Scheduled tasks** | Cron-like tasks with AI execution and full tool access. |
@@ -28,7 +28,7 @@ Tools and features that expand what the bot can do.
 
 | # | Impact | Status | Item | Description |
 |---|--------|--------|------|-------------|
-| 1 | 🔴 | ✅ | **Streaming responses** | OpenAI and MiniMax stream via `onChunk`. Telegram edits every 1.5s with cursor. |
+| 1 | 🔴 | ✅ | **Streaming responses** | Providers stream via `onChunk`; Telegram edits every 1.5s with a cursor. |
 | 2 | 🟠 | ✅ | **Persistent conversation history** | Last 20 messages per chat, async I/O with write queue. |
 | 3 | 🟠 | ✅ | **Telegram HTML rendering** | Markdown-like input converted to Telegram HTML (`parse_mode: "HTML"`), with plain text fallback. |
 | 4 | 🟡 | ⬜ | **Voice message support** | Transcribe incoming voice via Whisper, optionally respond with TTS. |
@@ -44,7 +44,7 @@ Tools and features that expand what the bot can do.
 | 4 | 🟠 | ✅ | **Result truncation** | 50KB truncation across all tools. |
 | 5 | 🟠 | ✅ | **Tool loop detection** | 3 consecutive identical calls = break. |
 | 6 | 🟡 | ⬜ | **Fuzzy loop detection** | Normalize args before fingerprinting, per-tool-name frequency tracking. |
-| 7 | 🟡 | ✅ | **Project bootstrap files** | CLAUDE.md / AGENTS.md / README.md auto-loaded into system prompt. |
+| 7 | 🟡 | ✅ | **Project bootstrap files** | Provider-neutral `AGENTS.md` / `README.md` guidance is loaded into the system prompt. |
 | 8 | 🟢 | ✅ | **Git tools** | status, diff, commit. No push (safety choice). |
 
 ## Reliability
@@ -53,7 +53,7 @@ Tools and features that expand what the bot can do.
 |---|--------|--------|------|-------------|
 | 1 | 🔴 | ✅ | **Health check and alerting** | Startup notification, periodic checks, alert dedup, recovery messages. |
 | 2 | 🟠 | ✅ | **Graceful error recovery** | `chatWithRetry()` — one auto retry with 2s delay. |
-| 3 | 🟡 | ✅ | **Token expiry monitoring** | Two-tier warnings for MiniMax and OpenAI. |
+| 3 | 🟡 | ✅ | **Provider readiness monitoring** | Redacted OAuth/key readiness checks and recovery alerts. |
 | 4 | 🟡 | ✅ | **Conversation history backup** | SHA-256 dedup, every 6 hours, immediate on startup. |
 | 5 | 🟡 | ✅ | **Manual cache reload** | `/reload` Telegram command. |
 

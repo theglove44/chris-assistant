@@ -21,7 +21,7 @@ When an image is attached to a message, the bot:
 
 ### Provider routing
 
-Images always bypass the active text provider and go directly to OpenAI. This keeps vision behavior consistent even when the active text provider is Claude, Codex Agent, or MiniMax.
+Images always bypass the active text provider and go directly to OpenAI. This keeps vision behaviour consistent when the active text provider is Codex Agent, Grok Agent, or DeepSeek.
 
 ```
 Message + images
@@ -86,8 +86,8 @@ Files are truncated at 50,000 bytes with a `[... truncated ...]` marker.
 | `src/providers/types.ts` | `ImageAttachment` interface (`base64`, `mimeType`) |
 | `src/agent/chat-service.ts` | Routes image requests to OpenAI image model |
 | `src/providers/openai.ts` | Builds multi-part content array with all images |
-| `src/providers/claude.ts` | Text-only fallback note when images reach Claude directly |
 | `src/providers/codex-agent.ts` | Text-only fallback note when images reach Codex Agent directly |
-| `src/providers/minimax.ts` | Supports image array in content parts when used directly |
+| `src/providers/grok-agent.ts` | Text-only agent path; images use the OpenAI route |
+| `src/providers/deepseek.ts` | Text-only shared-tool path; images use the OpenAI route |
 | `src/telegram.ts` | Downloads Telegram photos/documents, wraps in `ImageAttachment[]` |
 | `src/discord.ts` | Downloads all Discord image attachments, collects into `ImageAttachment[]` |

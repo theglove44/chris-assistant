@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { envSchema, normalizeOptional } from "./schema.js";
 import type { AppConfig } from "./types.js";
-import { strictProviderForModel } from "../../providers/model-routing.js";
+import { resolveReasoningEffort, strictProviderForModel } from "../../providers/model-routing.js";
 
 export interface RepoRef {
   owner: string;
@@ -34,17 +34,23 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): { config: AppC
     );
   }
 
-  const model = values.AI_MODEL || values.CLAUDE_MODEL || "gpt-4o";
+  const model = values.AI_MODEL || "gpt-4o";
   try {
     strictProviderForModel(model);
   } catch (err) {
     throw new Error(`Invalid configuration: AI_MODEL — ${(err as Error).message}`);
+  }
+  try {
+    resolveReasoningEffort(model, values.AI_REASONING_EFFORT);
+  } catch (err) {
+    throw new Error(`Invalid configuration: AI_REASONING_EFFORT — ${(err as Error).message}`);
   }
 
   return {
     config: {
       model,
       imageModel: values.IMAGE_MODEL || "gpt-5.2",
+      reasoningEffort: values.AI_REASONING_EFFORT ?? null,
       telegram: {
         botToken: values.TELEGRAM_BOT_TOKEN,
         allowedUserId: values.TELEGRAM_ALLOWED_USER_ID,
@@ -63,6 +69,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): { config: AppC
         guildId: normalizeOptional(values.DISCORD_GUILD_ID),
       },
       braveSearchApiKey: normalizeOptional(values.BRAVE_SEARCH_API_KEY),
+      deepseek: {
+        apiKey: normalizeOptional(values.DEEPSEEK_API_KEY),
+        thinking: values.DEEPSEEK_THINKING ?? "enabled",
+      },
       maxToolTurns: values.MAX_TOOL_TURNS ?? 200,
       dashboard: {
         port: values.DASHBOARD_PORT ?? 3000,

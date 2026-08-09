@@ -38,8 +38,8 @@ describe("usage-tracker", () => {
     recordUsage({
       inputTokens: 1000,
       outputTokens: 200,
-      model: "claude-sonnet-4-6",
-      provider: "claude",
+      model: "gpt-4o",
+      provider: "openai",
     });
 
     const today = new Date().toISOString().slice(0, 10);
@@ -50,8 +50,8 @@ describe("usage-tracker", () => {
     expect(lines).toHaveLength(1);
 
     const record = JSON.parse(lines[0]);
-    expect(record.provider).toBe("claude");
-    expect(record.model).toBe("claude-sonnet-4-6");
+    expect(record.provider).toBe("openai");
+    expect(record.model).toBe("gpt-4o");
     expect(record.inputTokens).toBe(1000);
     expect(record.outputTokens).toBe(200);
     expect(record.ts).toBeDefined();
@@ -64,17 +64,17 @@ describe("usage-tracker", () => {
     const filePath = path.join(usageDir, `${today}.jsonl`);
 
     const records = [
-      { ts: new Date().toISOString(), provider: "claude", model: "claude-sonnet-4-6", inputTokens: 1000, outputTokens: 200 },
-      { ts: new Date().toISOString(), provider: "claude", model: "claude-sonnet-4-6", inputTokens: 500, outputTokens: 100 },
+      { ts: new Date().toISOString(), provider: "codex-agent", model: "gpt-5.2", inputTokens: 1000, outputTokens: 200 },
+      { ts: new Date().toISOString(), provider: "codex-agent", model: "gpt-5.2", inputTokens: 500, outputTokens: 100 },
       { ts: new Date().toISOString(), provider: "openai", model: "gpt-4o", inputTokens: 800, outputTokens: 150 },
     ];
     fs.writeFileSync(filePath, records.map((r) => JSON.stringify(r)).join("\n") + "\n");
 
     const summary = getDailySummary(today);
     expect(summary.date).toBe(today);
-    expect(summary.models["claude-sonnet-4-6"].calls).toBe(2);
-    expect(summary.models["claude-sonnet-4-6"].inputTokens).toBe(1500);
-    expect(summary.models["claude-sonnet-4-6"].outputTokens).toBe(300);
+    expect(summary.models["gpt-5.2"].calls).toBe(2);
+    expect(summary.models["gpt-5.2"].inputTokens).toBe(1500);
+    expect(summary.models["gpt-5.2"].outputTokens).toBe(300);
     expect(summary.models["gpt-4o"].calls).toBe(1);
     expect(summary.totalCost).toBeGreaterThan(0);
   });
@@ -86,13 +86,13 @@ describe("usage-tracker", () => {
     const filePath = path.join(usageDir, `${today}.jsonl`);
 
     const records = [
-      { ts: new Date().toISOString(), provider: "claude", model: "claude-sonnet-4-6", inputTokens: 1_200_000, outputTokens: 180_000 },
+      { ts: new Date().toISOString(), provider: "openai", model: "gpt-4o", inputTokens: 1_200_000, outputTokens: 180_000 },
     ];
     fs.writeFileSync(filePath, records.map((r) => JSON.stringify(r)).join("\n") + "\n");
 
     const report = formatUsageReport(today);
     expect(report).toContain("Token Usage");
-    expect(report).toContain("claude-sonnet-4-6");
+    expect(report).toContain("gpt-4o");
     expect(report).toContain("1.2M input");
     expect(report).toContain("180.0k output");
     expect(report).toContain("Total today");

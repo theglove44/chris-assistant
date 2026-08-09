@@ -4,7 +4,7 @@ import * as os from "os";
 import * as path from "path";
 import { config } from "../config.js";
 import { getHealthStatus, getProviderName } from "../health.js";
-import { providerCapabilitiesForModel } from "../providers/model-routing.js";
+import { providerCapabilitiesForModel, resolveReasoningEffort } from "../providers/model-routing.js";
 import { getSchedules, updateSchedule, removeSchedule } from "../scheduler.js";
 import { listLocalArchiveDates, readLocalArchive } from "../conversation-archive.js";
 import { listLocalJournalDates, readLocalJournal } from "../memory/journal.js";
@@ -97,6 +97,7 @@ async function handleStatus(res: ServerResponse): Promise<void> {
     }
   }
 
+  const effort = resolveReasoningEffort(config.model, config.reasoningEffort);
   json(res, {
     uptime: process.uptime(),
     uptimeFormatted: formatUptime(process.uptime()),
@@ -104,6 +105,8 @@ async function handleStatus(res: ServerResponse): Promise<void> {
     model: config.model,
     provider: getProviderName(config.model),
     providerCapabilities: providerCapabilitiesForModel(config.model),
+    requestedEffort: effort?.requested ?? null,
+    effectiveEffort: effort?.effective ?? null,
     imageModel: config.imageModel,
     pm2: pm2Info,
   });

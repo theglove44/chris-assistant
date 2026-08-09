@@ -4,7 +4,7 @@
  * Scans a local memory/ directory for .md files, reads their YAML
  * frontmatter headers, and returns a manifest for the recall selector.
  *
- * Adapted from Claude Code's memoryScan.ts blueprint.
+ * Memory scanning utilities.
  */
 
 import { readdir, stat, readFile } from "fs/promises";

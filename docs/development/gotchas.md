@@ -89,7 +89,7 @@ See "Telegram HTML Formatting" section below — the bot now uses HTML mode, not
 
 ## Thinking Tags
 
-Reasoning models (o3, MiniMax, etc.) may emit `<think>...</think>` blocks. `telegram.ts` strips these both during streaming preview and in the final response. Providers (`minimax.ts`, `openai.ts`) also strip them during streaming.
+Reasoning providers can emit internal reasoning fields or tagged blocks. Normalise these at the provider boundary and never render chain-of-thought or provider-only reasoning fields to Telegram, Discord, logs, or archives.
 
 ## Node.js console.log
 
@@ -123,16 +123,22 @@ The SSH tool uses hostnames/aliases from `~/.ssh/config`. The `Host` line must i
 
 Runs typecheck, checks error logs for common patterns (TransformError, missing modules), runs `npm install` if needed, then restarts the bot and verifies it comes back online. The regular `chris doctor` (without `--fix`) shows the last error message and restart count when the bot is errored.
 
-## MiniMax OAuth API Quirks
+## Provider authentication is not interchangeable
 
-- The `/oauth/code` endpoint requires `response_type: "code"` in the body
-- The `expired_in` field is a unix timestamp in **milliseconds** (not a duration)
-- Token poll responses use a `status` field (`"success"` / `"pending"` / `"error"`) — don't rely on HTTP status codes
-- Tokens stored in `~/.chris-assistant/minimax-auth.json`
+- OpenAI Responses uses `chris openai login` and stores owner-only OAuth metadata under `~/.chris-assistant/`.
+- Codex Agent uses the Codex CLI's separate `codex login` state under `~/.codex/`.
+- Grok Agent uses the Grok CLI's OAuth state.
+- DeepSeek uses `DEEPSEEK_API_KEY` from the local `.env`.
 
-## OpenAI Codex OAuth
+Never copy OAuth files between providers, paste browser cookies into `.env`, or print key/token values in doctor output. A daemon must run as the same operating-system user that owns the relevant CLI OAuth state.
 
-Authorization code + PKCE flow — opens browser to `auth.openai.com/oauth/authorize`, local callback server on port 1455 catches the redirect, exchanges code for tokens. Account ID extracted from JWT. Tokens auto-refresh via refresh_token grant.
+## DeepSeek thinking-mode tool loops
+
+When DeepSeek returns a tool call in thinking mode, preserve its `reasoning_content` on the assistant message sent back with tool results. Dropping it can make the next API turn invalid. Do not expose `reasoning_content` to end users.
+
+## Grok headless execution
+
+Launch the Grok binary directly rather than through a shell. Always set an explicit workspace, permission mode, timeout, bounded turns, streaming format, and cancellation path. Treat unrecognised JSON events as non-user-facing diagnostics and redact credential-shaped content.
 
 ## macOS Calendar: `open` Flags
 

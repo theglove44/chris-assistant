@@ -20,7 +20,7 @@ export interface TokenUsage {
   inputTokens: number;
   outputTokens: number;
   model: string;
-  provider: "claude" | "openai" | "codex-agent";
+  provider: "openai" | "codex-agent" | "grok-agent" | "deepseek";
 }
 
 interface UsageRecord {
@@ -72,9 +72,6 @@ function todayString(): string {
 
 /** Built-in fallback pricing (per 1M tokens, USD). */
 const DEFAULT_PRICING: Record<string, ModelPricing> = {
-  "claude-sonnet-4-6":   { input: 3.00, output: 15.00 },
-  "claude-sonnet-4-5-20250514": { input: 3.00, output: 15.00 },
-  "claude-opus-4-6":     { input: 15.00, output: 75.00 },
   "gpt-4o":              { input: 2.50, output: 10.00 },
   "gpt-5.2":             { input: 5.00, output: 20.00 },
   "o4-mini":             { input: 1.10, output: 4.40 },

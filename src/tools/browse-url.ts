@@ -3,6 +3,7 @@ import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import { registerTool } from "./registry.js";
 import { checkSsrf } from "./ssrf.js";
+import { startSafeProxy, type SafeProxy } from "./safe-proxy.js";
 
 const MAX_CONTENT_LENGTH = 50_000;
 const NAVIGATE_TIMEOUT_MS = 30_000;
@@ -10,6 +11,7 @@ const IDLE_SHUTDOWN_MS = 5 * 60 * 1000; // 5 minutes
 
 // Lazy browser singleton — launched on first call, killed after idle timeout
 let browserInstance: import("playwright").Browser | null = null;
+let safeProxy: SafeProxy | null = null;
 let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
 async function getBrowser(): Promise<import("playwright").Browser> {
@@ -20,7 +22,17 @@ async function getBrowser(): Promise<import("playwright").Browser> {
 
   console.log("[browse-url] Launching Chromium...");
   const { chromium } = await import("playwright");
-  browserInstance = await chromium.launch({ headless: true });
+  safeProxy = await startSafeProxy();
+  try {
+    browserInstance = await chromium.launch({
+      headless: true,
+      proxy: { server: safeProxy.url, bypass: "<-loopback>" },
+    });
+  } catch (error) {
+    await safeProxy.close().catch(() => {});
+    safeProxy = null;
+    throw error;
+  }
   console.log("[browse-url] Chromium launched");
   resetIdleTimer();
   return browserInstance;
@@ -33,6 +45,8 @@ function resetIdleTimer(): void {
       console.log("[browse-url] Idle timeout — closing browser");
       await browserInstance.close().catch(() => {});
       browserInstance = null;
+      await safeProxy?.close().catch(() => {});
+      safeProxy = null;
     }
   }, IDLE_SHUTDOWN_MS);
 }

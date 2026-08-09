@@ -1,9 +1,9 @@
 import * as fs from "fs";
-import * as os from "os";
 import * as path from "path";
 import type { SymphonySnapshot } from "./types.js";
+import { appDataPath } from "../infra/storage/paths.js";
 
-export const SYMPHONY_HOME = path.join(os.homedir(), ".chris-assistant", "symphony");
+export const SYMPHONY_HOME = appDataPath("symphony");
 export const SYMPHONY_LOGS_DIR = path.join(SYMPHONY_HOME, "logs");
 export const SYMPHONY_STATUS_DIR = path.join(SYMPHONY_HOME, "status");
 export const SYMPHONY_STATUS_FILE = path.join(SYMPHONY_STATUS_DIR, "runtime.json");

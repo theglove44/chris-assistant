@@ -36,7 +36,7 @@ You send a message on Telegram
   → Auth guard (your user ID only)
   → Rate limiter (10 msgs/min)
   → Loads identity + memory from GitHub
-  → Routes to AI provider (Claude / OpenAI / Codex Agent)
+  → Routes to AI provider (OpenAI Responses / Codex Agent / Grok Agent / DeepSeek)
   → Streams response back with live typing updates
   → AI calls tools as needed (web search, code, files, calendar...)
   → Conversation archived, memory updated
@@ -52,18 +52,18 @@ Switch between providers with a single command. The model string determines the 
 
 | Provider | Best for | Assistant memory/tools | Auth |
 |----------|----------|------------------------|------|
-| **Claude Agent** | Default personal assistant experience | Memory read/write, semantic recall, journal, scheduler, native coding tools | Claude CLI (`claude` — uses your Max subscription) |
-| **OpenAI Responses** | Personal assistant chat with OpenAI models and vision | Memory read/write, semantic recall, journal, scheduler, shared tools | ChatGPT Plus/Pro subscription (OAuth) |
-| **OpenAI Codex Agent** | Coding-focused workspace agent | Memory context and semantic recall are injected; direct memory write and journal tools are not wired yet | Codex CLI (`codex login`) |
+| **OpenAI Responses** | Everyday assistant, images, memory, and schedules | Full shared Chris tool set | `chris openai login` (ChatGPT OAuth) |
+| **OpenAI Codex Agent** | Coding and workspace work | Agent-native workspace tools; selected memory context is injected | `codex login` |
+| **Grok Agent** | Alternative agentic workspace work | Agent-native workspace tools; Chris-specific tools are limited initially | Grok CLI OAuth |
+| **DeepSeek** | Economical text chat and reasoning | Full shared Chris text-tool set; images use the configured OpenAI image model | `DEEPSEEK_API_KEY` |
 
-Claude uses the [Agent SDK](https://github.com/anthropics/claude-agent-sdk), which piggybacks on the Claude CLI's authentication — just run `claude` once to log in, and the bot picks it up automatically.
-
-The Codex agent mode uses `@openai/codex-sdk`, which spawns the `codex` CLI under the hood for native coding tools and persistent threads. Treat it as a coding agent until custom memory, journal, and recall tools are wired directly into the Codex CLI environment.
+OpenAI Responses and Codex Agent are separate backends and use separate OAuth stores. DeepSeek is the only target provider that requires an API key. Grok uses its CLI's OAuth session; do not place browser session cookies or copied OAuth tokens in `.env`.
 
 ```bash
-chris model set sonnet         # Switch to Claude Sonnet
-chris model set gpt5           # Switch to OpenAI GPT-5.5
-chris model set codex-agent    # Switch to coding-focused OpenAI Codex Agent
+chris model set terra --effort medium       # OpenAI Responses
+chris model set codex-agent --effort high   # OpenAI Codex Agent
+chris model set grok --effort high          # Grok Agent
+chris model set deepseek-flash --effort high # DeepSeek
 ```
 
 ### Memory Architecture
@@ -100,7 +100,7 @@ Accessible over Tailnet with token auth.
 - Node.js 22+
 - A Telegram bot token (from [@BotFather](https://t.me/BotFather))
 - A GitHub fine-grained PAT (Contents read/write on your memory repo)
-- At least one AI provider subscription (ChatGPT Plus/Pro or Claude Max)
+- At least one configured provider: ChatGPT Plus/Pro, Grok CLI OAuth, or a DeepSeek API key
 
 ### Install
 
@@ -115,12 +115,16 @@ chris setup           # Interactive wizard — creates .env
 ### Authenticate with an AI Provider
 
 ```bash
-# Claude — log in via the Claude CLI (Agent SDK reuses its auth)
-claude
-
-# OpenAI — browser OAuth, uses your ChatGPT subscription
+# OpenAI Responses — browser OAuth, uses your ChatGPT subscription
 chris openai login
 
+# Codex Agent — separate Codex CLI OAuth session
+codex login
+
+# Grok Agent — launch the installed CLI and complete its OAuth prompt if needed
+grok
+
+# DeepSeek — add DEEPSEEK_API_KEY to .env; never commit the key
 ```
 
 ### Start
@@ -182,7 +186,8 @@ chris logs -f                    # Live tail logs
 
 # Model switching
 chris model                      # Show current model
-chris model set <name>           # Switch (opus, sonnet, gpt5, codex, ...)
+chris model set <name>           # Switch provider/model
+chris model set <name> --effort <level> # Set a provider-valid thinking level
 chris model search               # List all available models
 
 # Memory
@@ -256,9 +261,11 @@ Maintenance:
 | `GITHUB_TOKEN` | Yes | Fine-grained PAT (Contents read/write on memory repo only) |
 | `GITHUB_MEMORY_REPO` | Yes | `owner/repo` format |
 | `AI_MODEL` | No | Model ID — determines provider (default: `gpt-4o`) |
+| `AI_REASONING_EFFORT` | No | Requested thinking level; validated against the selected model |
+| `DEEPSEEK_API_KEY` | No | DeepSeek API key. Required only for DeepSeek models; redact from output and never commit it |
+| `DEEPSEEK_THINKING` | No | DeepSeek thinking mode: `enabled` (default) or `disabled` |
 | `BRAVE_SEARCH_API_KEY` | No | Enables web search tool |
 | `WORKSPACE_ROOT` | No | Root for file/git tools (default: `~/Projects`) |
-| `CLAUDE_MODEL` | No | Alternative to `AI_MODEL` — used if `AI_MODEL` is not set |
 | `IMAGE_MODEL` | No | Model for image generation (default: `gpt-5.2`) |
 | `MAX_TOOL_TURNS` | No | Max tool call turns per conversation (default: 200) |
 | `DISCORD_BOT_TOKEN` | No | Enables Discord bot |
@@ -304,7 +311,7 @@ src/
 Telegram / Discord message
   → channel handler
   → ChatService
-  → provider routing (Claude / OpenAI / Codex Agent)
+  → provider routing (OpenAI Responses / Codex Agent / Grok Agent / DeepSeek)
   → tool execution via shared registry
   → conversation + archive persistence
   → memory/journal updates
@@ -320,7 +327,7 @@ Telegram / Discord message
 - `src/domain/memory/*` — GitHub memory repository, prompt loading, journal service, consolidation
 - `src/domain/schedules/*` — schedule CRUD, cron parsing, scheduled task execution
 - `src/tools/*` — provider-agnostic tool registration, filtering, loop guard, adapters
-- `src/providers/*` — Claude Agent SDK, OpenAI Responses, Codex Agent SDK
+- `src/providers/*` — OpenAI Responses, Codex Agent, Grok Agent, and DeepSeek adapters
 - `src/dashboard/*` — HTTP runtime/API layer and HTML UI
 
 **Key design decisions:**
@@ -352,4 +359,4 @@ npm test                 # Vitest suite
 
 ## Tech Stack
 
-Node.js 22+ / TypeScript / [grammY](https://grammy.dev) / [discord.js](https://discord.js.org) / [Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk) / [Octokit](https://github.com/octokit/rest.js) / [Commander.js](https://github.com/tj/commander.js) / pm2 / zod
+Node.js 22+ / TypeScript / [grammY](https://grammy.dev) / [discord.js](https://discord.js.org) / [OpenAI Codex SDK](https://developers.openai.com/codex/sdk/) / [Octokit](https://github.com/octokit/rest.js) / [Commander.js](https://github.com/tj/commander.js) / pm2 / zod

@@ -1,70 +1,63 @@
 ---
-title: Environment & Config
-description: Environment variables, file paths, and configuration
+title: Environment Variables
+description: Configuration reference for Chris Assistant
 ---
 
-# Environment & Config
+# Environment Variables
 
-## Environment Variables
+Create `.env` with `chris setup`. Keep it local, restrict its filesystem permissions, and never commit it. `chris config` must redact secret values.
 
-| Variable | Required | Purpose |
-|----------|----------|---------|
-| `TELEGRAM_BOT_TOKEN` | Yes | From @BotFather |
-| `TELEGRAM_ALLOWED_USER_ID` | Yes | Your numeric Telegram user ID |
-| `GITHUB_TOKEN` | Yes | Fine-grained PAT with Contents read/write on memory repo |
-| `GITHUB_MEMORY_REPO` | Yes | `owner/repo` format — your private memory repo |
-| `AI_MODEL` | No | Model ID — determines provider. Default: `gpt-4o` |
-| `IMAGE_MODEL` | No | Model for image processing. Default: `gpt-5.2`. All images route here regardless of active provider. |
-| `BRAVE_SEARCH_API_KEY` | No | Brave Search API key for web search tool |
-| `WORKSPACE_ROOT` | No | Root directory for file/git tools. Default: `~/Projects`. Changeable at runtime via `/project`. |
-| `MAX_TOOL_TURNS` | No | Safety ceiling for tool call rounds per message. Default: `200`. |
-| `CLAUDE_CODE_OAUTH_TOKEN` | No | Only needed to use Claude models |
-| `DISCORD_BOT_TOKEN` | No | Discord bot token from the Developer Portal |
-| `DISCORD_ALLOWED_USER_ID` | No | Your Discord numeric user ID; bot ignores all other users |
-| `DISCORD_GUILD_ID` | No | Discord guild ID for channel management |
-| `DASHBOARD_PORT` | No | Web dashboard port. Default: `3000` |
-| `DASHBOARD_TOKEN` | No | API key for dashboard auth. If unset, dashboard is localhost-only |
-| `DOCS_URL` | No | URL for "Knowledge Base" link in dashboard header. If unset, no link shown |
-| `GITHUB_WEBHOOK_SECRET` | No | HMAC secret for GitHub webhook signature verification |
-| `WEBHOOK_PORT` | No | Webhook server port. Default: `3001` |
-| `VOYAGE_API_KEY` | No | Voyage AI API key — enables semantic embedding-based memory recall (`voyage-3-lite`). When absent, falls back to keyword scoring. Get one at [dash.voyageai.com](https://dash.voyageai.com). |
-| `OCTOPUS_API_KEY` | No | Octopus Energy API key — required for the `octopus_energy` tool |
-| `OCTOPUS_ACCOUNT_NUMBER` | No | Octopus Energy account number (e.g. `A-XXXXXXXX`) |
-| `SYMPHONY_STATUS_URL` | No | Symphony sidecar status endpoint. Default: `http://127.0.0.1:3010` |
-| `NOTICE_LOOP_ENABLED` | No | Enables proactive notices. Default: `false` |
-| `NOTICE_LOOP_INTERVAL_MINUTES` | No | Notice scan interval. Default: `60` |
-| `NOTICE_QUIET_START_HOUR` | No | Local quiet-hours start, 0–23. Default: `22` |
-| `NOTICE_QUIET_END_HOUR` | No | Local quiet-hours end, 0–23. Default: `8` |
-| `NOTICE_JOURNAL_GAP_DAYS` | No | Days without journal activity before a nudge. Default: `2` |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `TELEGRAM_BOT_TOKEN` | Yes | Bot token from @BotFather |
+| `TELEGRAM_ALLOWED_USER_ID` | Yes | Numeric Telegram user ID; all other users are ignored |
+| `GITHUB_TOKEN` | Yes | Fine-grained PAT with Contents read/write on the private memory repo only |
+| `GITHUB_MEMORY_REPO` | Yes | Private memory repository in `owner/repo` form |
+| `AI_MODEL` | No | Active registered model. Default: `gpt-4o` |
+| `AI_REASONING_EFFORT` | No | Requested thinking level, validated per model |
+| `DEEPSEEK_API_KEY` | No | Required only for DeepSeek models; always redacted |
+| `DEEPSEEK_THINKING` | No | DeepSeek thinking mode: `enabled` (default) or `disabled` |
+| `IMAGE_MODEL` | No | OpenAI model used for image processing |
+| `BRAVE_SEARCH_API_KEY` | No | Enables web search |
+| `WORKSPACE_ROOT` | No | Root for file and Git tools. Default: `~/Projects` |
+| `MAX_TOOL_TURNS` | No | Safety ceiling for tool rounds per message |
+| `DISCORD_BOT_TOKEN` | No | Enables Discord |
+| `DISCORD_ALLOWED_USER_ID` | No | Discord user allowlist |
+| `DISCORD_GUILD_ID` | No | Discord guild ID |
+| `DASHBOARD_PORT` | No | Dashboard port. Default: `3000` |
+| `DASHBOARD_TOKEN` | No | Dashboard bearer token; without it, access is localhost-only |
+| `DOCS_URL` | No | Knowledge-base link shown in the dashboard |
+| `GITHUB_WEBHOOK_SECRET` | No | HMAC secret for webhook verification |
+| `WEBHOOK_PORT` | No | Webhook port. Default: `3001` |
+| `VOYAGE_API_KEY` | No | Enables semantic memory recall; keyword fallback remains available |
+| `OCTOPUS_API_KEY` | No | Octopus Energy API key |
+| `OCTOPUS_ACCOUNT_NUMBER` | No | Octopus Energy account number |
+| `SYMPHONY_STATUS_URL` | No | Symphony status endpoint |
+| `NOTICE_LOOP_ENABLED` | No | Enables proactive notices |
+| `NOTICE_LOOP_INTERVAL_MINUTES` | No | Notice scan interval |
+| `NOTICE_QUIET_START_HOUR` | No | Quiet-hours start, 0-23 |
+| `NOTICE_QUIET_END_HOUR` | No | Quiet-hours end, 0-23 |
+| `NOTICE_JOURNAL_GAP_DAYS` | No | Journal inactivity threshold |
 
-OpenAI authenticates via browser OAuth + PKCE (`chris openai login`). MiniMax uses OAuth device flow (`chris minimax login`). Tokens stored in `~/.chris-assistant/`.
+## Provider authentication
 
-## File Paths
+- OpenAI Responses: `chris openai login`; local OAuth metadata is stored at `~/.chris-assistant/openai-auth.json`.
+- Codex Agent: `codex login`; the Codex CLI owns its OAuth files under `~/.codex/`.
+- Grok Agent: authenticate through the Grok CLI; the CLI owns its OAuth state.
+- DeepSeek: set `DEEPSEEK_API_KEY` in `.env`.
 
-| Path | Purpose |
-|------|---------|
-| `.env` | Environment variables (project root) |
-| `~/.chris-assistant/conversations.json` | Persistent conversation history (last 20 messages) |
-| `~/.chris-assistant/schedules.json` | Scheduled task definitions |
-| `~/.chris-assistant/openai-auth.json` | OpenAI OAuth tokens + account ID |
-| `~/.chris-assistant/minimax-auth.json` | MiniMax OAuth tokens |
-| `~/.chris-assistant/claude-sessions.json` | Claude Agent SDK session IDs per chat |
-| `~/.chris-assistant/feedback/` | Daily local JSONL reaction feedback and temporary message context |
-| `~/.chris-assistant/archive/` | Daily JSONL message archives |
-| `~/.chris-assistant/journal/` | Daily bot journal entries |
+OAuth files and API keys are private runtime state. Do not copy, delete, relocate, print, or commit them as part of source maintenance.
 
-## Configuration Management
+## Runtime paths
 
-```bash
-chris config             # Show all config values (secrets are redacted)
-chris config get <key>   # Get a specific value
-chris config set <k> <v> # Set a value in .env
-```
+| Path | Contents |
+|------|----------|
+| `~/.chris-assistant/openai-auth.json` | OpenAI Responses OAuth metadata |
+| `~/.chris-assistant/codex-sessions.json` | Codex thread IDs per chat |
+| `~/.chris-assistant/conversations.json` | Recent conversation history |
+| `~/.chris-assistant/schedules.json` | Scheduled tasks |
+| `~/.chris-assistant/archive/` | Daily JSONL archives |
+| `~/.chris-assistant/feedback/` | Local feedback data |
+| `~/.chris-assistant/usage/` | Provider/model usage snapshots |
 
-After changing config values, run `chris restart` to apply.
-
-## System Prompt Cache
-
-Memory files loaded from GitHub are cached for 5 minutes. The cache invalidates after any conversation (in case memory was updated). You can manually invalidate with `/reload` in Telegram.
-
-Manually edited memory files via `chris memory edit` won't be picked up until the cache expires or the bot restarts.
+The source repository and `~/.chris-assistant/` have different lifecycles. Never delete or modify live runtime data during a source cleanup.

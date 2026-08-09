@@ -7,10 +7,11 @@ import { Octokit } from "@octokit/rest";
 import { getBotProcess, withPm2, PM2_NAME, PROJECT_ROOT } from "../pm2-helper.js";
 import { loadTokens as loadOpenaiTokens } from "../../providers/openai-oauth.js";
 import { getCodexStatus } from "../../codex.js";
+import { getGrokStatus } from "../../grok.js";
 import { checkMemoryHealth, type MemoryHealthClient } from "../../domain/memory/health.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const ENV_PATH = resolve(__dirname, "../../..", ".env");
+const ENV_PATH = resolve(process.env.CHRIS_ASSISTANT_ENV_FILE || resolve(__dirname, "../../..", ".env"));
 
 const PASS = "\x1b[32m✓\x1b[0m";
 const FAIL = "\x1b[31m✗\x1b[0m";
@@ -53,14 +54,6 @@ export function registerDoctorCommand(program: Command) {
           },
         },
         {
-          name: "Claude OAuth token (optional)",
-          run: async () => {
-            if (env.CLAUDE_CODE_OAUTH_TOKEN) return "pass";
-            console.log('    Not set — Claude provider unavailable. Set CLAUDE_CODE_OAUTH_TOKEN to enable.');
-            return "warn";
-          },
-        },
-        {
           name: "Codex CLI runtime (optional)",
           run: async () => {
             const status = getCodexStatus();
@@ -78,6 +71,31 @@ export function registerDoctorCommand(program: Command) {
             }
             console.log("    %s", status.version || "version unknown");
             return "pass";
+          },
+        },
+        {
+          name: "Grok CLI runtime (optional)",
+          run: async () => {
+            const status = getGrokStatus();
+            if (!status.binaryPath) {
+              console.log("    Not installed — grok-agent provider unavailable.");
+              return "warn";
+            }
+            if (!status.authenticated) {
+              console.log('    Binary found, but auth or model discovery failed — run "grok login" then "grok models"');
+              return "warn";
+            }
+            console.log("    %s; models: %s", status.version || "version unknown", status.models.join(", "));
+            console.log("    Reasoning effort flag: %s", status.reasoningEffortFlagAvailable ? "available" : "unavailable");
+            return status.models.length > 0 ? "pass" : "warn";
+          },
+        },
+        {
+          name: "DeepSeek API key (optional)",
+          run: async () => {
+            if (env.DEEPSEEK_API_KEY) return "pass";
+            console.log("    Not set — deepseek provider unavailable.");
+            return "warn";
           },
         },
         {

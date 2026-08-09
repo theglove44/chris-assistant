@@ -2,6 +2,7 @@
 // The order here controls registration order, which determines the order of
 // tool definitions sent to providers.
 import "./memory.js";
+import "./usage.js";
 import "./decisions.js";
 import "./web-search.js";
 import "./fetch-url.js";
@@ -15,7 +16,6 @@ import "./recall.js";
 import "./journal.js";
 import "./market-snapshot.js";
 import "./skills.js";
-import "./usage.js";
 import "./octopus-energy.js";
 import "./peekaboo.js";
 import "./x-api.js";
@@ -31,10 +31,6 @@ if (process.platform === "darwin") {
 export {
   getOpenAiToolDefinitions,
   dispatchToolCall,
-  getMcpTools,
-  getMcpAllowedToolNames,
-  getCustomMcpTools,
-  getCustomMcpAllowedToolNames,
   resetLoopDetection,
   getRegisteredToolNames,
 } from "./registry.js";

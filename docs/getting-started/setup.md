@@ -65,7 +65,7 @@ chris setup       # Interactive wizard to create .env
 
 ## 5. Authenticate with OpenAI
 
-The default provider is OpenAI, authenticated via Codex OAuth device flow. This uses your ChatGPT Plus/Pro subscription — no API key or prepaid credits needed.
+The default provider is OpenAI Responses, authenticated through the browser flow started by `chris openai login`. This uses your ChatGPT Plus/Pro subscription — no API key or prepaid credits needed.
 
 ```bash
 chris openai login       # Opens browser for OAuth approval
@@ -84,16 +84,19 @@ chris status      # Confirm it's running
 
 ## 7. (Optional) Set up additional providers
 
-**MiniMax** — uses your MiniMax Coding Plan subscription via OAuth. No API credits needed.
+**Codex Agent** — install the Codex CLI and run `codex login` as the same operating-system user that runs Chris Assistant. This OAuth store is separate from `chris openai login`. Use Codex Agent for coding and workspace work; its Chris-specific memory, journal, and scheduling tools are limited.
+
+**Grok Agent** — install and authenticate the Grok CLI using its OAuth flow. Do not copy browser cookies or OAuth tokens into `.env`. Grok is initially an agentic workspace provider with limited Chris-specific tools.
+
+**DeepSeek** — add `DEEPSEEK_API_KEY` to your local `.env`, then select `deepseek-flash` or `deepseek-pro`. DeepSeek provides the shared text-tool set; images continue through `IMAGE_MODEL`.
 
 ```bash
-chris minimax login      # Opens browser for OAuth approval
-chris minimax status     # Check token expiry
+chris model set codex-agent --effort high
+chris model set grok --effort high
+chris model set deepseek-flash --effort high
 ```
 
-**Claude** — requires a Claude Max subscription. Add `CLAUDE_CODE_OAUTH_TOKEN` to your `.env` file (get it via `claude setup-token`), then switch with `chris model set sonnet`.
-
-**Codex Agent** — requires the Codex CLI to be installed and authenticated with `codex login`, then switch with `chris model set codex-agent`. This mode is currently best for coding-focused workspace tasks; use Claude or OpenAI Responses for the fullest personal-assistant memory and journal behavior.
+Run `chris model` for the authoritative aliases and effort levels implemented by the installed build.
 
 ## 8. (Optional) Set up web search
 

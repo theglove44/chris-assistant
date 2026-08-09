@@ -1,107 +1,68 @@
 ---
 title: Providers
-description: Multi-provider architecture — Claude, OpenAI, Codex Agent, and MiniMax
+description: OpenAI Responses, Codex Agent, Grok Agent, and DeepSeek
 ---
 
 # Providers
 
-The model string determines the provider. No separate "provider" config key needed.
+Chris Assistant uses explicit model-registry routing. Unknown model IDs fail validation; there is no catch-all provider.
 
-| Prefix | Provider | Implementation |
-|--------|----------|---------------|
-| `codex-agent-*` | OpenAI Codex Agent | `src/providers/codex-agent.ts` |
-| `gpt-*`, `o3*`, `o4-*` | OpenAI | `src/providers/openai.ts` |
-| `MiniMax-*` | MiniMax | `src/providers/minimax.ts` |
-| Everything else | Claude | `src/providers/claude.ts` |
+| Provider | Authentication | Best use | Chris tools | Images | Headless schedules |
+|----------|----------------|----------|-------------|--------|--------------------|
+| OpenAI Responses | `chris openai login` (ChatGPT OAuth) | Everyday assistant work | Full | Yes | Yes |
+| Codex Agent | `codex login` | Coding and workspace work | Agent-oriented; memory context is injected | Text-only | No by default |
+| Grok Agent | Grok CLI OAuth | Alternative agentic workspace work | Limited initially | Text-only until verified | No by default |
+| DeepSeek | `DEEPSEEK_API_KEY` | Economical text chat and reasoning | Full text-tool set | Via the configured OpenAI image model | Yes |
 
-## Capability Matrix
+Provider capability metadata lives in the central model registry so the CLI, Telegram `/model`, doctor output, and dashboard report the same provider, model, requested effort, effective effort, and capabilities.
 
-Provider capability metadata lives in `src/providers/model-routing.ts` so CLI output, Telegram `/model`, and the dashboard status API use the same source of truth.
+## OpenAI Responses
 
-| Provider | Mode | Memory read | Memory write | Semantic recall | Journal | Native coding tools | Vision | Scheduler suitable |
-|----------|------|-------------|--------------|-----------------|---------|---------------------|--------|--------------------|
-| Claude | Personal assistant | yes | yes | yes | yes | yes | no | yes |
-| OpenAI Responses | Personal assistant | yes | yes | yes | yes | no | yes | yes |
-| Codex Agent | Coding agent | yes | no | yes | no | yes | no | no |
-| MiniMax | General chat | yes | yes | yes | yes | no | yes | yes |
+This is the subscription-backed personal-assistant path. It streams from the Responses endpoint, uses the shared tool registry, and supports memory, recall, journal, schedules, and image inputs.
 
-Claude is the default personal assistant path. OpenAI Responses and MiniMax use the shared tool registry and provider-wide memory recall. Codex Agent receives identity, curated memory, and recalled memory context, but it should be described as coding-focused until custom memory write, journal, and recall tools are exposed directly to the Codex CLI subprocess.
-
-## Claude
-
-Uses the `@anthropic-ai/claude-agent-sdk` as a full agent with Claude Code's native tools (Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch, etc.) running natively. Custom tools (memory, SSH, scheduler, recall, journal, skills, market_snapshot) are exposed via an in-process MCP server. See the [Agent SDKs](./agent-sdks) page for a deep dive into how this works, the MCP bridge, session persistence, and safety hooks.
-
-**System prompt**: Uses `{ type: 'preset', preset: 'claude_code', append: <identity/memory> }` — extends Claude Code's default system prompt with personality, knowledge, and Telegram formatting rules.
-
-**Session persistence**: Session IDs are stored per chat in `~/.chris-assistant/claude-sessions.json`. Each message passes `resume: sessionId` to continue the conversation. The SDK manages its own context — no manual conversation history formatting needed. `/clear` resets the session.
-
-**Streaming**: The SDK streams `content_block_delta` events with `text_delta` parts via `includePartialMessages: true`. The provider extracts text from `SDKAssistantMessage` content blocks and calls `onChunk()` for real-time Telegram updates.
-
-**Extended thinking**: Keyword-triggered — "think" → 10k tokens, "think hard" → 50k tokens.
-
-**Abort support**: Per-chat `AbortController` map. `/stop` aborts the active query for the calling chat without affecting concurrent queries (e.g. scheduled tasks).
-
-**Authentication**: Requires `CLAUDE_CODE_OAUTH_TOKEN` in `.env` from a Max subscription, or run `claude` CLI once to authenticate.
+Authentication uses OAuth + PKCE through `chris openai login`. Tokens and account metadata are stored in `~/.chris-assistant/openai-auth.json` with owner-only permissions. Do not copy that file into the repository, support messages, or logs.
 
 ## Codex Agent
 
-Uses the `@openai/codex-sdk` to run a coding-focused agent with workspace access. This is a distinct provider from the OpenAI Responses API — it uses OpenAI's Codex Agent SDK to manage persistent threads with tool execution in a sandboxed workspace.
+The Codex Agent path uses `@openai/codex-sdk`, which launches the Codex CLI with a persistent thread and a workspace sandbox. It is a separate backend and a separate OAuth session from OpenAI Responses.
 
-**Model routing**: Models prefixed with `codex-agent-` route here. The prefix is stripped to determine the underlying model (e.g. `codex-agent-o4-mini` uses `o4-mini`). If no model suffix is provided, defaults to `o4-mini`.
+Use `codex login` once as the same operating-system user that runs Chris Assistant. The agent receives relevant identity and memory context, but it must not be described as having the full Chris memory, journal, or schedule tool set until those integrations are implemented and verified.
 
-**Thread persistence**: Each chat gets a persistent thread via `src/codex-sessions.ts` (parallel to `claude-sessions.ts`). First message starts a new thread; follow-up messages resume the existing thread via `codex.resumeThread()`. `/clear` resets the thread. System context (identity, memory, recalled memory, and formatting rules) is prepended to the first message only.
+## Grok Agent
 
-**Assistant parity status**: Codex Agent can read injected memory context and relevant semantic recall, but it does not yet have direct custom MCP tools for writing memory, appending journal entries, or explicitly searching assistant memory from inside the Codex CLI subprocess. Use Claude or OpenAI Responses for the most complete personal-assistant behavior.
+Grok Agent launches the authenticated Grok CLI directly in headless streaming mode. It must use an explicit workspace, permission policy, timeout, bounded turns, and cancellation. OAuth state belongs to the Grok CLI; never put copied browser cookies or OAuth tokens into `.env`.
 
-**Workspace**: The agent runs with `workspace-write` sandbox mode in `getWorkspaceRoot()`. It does not receive additional write access to `~/.chris-assistant/`; live assistant runtime data stays outside the Codex Agent workspace. Network access is enabled and git repo checks are skipped.
+Treat Grok as an agentic workspace provider initially. Chris-specific memory, journal, and schedule tools are limited until an explicit, guarded bridge is implemented.
 
-**Streaming**: Streams via the SDK's `runStreamed()` method. The provider listens for `item.updated` and `item.completed` events, extracting text from `agent_message` items and forwarding via `onChunk()`.
+## DeepSeek
 
-**Abort support**: Per-chat `AbortController` map, same pattern as Claude. `/stop` aborts the active agent run.
+DeepSeek uses its OpenAI-compatible Chat Completions API with the shared text-tool registry. Configure `DEEPSEEK_API_KEY` in the local `.env` only. The key must be redacted from CLI configuration output, doctor output, dashboard responses, errors, and logs.
 
-**Image handling**: The Codex Agent SDK operates text-only. When images are attached, a note is prepended indicating the number of images, and the user's caption is passed through.
+Thinking-mode tool loops must preserve DeepSeek's `reasoning_content` between assistant tool calls. DeepSeek is text-only in this integration; incoming images continue through the configured OpenAI image model.
 
-**Headless runs**: When `chatId === 0` (scheduled tasks, system calls), threads are not persisted.
+## Reasoning effort
 
-## OpenAI
+`AI_REASONING_EFFORT` records the requested level, but each model registry entry defines which values are valid. User-facing status must show both the requested and effective values; the application must not silently claim an unsupported level was honoured.
 
-Uses raw fetch to the Codex Responses API (`chatgpt.com/backend-api/codex/responses`) with SSE streaming.
+Typical commands after provider integration:
 
-**Authentication**: Authorization code OAuth + PKCE flow (`chris openai login`) — opens browser to `auth.openai.com/oauth/authorize`, local callback server on port 1455 catches the redirect, exchanges code for tokens. Account ID extracted from JWT (`payload["https://api.openai.com/auth"].chatgpt_account_id`). Tokens auto-refresh via refresh_token grant. Tokens + account ID stored in `~/.chris-assistant/openai-auth.json`.
+```bash
+chris model set terra --effort medium
+chris model set codex-agent --effort high
+chris model set grok --effort high
+chris model set deepseek-flash --effort high
+```
 
-**Streaming**: SSE from the Codex Responses API (`response.output_text.delta` events). Uses the `onChunk` callback in the Provider interface.
+Run `chris model` for the authoritative installed aliases and effort choices.
 
-::: warning Codex API constraints
-The endpoint requires `stream: true` and `store: false` in every request — there is no non-streaming mode. Headers must include `chatgpt-account-id` and `OpenAI-Beta: responses=experimental`. Only GPT-5.x models work; older models (gpt-4o, gpt-4.1) return a 400 error. Tool definitions use a flat format (`{ type, name, description, parameters }`) instead of the nested Chat Completions format.
-:::
+## Streaming and cancellation
 
-## MiniMax
+All four providers stream through the `Provider` callback. `/stop` must cancel the active operation for the current chat without affecting concurrent work. OpenAI and DeepSeek cancel network requests; Codex and Grok terminate their bounded child-process runs.
 
-Uses the `openai` npm package with custom baseURL (`https://api.minimax.io/v1`). Streams via the OpenAI SDK.
+## Adding a provider
 
-**Authentication**: OAuth device flow (`chris minimax login`) — tokens in `~/.chris-assistant/minimax-auth.json`.
-
-::: tip MiniMax OAuth quirks
-The `/oauth/code` endpoint requires `response_type: "code"` in the body. The `expired_in` field is a unix timestamp in **milliseconds** (not a duration). Token poll responses use a `status` field (`"success"` / `"pending"` / `"error"`) — don't rely on HTTP status codes.
-:::
-
-## Streaming
-
-All four providers stream via the `onChunk` callback in the Provider interface. `telegram.ts` sends a "..." placeholder and edits it every 1.5s with accumulated text + cursor. OpenAI streams via SSE, MiniMax via the OpenAI SDK, Claude via the Agent SDK's `includePartialMessages` events, and Codex Agent via the SDK's `runStreamed()` events. Final render uses Markdown with plain text fallback.
-
-## Image and Document Handling
-
-`telegram.ts` handles `message:photo` and `message:document` in addition to `message:text`. Photos are downloaded from Telegram, base64-encoded, and passed via `ImageAttachment` in the Provider interface. OpenAI/MiniMax use `image_url` content parts. Claude Agent SDK only accepts string prompts, so images get a text-only fallback. Text documents are downloaded, read as UTF-8, and prepended to the message (50KB truncation). Unsupported file types get a helpful error.
-
-## Context Compaction
-
-When the conversation approaches the model's context window limit, older tool turns are summarized into a structured checkpoint and the loop continues. No hard turn ceiling — the bot can handle arbitrarily long SSH investigations and multi-file coding tasks.
-
-Since the Codex API has no non-streaming mode, `compactCodexInput()` in `compaction.ts` parses SSE responses to extract the summary text. MiniMax compaction uses the OpenAI SDK (`compactMessages()`).
-
-## Adding a New Provider
-
-1. Create `src/providers/<name>.ts` implementing the `Provider` interface
-2. Add a prefix check in `src/providers/index.ts`
-3. Add model shortcuts to `src/cli/commands/model.ts`
-4. For OpenAI-compatible providers, use `getOpenAiToolDefinitions()` and `dispatchToolCall()` from `src/tools/index.ts`
+1. Implement the `Provider` interface.
+2. Add explicit models, aliases, capabilities, context limits, authentication, and supported effort values to the central registry.
+3. Add provider construction and abort/session handling.
+4. Add doctor checks and redacted setup guidance.
+5. Verify streaming, cancellation, tool filtering, unknown-model rejection, and headless suitability.

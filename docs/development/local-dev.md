@@ -30,16 +30,17 @@ Test files set dummy env vars before imports to avoid `config.ts` throwing on mi
 
 1. Create `src/tools/<name>.ts` with a `registerTool()` call
 2. Add `import "./<name>.js"` to `src/tools/index.ts`
-3. Shared-tool providers pick it up automatically. Codex Agent currently gets injected assistant context but not these custom tools directly inside the Codex CLI subprocess.
+3. Shared-tool providers pick it up automatically. Agent providers receive only the tools explicitly bridged into their guarded CLI environment.
 
-The tool registry auto-generates both OpenAI and Claude MCP format definitions from a single registration.
+The tool registry produces OpenAI-compatible function definitions for OpenAI Responses and DeepSeek. Codex and Grok remain agent-oriented until an explicit tool bridge is added.
 
 ## Adding New Providers
 
 1. Create `src/providers/<name>.ts` implementing the `Provider` interface
-2. Add model routing support via the model-routing helpers and `src/agent/chat-service.ts`
-3. Add model shortcuts to `src/cli/commands/model.ts`
+2. Add the models, aliases, capabilities, context limit, and valid effort values to the central model registry; document authentication separately
+3. Add provider construction and abort/session handling
 4. For OpenAI-compatible providers, use `getOpenAiToolDefinitions()` and `dispatchToolCall()` from `src/tools/index.ts`
+5. Add redacted doctor checks and tests for streaming, cancellation, unknown-model rejection, and headless suitability
 
 ## Project Structure
 

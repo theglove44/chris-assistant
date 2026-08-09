@@ -14,6 +14,7 @@ describe("loadConfig", () => {
 
     expect(config.model).toBe("gpt-4o");
     expect(config.imageModel).toBe("gpt-5.2");
+    expect(config.reasoningEffort).toBeNull();
     expect(config.maxToolTurns).toBe(200);
     expect(config.dashboard.port).toBe(3000);
     expect(config.webhook.port).toBe(3001);
@@ -50,12 +51,14 @@ describe("loadConfig", () => {
     });
   });
 
-  it("prefers AI_MODEL over CLAUDE_MODEL and parses optional fields", () => {
+  it("parses optional provider and runtime fields", () => {
     const { config } = loadConfig({
       ...baseEnv,
-      AI_MODEL: "gpt-5.2",
-      CLAUDE_MODEL: "sonnet",
+      AI_MODEL: "gpt-5.6-terra",
       IMAGE_MODEL: "gpt-4o",
+      AI_REASONING_EFFORT: "high",
+      DEEPSEEK_API_KEY: "deepseek-key",
+      DEEPSEEK_THINKING: "disabled",
       DISCORD_BOT_TOKEN: "discord-token",
       DISCORD_GUILD_ID: "guild-123",
       BRAVE_SEARCH_API_KEY: "brave-key",
@@ -68,8 +71,10 @@ describe("loadConfig", () => {
       SYMPHONY_STATUS_URL: "http://127.0.0.1:9999",
     });
 
-    expect(config.model).toBe("gpt-5.2");
+    expect(config.model).toBe("gpt-5.6-terra");
     expect(config.imageModel).toBe("gpt-4o");
+    expect(config.reasoningEffort).toBe("high");
+    expect(config.deepseek).toEqual({ apiKey: "deepseek-key", thinking: "disabled" });
     expect(config.discord.botToken).toBe("discord-token");
     expect(config.discord.guildId).toBe("guild-123");
     expect(config.braveSearchApiKey).toBe("brave-key");
@@ -85,6 +90,10 @@ describe("loadConfig", () => {
   it("throws a helpful error when required values are missing", () => {
     expect(() => loadConfig({})).toThrow(/Invalid configuration/);
     expect(() => loadConfig({})).toThrow(/TELEGRAM_BOT_TOKEN/);
+  });
+
+  it("rejects an unsupported reasoning effort", () => {
+    expect(() => loadConfig({ ...baseEnv, AI_REASONING_EFFORT: "ultra" })).toThrow(/AI_REASONING_EFFORT/);
   });
 
   it("defaults telegram transport to polling", () => {

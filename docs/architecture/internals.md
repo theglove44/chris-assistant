@@ -1,6 +1,6 @@
 # Architecture Internals — Detailed Reference
 
-This document contains the full implementation details for every module in the codebase. Referenced from `CLAUDE.md` for on-demand lookup when working on specific subsystems.
+This document contains implementation details for the main modules. Provider-specific details are authoritative only after the four-provider integration is reconciled.
 
 ## Full File Tree
 
@@ -17,7 +17,7 @@ chris-assistant/
 │   ├── channels/             # telegram/, discord/
 │   ├── domain/               # conversations/, memory/, schedules/
 │   ├── infra/                # config/, storage/
-│   ├── providers/            # Claude, OpenAI, Codex Agent, MiniMax
+│   ├── providers/            # OpenAI Responses, Codex Agent, Grok Agent, DeepSeek
 │   ├── tools/                # tool platform + tool modules
 │   ├── dashboard/            # runtime + UI template
 │   ├── skills/
@@ -47,11 +47,9 @@ chris-assistant-memory/       ← Separate private repo (the brain)
 ```
 ## Provider Details
 
-### Claude Agent SDK
+### Agent providers
 
-The bot uses `@anthropic-ai/claude-agent-sdk` as a full agent when Claude is the active model. Claude Code's native tools (Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch, etc.) run natively — far better than hand-rolled versions. Custom tools (memory, SSH, scheduler, recall, journal, market_snapshot) are exposed via an in-process MCP server.
-
-The system prompt uses `{ type: 'preset', preset: 'claude_code', append: <identity/memory> }` to extend Claude Code's default prompt with personality and knowledge. Session persistence via `resume` gives multi-turn conversation context without manual history management. Extended thinking is keyword-triggered ("think" → 10k tokens, "think hard" → 50k). Authenticated through Max subscription via the `claude` CLI (same auth Claude Code uses).
+Codex Agent and Grok Agent run authenticated CLIs with native workspace tools. Both require explicit workspace and permission settings, bounded execution, structured streaming, cancellation, and credential-safe diagnostics. Codex receives selected prompt context; Grok currently receives only the user prompt. Neither receives the full shared Chris tool registry by default.
 
 Telegram commands: `/stop` aborts the active provider query when supported, `/session` shows the active provider session ID when available, and `/clear` resets conversation history plus the active provider session.
 
@@ -63,15 +61,13 @@ Raw fetch to `chatgpt.com/backend-api/codex/responses` with ChatGPT OAuth. Strea
 
 **OAuth**: Authorization code + PKCE flow — opens browser to `auth.openai.com/oauth/authorize`, local callback server on port 1455 catches the redirect, exchanges code for tokens. Account ID extracted from JWT (`payload["https://api.openai.com/auth"].chatgpt_account_id`). Tokens auto-refresh via refresh_token grant. Tokens + account ID in `~/.chris-assistant/openai-auth.json`.
 
-### MiniMax
+### DeepSeek
 
-Uses the `openai` npm package with custom baseURL (`https://api.minimax.io/v1`). Streams via the OpenAI SDK.
-
-**OAuth**: Device flow — the `/oauth/code` endpoint requires `response_type: "code"` in the body. The `expired_in` field is a unix timestamp in **milliseconds** (not a duration). Token poll responses use a `status` field (`"success"` / `"pending"` / `"error"`) — don't rely on HTTP status codes. Tokens stored in `~/.chris-assistant/minimax-auth.json`.
+Uses the OpenAI-compatible Chat Completions API and shared text tools. Authentication is a redacted `DEEPSEEK_API_KEY`. Thinking-mode tool loops replay `reasoning_content`; images remain on the configured OpenAI image path.
 
 ### Context Compaction
 
-`providers/compaction.ts` summarizes older conversation turns when approaching the model's context window limit (70% threshold, defined in `providers/context-limits.ts`). OpenAI compaction parses SSE responses (`compactCodexInput()`). MiniMax compaction uses the OpenAI SDK (`compactMessages()`).
+Provider compaction summarises older conversation turns when approaching the registry-defined context threshold. Each provider must preserve its own tool-call protocol while compacting.
 
 ## Web Dashboard
 
@@ -163,7 +159,7 @@ Native fetch, 15s timeout. HTML extracted via Readability + linkedom, regex fall
 `git_status`, `git_diff` (optional `staged`), `git_commit` (optional `files` array). No `git_push` (safety). 50KB diff truncation.
 
 ### Memory Tool
-Claude, OpenAI Responses, and MiniMax support direct `update_memory` calls. Claude uses MCP, OpenAI/MiniMax use function calling, and all direct writes delegate to `executeMemoryTool()`. Codex Agent receives injected memory context and semantic recall, but direct memory writes are not wired into the Codex CLI subprocess yet.
+OpenAI Responses and DeepSeek support direct `update_memory` calls through the guarded shared function-tool path. Codex receives relevant memory context but no direct memory writes. Grok receives neither private memory context nor direct memory writes.
 
 ### Market Snapshot
 SSHes to Mac Mini (via `MAC_MINI_HOST` env var or SSH config alias) to run `tasty-coach --snapshot --json`. Parses JSON output into structured objects. Formats for Telegram with categorized sections (Futures, ETFs, Commodities, Crypto, Volatility) and auto-generated insights.
@@ -187,7 +183,7 @@ SSHes to Mac Mini (via `MAC_MINI_HOST` env var or SSH config alias) to run `tast
 
 ## Health Monitor
 
-`health.ts` — startup notification, 5min health checks (GitHub, tokens), deduped alerts (1hr re-alert), recovery messages. Two-tier token warnings: MiniMax 30min, OpenAI 1hr (only without refresh token).
+`health.ts` — startup notification, periodic GitHub/provider readiness checks, deduplicated alerts, and recovery messages. It reports credential presence or expiry state without printing secrets.
 
 ## Middleware
 

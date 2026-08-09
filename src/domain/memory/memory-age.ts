@@ -5,7 +5,7 @@
  * files. Models are poor at date arithmetic — "47 days ago" triggers
  * staleness reasoning better than a raw ISO timestamp.
  *
- * Adapted from Claude Code's memoryAge.ts blueprint.
+ * Memory ageing utilities.
  */
 
 /** Days elapsed since mtime. Floor-rounded, clamped to 0. */

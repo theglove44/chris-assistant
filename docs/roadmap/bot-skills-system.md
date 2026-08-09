@@ -63,7 +63,7 @@ Skills are **NOT** registered as dynamic tools in the registry. Instead:
 2. **Execution** — `run_skill` tool loads full definition, validates inputs, substitutes `{placeholder}` values, calls `chat(0, executionPrompt, undefined, undefined, skill.tools)` with filtered tools. Same nested-`chat()` pattern the scheduler uses.
 3. **Management** — `manage_skills` tool handles CRUD via GitHub memory repo.
 
-**Why not register skills as real tools**: Adding/removing tools at runtime requires re-initializing the MCP server for Claude and regenerating OpenAI tool definitions mid-conversation. The registry is designed for static startup registration. `run_skill` as a stable entry point avoids this entirely.
+**Why not register skills as real tools**: Adding/removing tools at runtime requires regenerating provider tool definitions mid-conversation. The registry is designed for static startup registration. `run_skill` as a stable entry point avoids this entirely.
 
 ## New Files
 
@@ -119,7 +119,7 @@ Skills are **NOT** registered as dynamic tools in the registry. Instead:
 
 **`src/providers/shared.ts`**
 - `getSystemPrompt()`: inject skill discovery section after capabilities section
-- `getClaudeAppendPrompt()`: add `run_skill` and `manage_skills` to custom tools description block (~line 182-194), inject skill index section
+- Provider prompt builder: add `run_skill` and `manage_skills` to the custom-tools description and inject the skill index
 
 Skill discovery section:
 ```
@@ -133,7 +133,7 @@ You have reusable skills. Use run_skill to execute them. Use manage_skills to cr
 
 ### PR 3: Docs + seed skills
 
-- Update `CLAUDE.md` architecture tree + key design decisions
+- Update provider-neutral project guidance and key design decisions
 - Create 2-3 seed skills in memory repo to demonstrate the format
 
 ## Guardrails for Self-Creation
@@ -164,7 +164,7 @@ The AI calls `run_skill` → skill executes with its declared tools. The schedul
 | `src/tools/index.ts` | Add import |
 | `src/memory/loader.ts` | Add `skillIndex` to `LoadedMemory`, load in parallel |
 | `src/providers/shared.ts` | Inject skill discovery into both prompt builders |
-| `CLAUDE.md` | Document skills system |
+| Project guidance | Document skills system |
 
 ## Verification
 

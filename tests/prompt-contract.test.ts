@@ -62,7 +62,6 @@ vi.mock("../src/tools/index.js", () => ({
 }));
 
 import {
-  getClaudeAppendPrompt,
   getCodexSystemPrompt,
   getSystemPrompt,
   inspectPrompt,
@@ -74,15 +73,11 @@ async function assembledPrompts(userMessage?: string): Promise<string[]> {
   invalidatePromptCache();
   const openai = await getSystemPrompt(userMessage);
 
-  fixtures.config.model = "claude-sonnet-4-6";
-  invalidatePromptCache();
-  const claude = await getClaudeAppendPrompt(userMessage);
-
   fixtures.config.model = "codex-agent-o4-mini";
   invalidatePromptCache();
   const codex = await getCodexSystemPrompt(userMessage);
 
-  return [openai, claude, codex];
+  return [openai, codex];
 }
 
 describe("assistant runtime prompt contract", () => {
@@ -94,7 +89,6 @@ describe("assistant runtime prompt contract", () => {
   it("identifies as Chris Assistant across provider prompts", async () => {
     for (const prompt of await assembledPrompts()) {
       expect(prompt).toContain("Chris Assistant");
-      expect(prompt).toContain("not Claude Code");
       expect(prompt).toContain("not the Codex CLI");
       expect(prompt).toContain("not a generic");
     }
@@ -106,7 +100,7 @@ describe("assistant runtime prompt contract", () => {
     expect(prompt).toContain('If Chris asks "who are you?"');
     expect(prompt).toContain('If Chris asks "where do you run?"');
     expect(prompt).toContain('If Chris asks "what memory/tools do you have?"');
-    expect(prompt).toContain('If Chris asks "how are you different from Claude Code?"');
+    expect(prompt).toContain("If Chris asks how you differ from the underlying coding runtime");
   });
 
   it("states local Telegram, macOS, and pm2 runtime context", async () => {
@@ -156,12 +150,6 @@ describe("assistant runtime prompt contract", () => {
     const openai = await getSystemPrompt("what should you remember about my trading agent?");
     expect(openai).toContain("# Recalled Memories");
 
-    fixtures.config.model = "claude-sonnet-4-6";
-    invalidatePromptCache();
-    await getClaudeAppendPrompt();
-    const claude = await getClaudeAppendPrompt("what should you remember about my trading agent?");
-    expect(claude).toContain("# Recalled Memories");
-
     fixtures.config.model = "codex-agent-o4-mini";
     invalidatePromptCache();
     await getCodexSystemPrompt();
@@ -169,14 +157,7 @@ describe("assistant runtime prompt contract", () => {
     expect(codex).toContain("# Recalled Memories");
   });
 
-  it("suppresses provider identity leakage for Claude and Codex agent modes", async () => {
-    fixtures.config.model = "claude-sonnet-4-6";
-    invalidatePromptCache();
-    const claude = await getClaudeAppendPrompt();
-    expect(claude).toContain("Claude Code is an execution substrate and tool runtime, not your identity");
-    expect(claude).toContain("Do not introduce yourself as Claude Code");
-    expect(claude).toContain("this Chris Assistant runtime contract takes priority");
-
+  it("suppresses provider identity leakage for Codex agent mode", async () => {
     fixtures.config.model = "codex-agent-o4-mini";
     invalidatePromptCache();
     const codex = await getCodexSystemPrompt();

@@ -9,6 +9,7 @@ import {
   providerCapabilitiesForModel,
   providerCapabilitySummary,
   providerDisplayName,
+  reasoningEffortReport,
 } from "../../providers/model-routing.js";
 import { getWorkspaceRoot, setWorkspaceRoot, isProjectActive } from "../../tools/files.js";
 import { chatService } from "../../agent/chat-service.js";
@@ -53,9 +54,11 @@ export function registerTelegramCommands(bot: Bot<Context>): void {
     const model = config.model;
     const provider = providerDisplayName(model);
     const capabilities = providerCapabilitiesForModel(model);
+    const effort = reasoningEffortReport(model, config.reasoningEffort);
     await ctx.reply(
       `Model: ${model}\n` +
         `Provider: ${provider}\n` +
+        (effort ? `${effort}\n` : "") +
         `Best use: ${capabilities.summary}\n\n` +
         `${providerCapabilitySummary(model)}\n\n` +
         `Workspace: ${getWorkspaceRoot()}\n\n` +

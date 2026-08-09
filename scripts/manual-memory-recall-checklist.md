@@ -4,7 +4,7 @@ Use this checklist for issue #112 / tracker #115 after `npm run typecheck` and `
 
 Run each prompt once in every provider mode:
 
-- `chris model set claude`
+- `chris model set terra --effort medium`
 - `chris model set gpt5`
 - `chris model set codex-agent`
 
@@ -20,14 +20,14 @@ Run each prompt once in every provider mode:
    - Expected: recalls relevant project memory if present and connects it to the current assistant/product context.
 
 4. `who are you, and what memory do you have?`
-   - Expected: identifies as Chris Assistant, not Claude Code/Codex/OpenAI, and describes memory, journal, summaries, and provider tools.
+   - Expected: identifies as Chris Assistant rather than a provider-branded shell, and describes memory, journal, summaries, and the active provider's real tool boundary.
 
 5. `debug yourself: why might memory feel inconsistent?`
    - Expected: can explain the active provider mode and confirm memory recall is injected at the provider prompt layer.
 
 ## Pass Criteria
 
-- Claude, OpenAI Responses, and Codex Agent all show equivalent access to identity, curated memory, recent summaries, recalled memories, and current date/time context.
-- Claude custom MCP tools still appear available in Claude mode.
+- OpenAI Responses, Codex Agent, Grok Agent, and DeepSeek receive the intended identity, curated memory, recent summaries, recalled memories, and current date/time context.
+- Only OpenAI Responses and DeepSeek claim the full shared Chris text-tool set; Codex and Grok report their limited agent-oriented boundary.
 - No provider answers as its substrate identity.
 - No prompt inspection or debug output exposes raw secrets or OAuth tokens.

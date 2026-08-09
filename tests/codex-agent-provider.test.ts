@@ -20,8 +20,11 @@ const fixtures = vi.hoisted(() => {
     };
   }
 
-  return { startThread, resumeThread, setThreadId, createThread };
+  const config = { reasoningEffort: null as null | "max" };
+  return { startThread, resumeThread, setThreadId, createThread, config };
 });
+
+vi.mock("../src/config.js", () => ({ config: fixtures.config }));
 
 vi.mock("@openai/codex-sdk", () => ({
   Codex: vi.fn().mockImplementation(function CodexMock() {
@@ -73,5 +76,18 @@ describe("createCodexAgentProvider", () => {
     });
     expect(fixtures.startThread.mock.calls[0][0]).not.toHaveProperty("additionalDirectories");
     expect(fixtures.setThreadId).toHaveBeenCalledWith(123, "thread-1");
+  });
+
+  it("passes the effective GPT-5.6 effort through the SDK thread option", async () => {
+    fixtures.config.reasoningEffort = "max";
+    fixtures.startThread.mockReturnValueOnce(fixtures.createThread("thread-2"));
+
+    await createCodexAgentProvider("codex-agent-gpt-5.6-luna").chat(456, "hello");
+
+    expect(fixtures.startThread).toHaveBeenCalledWith(expect.objectContaining({
+      model: "gpt-5.6-luna",
+      modelReasoningEffort: "max",
+    }));
+    fixtures.config.reasoningEffort = null;
   });
 });

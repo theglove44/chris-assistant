@@ -3,205 +3,123 @@ import { readFileSync, writeFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import {
+  DEFAULT_MODEL,
+  MODEL_REGISTRY,
+  REASONING_EFFORTS,
   providerCapabilitiesForModel,
   providerCapabilitySummary,
   providerForModel,
+  reasoningEffortReport,
+  resolveModelAlias,
+  resolveReasoningEffort,
   strictProviderForModel,
+  type ReasoningEffort,
 } from "../../providers/model-routing.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const ENV_PATH = resolve(__dirname, "../../..", ".env");
+const ENV_PATH = resolve(process.env.CHRIS_ASSISTANT_ENV_FILE || resolve(__dirname, "../../..", ".env"));
 
-const DEFAULT_MODEL = "gpt-4o";
+const KNOWN_MODELS = MODEL_REGISTRY.flatMap((model) =>
+  (model.aliases ?? []).map((alias) => ({ alias, id: model.id, provider: model.provider })),
+);
 
-/** Well-known model IDs for quick reference */
-const KNOWN_MODELS: Record<string, { id: string; provider: string }> = {
-  // Claude
-  "fable": { id: "claude-fable-5", provider: "claude" },
-  "opus": { id: "claude-opus-4-8", provider: "claude" },
-  "sonnet": { id: "claude-sonnet-5", provider: "claude" },
-  "haiku": { id: "claude-haiku-4-5-20251001", provider: "claude" },
-  "opus-4-7": { id: "claude-opus-4-7", provider: "claude" },
-  "opus-4-6": { id: "claude-opus-4-6", provider: "claude" },
-  "sonnet-4-6": { id: "claude-sonnet-4-6", provider: "claude" },
-  "sonnet-4-5": { id: "claude-sonnet-4-5-20250929", provider: "claude" },
-  // OpenAI — current recommended models
-  "gpt5": { id: "gpt-5.6", provider: "openai" },
-  "gpt56": { id: "gpt-5.6", provider: "openai" },
-  "gpt56-sol": { id: "gpt-5.6-sol", provider: "openai" },
-  "gpt56-terra": { id: "gpt-5.6-terra", provider: "openai" },
-  "gpt56-luna": { id: "gpt-5.6-luna", provider: "openai" },
-  "gpt55": { id: "gpt-5.5", provider: "openai" },
-  "gpt54": { id: "gpt-5.4", provider: "openai" },
-  "gpt54-mini": { id: "gpt-5.4-mini", provider: "openai" },
-  "gpt54-nano": { id: "gpt-5.4-nano", provider: "openai" },
-  "codex": { id: "gpt-5.3-codex", provider: "openai" },
-  "codex-spark": { id: "gpt-5.3-codex-spark", provider: "openai" },
-  "codex-agent": { id: "codex-agent-gpt-5.6", provider: "codex-agent" },
-  "codex-agent-balanced": { id: "codex-agent-gpt-5.6-terra", provider: "codex-agent" },
-  "codex-agent-fast": { id: "codex-agent-gpt-5.6-luna", provider: "codex-agent" },
-  "codex-agent-coding": { id: "codex-agent-gpt-5.3-codex", provider: "codex-agent" },
-  // OpenAI — older reasoning models still accepted
-  "o3": { id: "o3", provider: "openai" },
-  "o4-mini": { id: "o4-mini", provider: "openai" },
-  // OpenAI — previous gen
-  "gpt52": { id: "gpt-5.2", provider: "openai" },
-  "gpt4o": { id: "gpt-4o", provider: "openai" },
-  "gpt41": { id: "gpt-4.1", provider: "openai" },
-};
-
-function getCurrentModel(): string {
-  if (!existsSync(ENV_PATH)) return DEFAULT_MODEL;
-  const content = readFileSync(ENV_PATH, "utf-8");
-  for (const line of content.split("\n")) {
+function readSetting(key: string): string | null {
+  if (!existsSync(ENV_PATH)) return null;
+  for (const line of readFileSync(ENV_PATH, "utf-8").split("\n")) {
     const trimmed = line.trim();
-    if (trimmed.startsWith("#") || !trimmed) continue;
-    const eq = trimmed.indexOf("=");
-    if (eq === -1) continue;
-    const key = trimmed.slice(0, eq).trim();
-    if (key === "AI_MODEL" || key === "CLAUDE_MODEL") {
-      return trimmed.slice(eq + 1).trim() || DEFAULT_MODEL;
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const separator = trimmed.indexOf("=");
+    if (separator !== -1 && trimmed.slice(0, separator).trim() === key) {
+      return trimmed.slice(separator + 1).trim() || null;
     }
   }
-  return DEFAULT_MODEL;
+  return null;
 }
 
-function setModel(modelId: string): void {
-  if (!existsSync(ENV_PATH)) {
-    writeFileSync(ENV_PATH, `AI_MODEL=${modelId}\n`);
-    return;
-  }
+function currentModel(): string {
+  return readSetting("AI_MODEL") ?? DEFAULT_MODEL;
+}
 
-  const content = readFileSync(ENV_PATH, "utf-8");
-  const lines = content.split("\n");
-  let found = false;
+function currentEffort(): ReasoningEffort | null {
+  const value = readSetting("AI_REASONING_EFFORT");
+  return value && REASONING_EFFORTS.includes(value as ReasoningEffort) ? value as ReasoningEffort : null;
+}
 
-  const updated = lines.map((line) => {
+function writeSelection(modelId: string, effort: ReasoningEffort | null): void {
+  const original = existsSync(ENV_PATH) ? readFileSync(ENV_PATH, "utf-8") : "";
+  let sawModel = false;
+  const updated = original.split("\n").flatMap((line) => {
     const trimmed = line.trim();
-    if (trimmed.startsWith("#") || !trimmed) return line;
-    const eq = trimmed.indexOf("=");
-    if (eq === -1) return line;
-    const key = trimmed.slice(0, eq).trim();
-    if (key === "AI_MODEL" || key === "CLAUDE_MODEL") {
-      found = true;
-      return `AI_MODEL=${modelId}`;
+    const separator = trimmed.indexOf("=");
+    const key = separator === -1 ? "" : trimmed.slice(0, separator).trim();
+    if (key === "AI_REASONING_EFFORT") return [];
+    if (key === "AI_MODEL") {
+      sawModel = true;
+      return [`AI_MODEL=${modelId}`];
     }
-    return line;
+    return [line];
+  });
+  if (!sawModel) updated.push(`AI_MODEL=${modelId}`);
+  if (effort) updated.push(`AI_REASONING_EFFORT=${effort}`);
+  writeFileSync(ENV_PATH, updated.join("\n").replace(/^\n+/, "") + (updated.at(-1) === "" ? "" : "\n"));
+}
+
+function parseEffort(value: string | undefined): ReasoningEffort | null {
+  if (!value) return null;
+  const normalized = value.toLowerCase() as ReasoningEffort;
+  if (!REASONING_EFFORTS.includes(normalized)) {
+    throw new Error(`Unknown reasoning effort "${value}". Use: ${REASONING_EFFORTS.join(", ")}.`);
+  }
+  return normalized;
+}
+
+export function registerModelCommand(program: Command): void {
+  const model = program.command("model").description("View or change the AI model and provider").action(() => {
+    const selected = currentModel();
+    const provider = providerForModel(selected);
+    const capabilities = providerCapabilitiesForModel(selected);
+    const report = reasoningEffortReport(selected, currentEffort());
+    console.log("Current model: %s (%s)", selected, provider);
+    if (report) console.log(report);
+    console.log("Best use: %s\n", capabilities.summary);
+    console.log(providerCapabilitySummary(selected));
+    console.log("\nShortcuts:");
+    for (const info of KNOWN_MODELS) {
+      const marker = info.id === selected ? " ← active" : "";
+      console.log("  %s %s %s%s", info.alias.padEnd(20), info.provider.padEnd(12), info.id, marker);
+    }
+    console.log("\nChange with: chris model set <name-or-id> [--effort <level>]");
   });
 
-  if (!found) updated.push(`AI_MODEL=${modelId}`);
-  writeFileSync(ENV_PATH, updated.join("\n"));
-}
-
-export function registerModelCommand(program: Command) {
-  const model = program
-    .command("model")
-    .description("View or change the AI model and provider")
-    .action(() => {
-      const current = getCurrentModel();
-      const provider = providerForModel(current);
-      const capabilities = providerCapabilitiesForModel(current);
-      console.log("Current model: %s (%s)", current, provider);
-      console.log("Best use: %s", capabilities.summary);
-      console.log("");
-      console.log(providerCapabilitySummary(current));
-      console.log("");
-      console.log("Shortcuts:");
-      for (const [alias, info] of Object.entries(KNOWN_MODELS)) {
-        const marker = info.id === current ? " ← active" : "";
-        console.log("  %s %s %s%s", alias.padEnd(20), info.provider.padEnd(12), info.id, marker);
-      }
-      console.log("");
-      console.log('Change with: chris model set <name-or-id>');
-    });
-
-  model
-    .command("set <model>")
-    .description("Set the AI model (use a shortcut like 'sonnet' or a full model ID)")
-    .action((input: string) => {
-      const known = KNOWN_MODELS[input.toLowerCase()];
-      const modelId = known ? known.id : input;
+  model.command("set <model>")
+    .description("Set the AI model and optional provider-valid reasoning effort")
+    .option("--effort <effort>", "Requested reasoning effort")
+    .action((input: string, options: { effort?: string }) => {
+      const modelId = resolveModelAlias(input);
       const provider = strictProviderForModel(modelId);
-      const capabilities = providerCapabilitiesForModel(modelId);
-      setModel(modelId);
+      const requested = parseEffort(options.effort);
+      resolveReasoningEffort(modelId, requested);
+      writeSelection(modelId, requested);
       console.log("Model set to: %s (%s)", modelId, provider);
-      console.log("Best use: %s", capabilities.summary);
+      const report = reasoningEffortReport(modelId, requested);
+      if (report) console.log(report);
+      console.log("Best use: %s", providerCapabilitiesForModel(modelId).summary);
       console.log('Run "chris restart" for this to take effect.');
     });
 
-  /** All known models across providers for search */
-  const ALL_MODELS: { id: string; provider: string; description: string }[] = [
-    // Claude
-    { id: "claude-fable-5", provider: "claude", description: "Most capable widely available Claude model for demanding reasoning and long-horizon agentic work" },
-    { id: "claude-opus-4-8", provider: "claude", description: "Most capable Opus model for complex reasoning and agentic coding" },
-    { id: "claude-sonnet-5", provider: "claude", description: "Latest Claude speed/intelligence balance" },
-    { id: "claude-opus-4-7", provider: "claude", description: "Previous Opus generation" },
-    { id: "claude-sonnet-4-6", provider: "claude", description: "Previous Sonnet generation" },
-    { id: "claude-opus-4-6", provider: "claude", description: "Previous Opus generation" },
-    { id: "claude-sonnet-4-5-20250929", provider: "claude", description: "Previous-gen Sonnet" },
-    { id: "claude-haiku-4-5-20251001", provider: "claude", description: "Fast, lightweight Claude" },
-    // OpenAI — GPT-5 series (current recommended)
-    { id: "gpt-5.6", provider: "openai", description: "Alias for GPT-5.6 Sol, the current flagship" },
-    { id: "gpt-5.6-sol", provider: "openai", description: "Frontier model for complex reasoning, coding, and professional work" },
-    { id: "gpt-5.6-terra", provider: "openai", description: "GPT-5.6 model balancing intelligence and cost" },
-    { id: "gpt-5.6-luna", provider: "openai", description: "GPT-5.6 model for cost-sensitive, high-volume work" },
-    { id: "gpt-5.5", provider: "openai", description: "Previous flagship for complex reasoning and professional work" },
-    { id: "gpt-5.5-pro", provider: "openai", description: "Higher-compute GPT-5.5 model" },
-    { id: "gpt-5.4", provider: "openai", description: "Affordable frontier model for coding and professional work" },
-    { id: "gpt-5.4-pro", provider: "openai", description: "Higher-compute GPT-5.4 model" },
-    { id: "gpt-5.4-mini", provider: "openai", description: "Strong mini model for coding, computer use, and subagents" },
-    { id: "gpt-5.4-nano", provider: "openai", description: "Fastest, lowest-cost GPT-5.4 variant" },
-    { id: "gpt-5.3-codex", provider: "openai", description: "Specialized coding model for complex software engineering" },
-    { id: "gpt-5.3-codex-spark", provider: "openai", description: "Research preview for near-instant coding iteration" },
-    { id: "gpt-5.2", provider: "openai", description: "Previous general-purpose model" },
-    { id: "gpt-5.2-chat-latest", provider: "openai", description: "Previous ChatGPT-style GPT-5.2 model" },
-    { id: "gpt-5.2-pro", provider: "openai", description: "Previous higher-compute GPT-5.2 model" },
-    { id: "codex-agent-gpt-5.6", provider: "codex-agent", description: "Coding-focused Codex CLI agent on GPT-5.6 Sol" },
-    { id: "codex-agent-gpt-5.6-sol", provider: "codex-agent", description: "Coding-focused Codex CLI agent on GPT-5.6 Sol" },
-    { id: "codex-agent-gpt-5.6-terra", provider: "codex-agent", description: "Coding-focused Codex CLI agent balancing intelligence and cost" },
-    { id: "codex-agent-gpt-5.6-luna", provider: "codex-agent", description: "Coding-focused Codex CLI agent for lower-cost work" },
-    { id: "codex-agent-gpt-5.5", provider: "codex-agent", description: "Coding-focused Codex CLI agent on previous GPT-5.5" },
-    { id: "codex-agent-gpt-5.4", provider: "codex-agent", description: "Coding-focused Codex CLI agent on gpt-5.4" },
-    { id: "codex-agent-gpt-5.4-mini", provider: "codex-agent", description: "Fast coding-focused Codex CLI agent on gpt-5.4-mini" },
-    { id: "codex-agent-gpt-5.3-codex", provider: "codex-agent", description: "Coding-focused Codex CLI agent on gpt-5.3-codex" },
-    { id: "codex-agent-gpt-5.3-codex-spark", provider: "codex-agent", description: "Coding-focused Codex CLI agent on codex spark preview" },
-    // OpenAI — o-series (reasoning)
-    { id: "o3", provider: "openai", description: "Older powerful reasoning model" },
-    { id: "o3-mini", provider: "openai", description: "Older lightweight reasoning model" },
-    { id: "o3-pro", provider: "openai", description: "Older enhanced reasoning model" },
-    { id: "o3-deep-research", provider: "openai", description: "Deep research variant of o3" },
-    { id: "o4-mini", provider: "openai", description: "Older fast reasoning model" },
-    { id: "o4-mini-deep-research", provider: "openai", description: "Deep research variant of o4-mini" },
-    // OpenAI — GPT-4 series (previous gen)
-    { id: "gpt-4o", provider: "openai", description: "Previous versatile GPT-4o model" },
-    { id: "gpt-4o-mini", provider: "openai", description: "Small, fast, affordable" },
-    { id: "gpt-4.1", provider: "openai", description: "Previous non-reasoning coding model" },
-    { id: "gpt-4.1-mini", provider: "openai", description: "Previous smaller GPT-4.1 model" },
-    { id: "gpt-4.1-nano", provider: "openai", description: "Previous fastest GPT-4.1 model" },
-  ];
-
-  model
-    .command("search [query]")
-    .description("Search available models across all providers")
-    .action((query?: string) => {
-      const filtered = query
-        ? ALL_MODELS.filter(
-            (m) =>
-              m.id.toLowerCase().includes(query.toLowerCase()) ||
-              m.provider.toLowerCase().includes(query.toLowerCase()) ||
-              m.description.toLowerCase().includes(query.toLowerCase()),
-          )
-        : ALL_MODELS;
-
-      if (filtered.length === 0) {
-        console.log("No models found matching \"%s\".", query);
-        return;
-      }
-
-      console.log("Available models%s (%d):\n", query ? ` matching "${query}"` : "", filtered.length);
-      for (const m of filtered) {
-        console.log("  %s  %s  %s", m.id.padEnd(32), m.provider.padEnd(8), m.description);
-      }
-      console.log('\nUse: chris model set <model-id>');
-    });
+  model.command("search [query]").description("Search available models across all providers").action((query?: string) => {
+    const needle = query?.toLowerCase();
+    const filtered = needle
+      ? MODEL_REGISTRY.filter((entry) => entry.id.includes(needle) || entry.provider.includes(needle) || entry.description.toLowerCase().includes(needle))
+      : MODEL_REGISTRY;
+    if (filtered.length === 0) {
+      console.log('No models found matching "%s".', query);
+      return;
+    }
+    console.log("Available models%s (%d):\n", query ? ` matching "${query}"` : "", filtered.length);
+    for (const entry of filtered) {
+      console.log("  %s  %s  %s", entry.id.padEnd(32), entry.provider.padEnd(12), entry.description);
+    }
+    console.log("\nUse: chris model set <model-id> [--effort <level>]");
+  });
 }

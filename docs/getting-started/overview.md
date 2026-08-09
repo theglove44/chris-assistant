@@ -5,7 +5,7 @@ description: What Chris Assistant is and how it works
 
 # Overview
 
-A personal AI assistant accessible through Telegram and Discord. Supports multiple AI providers (Claude, OpenAI, Codex Agent, and MiniMax) with persistent memory stored in GitHub.
+A personal AI assistant accessible through Telegram and Discord. The target provider set is OpenAI Responses, Codex Agent, Grok Agent, and DeepSeek, with persistent memory stored in GitHub.
 
 ## How It Works
 
@@ -14,9 +14,9 @@ Telegram message (text, photo, or document)
   → grammY bot (guards to your user ID only)
   → Rate limiter (10 msgs/min)
   → Loads identity + memory from GitHub private repo (5-min cache)
-  → Loads project context (CLAUDE.md/AGENTS.md/README.md from active workspace)
+  → Loads project context (AGENTS.md/README.md from active workspace)
   → Builds system prompt with personality, knowledge, conversation history
-  → Routes to active provider (Claude, OpenAI, Codex Agent, or MiniMax)
+  → Routes to active provider (OpenAI Responses, Codex Agent, Grok Agent, or DeepSeek)
   → Streams response back to Telegram with live updates
   → AI can call tools: memory, web search, fetch URLs, run code,
     read/write/edit files, git operations, manage scheduled tasks
@@ -33,10 +33,10 @@ The assistant has its own identity, personality, and evolving memory. Everything
 
 ## Features
 
-- **Multi-provider AI** — Claude (Agent SDK), OpenAI Responses, OpenAI Codex Agent, and MiniMax via a single bot. Switch models with `chris model set <name>`.
+- **Multi-provider AI** — OpenAI Responses, Codex Agent, Grok Agent, and DeepSeek via one explicit model registry. Switch with `chris model set <name> --effort <level>`.
 - **Provider capability metadata** — `chris model`, Telegram `/model`, and the dashboard status API show whether the active provider is a personal assistant path, a coding agent path, or a general chat path.
 - **Streaming responses** — All providers stream responses. Telegram message updates every 1.5s with a typing cursor.
-- **Image understanding** — Send a photo and the AI will describe/analyze it (OpenAI Responses and MiniMax). Claude and Codex Agent fall back to text-only in this integration.
+- **Image understanding** — Photos route through the configured OpenAI image model. DeepSeek, Codex Agent, and Grok Agent remain text-only until their image paths are explicitly verified.
 - **Document reading** — Send text files (.txt, .json, .csv, .md, etc.) and the AI reads the contents inline.
 - **Web search** — AI can search the web via Brave Search API (optional, needs API key).
 - **URL fetching** — AI can read any URL, with HTML stripping and 50KB truncation.
@@ -45,7 +45,7 @@ The assistant has its own identity, personality, and evolving memory. Everything
 - **Git tools** — AI can check `git status`, view diffs, and commit changes in the active workspace. No `git push` — deliberate safety choice.
 - **SSH & remote access** — AI can SSH into Tailnet devices, run commands in persistent tmux sessions (attachable from iPhone), transfer files via SCP, and discover online devices. See the [SSH Tool Guide](/tools/ssh) for full details.
 - **Scheduled tasks** — Tell the bot "check X every morning" and it creates a cron-scheduled task. Tasks fire by sending the prompt to the AI with full tool access, and the response is delivered via Telegram.
-- **Project context** — When a workspace has a `CLAUDE.md`, `AGENTS.md`, or `README.md`, it's loaded into the system prompt so the AI understands the project.
+- **Project context** — When a workspace has an `AGENTS.md` or `README.md`, it is loaded into the system prompt so the AI understands the project.
 - **Persistent memory** — Long-term facts stored as markdown in a GitHub repo. Every update is a git commit.
 - **Persistent conversation history** — Last 20 messages per chat saved to disk. Survives restarts. `/clear` wipes it.
 - **HTML rendering** — AI responses are converted to Telegram HTML with bold, italic, code blocks, and links.
@@ -69,9 +69,10 @@ The assistant has its own identity, personality, and evolving memory. Everything
 ## Tech Stack
 
 - **Runtime**: Node.js 22+ / TypeScript
-- **AI (Claude)**: Claude Agent SDK with Max subscription OAuth
-- **AI (OpenAI)**: OpenAI SDK with Codex OAuth (ChatGPT Plus/Pro subscription)
-- **AI (MiniMax)**: OpenAI SDK with custom baseURL (`api.minimax.io`)
+- **AI (OpenAI Responses)**: subscription-backed Responses API with ChatGPT OAuth
+- **AI (Codex Agent)**: OpenAI Codex SDK and Codex CLI OAuth
+- **AI (Grok Agent)**: authenticated Grok CLI in bounded headless mode
+- **AI (DeepSeek)**: OpenAI-compatible API with a separately supplied key
 - **Telegram**: grammY
 - **Discord**: discord.js
 - **Memory**: GitHub API via Octokit

@@ -7,7 +7,7 @@ import { LIMITS } from "../../infra/config/limits.js";
 import { recordMessageEvent } from "../events/message-events.js";
 
 const MAX_HISTORY = LIMITS.historyWindow;
-// Token budget for history injected into new Claude sessions.
+// Token budget for history injected into new provider sessions.
 // System prompt + memory recall already consume ~15-20k tokens;
 // keep injected history well under that to avoid crowding the context.
 const MAX_HISTORY_TOKENS = 8_000;

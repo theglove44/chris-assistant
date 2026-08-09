@@ -317,6 +317,8 @@ async function loadStatus() {
       stat("Uptime", status.uptimeFormatted),
       stat("Model", status.model),
       stat("Provider", status.provider),
+      stat("Requested effort", status.requestedEffort || "default"),
+      stat("Effective effort", status.effectiveEffort || "provider default"),
       stat("Mode", capabilities.mode || "N/A"),
       stat("Memory Tools", capabilities.memoryRead ? (capabilities.memoryWrite ? "read/write" : "read-only") : "no"),
       stat("Recall", capabilities.semanticRecall ? "yes" : "no"),

@@ -4,14 +4,14 @@ import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const ENV_PATH = resolve(__dirname, "../../..", ".env");
+const ENV_PATH = resolve(process.env.CHRIS_ASSISTANT_ENV_FILE || resolve(__dirname, "../../..", ".env"));
 
 /** Secrets that should be redacted when displayed. */
 const REDACTED_KEYS = new Set([
   "TELEGRAM_BOT_TOKEN",
   "GITHUB_TOKEN",
-  "CLAUDE_CODE_OAUTH_TOKEN",
   "BRAVE_SEARCH_API_KEY",
+  "DEEPSEEK_API_KEY",
 ]);
 
 function readEnv(): Map<string, string> {
@@ -66,7 +66,7 @@ function writeEnv(env: Map<string, string>): void {
   writeFileSync(ENV_PATH, updated.join("\n"));
 }
 
-function redact(key: string, value: string): string {
+export function redactConfigValue(key: string, value: string): string {
   if (REDACTED_KEYS.has(key)) {
     if (value.length <= 8) return "****";
     return value.slice(0, 4) + "..." + value.slice(-4);
@@ -89,7 +89,7 @@ export function registerConfigCommand(program: Command) {
 
       console.log("Configuration (%s):\n", ENV_PATH);
       for (const [key, value] of env) {
-        console.log("  %s  %s", key.padEnd(30), redact(key, value));
+        console.log("  %s  %s", key.padEnd(30), redactConfigValue(key, value));
       }
     });
 
@@ -103,7 +103,7 @@ export function registerConfigCommand(program: Command) {
         console.error("Key not found: %s", key);
         process.exit(1);
       }
-      console.log(value);
+      console.log(redactConfigValue(key.toUpperCase(), value));
     });
 
   config

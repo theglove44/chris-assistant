@@ -1,6 +1,9 @@
+import type { ReasoningEffort } from "../../providers/model-routing.js";
+
 export interface AppConfig {
   model: string;
   imageModel: string;
+  reasoningEffort: ReasoningEffort | null;
   telegram: {
     botToken: string;
     allowedUserId: number;
@@ -19,6 +22,10 @@ export interface AppConfig {
     guildId: string | null;
   };
   braveSearchApiKey: string | null;
+  deepseek: {
+    apiKey: string | null;
+    thinking: "enabled" | "disabled";
+  };
   maxToolTurns: number;
   dashboard: {
     port: number;

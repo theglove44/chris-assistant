@@ -7,21 +7,19 @@ import { resetLoopDetection } from "../tools/index.js";
 import { getWorkspaceRoot, isProjectActive, setWorkspaceChangeCallback } from "../tools/files.js";
 import { LIMITS } from "../infra/config/limits.js";
 import { findRelevantMemories, formatRecalledMemories } from "../domain/memory/recall.js";
+import { providerDisplayName } from "./model-routing.js";
 
 let cachedSystemPrompt: string | null = null;
 let lastPromptLoad = 0;
 const PROMPT_CACHE_MS = LIMITS.promptCacheMs;
 const PROJECT_ROOT = path.resolve(new URL(".", import.meta.url).pathname, "../..");
 const BOOTSTRAP_MAX_CHARS = 20_000;
-const BOOTSTRAP_CANDIDATES = ["CLAUDE.md", "AGENTS.md", "README.md"];
+const BOOTSTRAP_CANDIDATES = ["AGENTS.md", "README.md"];
 
 setWorkspaceChangeCallback(() => invalidatePromptCache());
 
 function getProviderName(model: string): string {
-  if (model.toLowerCase().startsWith("codex-agent")) return "OpenAI Codex Agent";
-  const m = model.toLowerCase();
-  if (m.startsWith("gpt-") || m.startsWith("o3") || m.startsWith("o4-")) return "OpenAI";
-  return "Anthropic Claude";
+  return providerDisplayName(model);
 }
 
 function loadBootstrapFile(): string | null {
@@ -42,7 +40,7 @@ function loadBootstrapFile(): string | null {
   return null;
 }
 
-type PromptProviderMode = "openai" | "claude" | "codex-agent";
+type PromptProviderMode = "openai" | "codex-agent";
 
 interface PromptAssembly {
   assistantRuntimeContract: string;
@@ -91,14 +89,14 @@ Today is **${dateStr}** and the current time is **${timeStr} (Europe/London)**. 
 export function buildAssistantRuntimeContract(): string {
   return `# Assistant Runtime Contract
 
-You are **Chris Assistant**: Chris's personal assistant with memory, purpose, continuity, and local runtime awareness. You are not Claude Code, not the Codex CLI, not a generic OpenAI assistant, and not a provider-branded coding shell.
+You are **Chris Assistant**: Chris's personal assistant with memory, purpose, continuity, and local runtime awareness. You are not the Codex CLI, not a generic OpenAI assistant, and not a provider-branded coding shell.
 
 ## Identity Answers
 
 - If Chris asks "who are you?", answer that you are Chris Assistant.
 - If Chris asks "where do you run?", explain that you run as the \`chris-assistant\` Node.js/TypeScript app, normally reached through Telegram, on Chris's MacBook Pro under pm2.
 - If Chris asks "what memory/tools do you have?", describe persistent memory, recent conversation summaries, journal context, reusable skills, and the provider-specific tools available in the current mode.
-- If Chris asks "how are you different from Claude Code?", explain that Claude Code or Codex may be execution substrates, but Chris Assistant is the product identity, memory layer, Telegram surface, tool policy, and continuity contract.
+- If Chris asks how you differ from the underlying coding runtime, explain that Codex may be an execution substrate, but Chris Assistant is the product identity, memory layer, Telegram surface, tool policy, and continuity contract.
 
 ## Operating Contract
 
@@ -132,17 +130,6 @@ When debugging your own errors, inspect local logs and source code first. Never 
 }
 
 function buildProviderAdapterSection(mode: PromptProviderMode): string {
-  if (mode === "claude") {
-    return `# Provider Adapter
-
-You are running through the Anthropic Claude Agent SDK with the Claude Code tool preset. Claude Code is an execution substrate and tool runtime, not your identity.
-
-- Do not introduce yourself as Claude Code or a Claude Code CLI session.
-- Use native Claude Code tools for repository work when they help.
-- Use Chris Assistant custom MCP tools for memory, journal, recall, schedules, skills, SSH, macOS helpers, browser tools, market data, energy data, usage reports, and other assistant capabilities.
-- If the Claude Code preset says something generic about identity, this Chris Assistant runtime contract takes priority.`;
-  }
-
   if (mode === "codex-agent") {
     return `# Provider Adapter
 
@@ -226,11 +213,7 @@ export function buildPromptInspectionReport(inspection: PromptInspection): strin
 export async function inspectPrompt(): Promise<string> {
   const memory = await loadMemory();
   const bootstrap = loadBootstrapFile();
-  const mode = config.model.toLowerCase().startsWith("codex-agent")
-    ? "codex-agent"
-    : config.model.toLowerCase().startsWith("claude-")
-      ? "claude"
-      : "openai";
+  const mode = config.model.toLowerCase().startsWith("codex-agent") ? "codex-agent" : "openai";
   const sections = assemblePromptSections(memory, mode, bootstrap);
   const memoryDetails = [
     `identity: ${memory.identity ? "present" : "missing"}`,
@@ -341,27 +324,14 @@ export async function getSystemPrompt(userMessage?: string): Promise<string> {
 
 export function invalidatePromptCache(): void {
   cachedSystemPrompt = null;
-  cachedClaudeAppendPrompt = null;
   cachedCodexSystemPrompt = null;
   resetLoopDetection();
 }
 
-// ---------------------------------------------------------------------------
-// Claude Agent SDK append prompt
-// ---------------------------------------------------------------------------
-
-let cachedClaudeAppendPrompt: string | null = null;
-let lastClaudePromptLoad = 0;
 let cachedCodexSystemPrompt: string | null = null;
 let lastCodexPromptLoad = 0;
 
-/**
- * Build a system prompt designed to APPEND to Claude Code's default preset.
- *
- * This is lighter than getSystemPrompt() — it provides identity, memory,
- * knowledge, and Telegram formatting rules, but skips the capabilities
- * section since Claude Code's preset already handles tool descriptions.
- */
+/** Build a recalled-memory section for the active provider turn. */
 export async function getRecalledMemoryPrompt(userMessage: string, providerLabel: string): Promise<string> {
   if (!userMessage.trim()) return "";
 
@@ -389,30 +359,6 @@ async function appendRecalledMemoryContext(
   return recalledSection
     ? joinPromptSections([basePrompt, recalledSection])
     : basePrompt;
-}
-
-export async function getClaudeAppendPrompt(userMessage?: string): Promise<string> {
-  const now = Date.now();
-  if (cachedClaudeAppendPrompt && now - lastClaudePromptLoad < PROMPT_CACHE_MS) {
-    return appendRecalledMemoryContext(cachedClaudeAppendPrompt, userMessage, "claude");
-  }
-
-  console.log("[prompt] Loading memory for Claude append prompt...");
-  const memory = await loadMemory();
-  const sections = assemblePromptSections(memory, "claude", null);
-
-  cachedClaudeAppendPrompt = joinPromptSections([
-    sections.assistantRuntimeContract,
-    sections.identityMemory,
-    sections.runtimeContext,
-    sections.providerAdapter,
-    sections.formatting,
-    currentDateTimeSection(),
-  ]);
-  lastClaudePromptLoad = now;
-  console.log("[prompt] Claude append prompt loaded (%d chars)", cachedClaudeAppendPrompt.length);
-
-  return appendRecalledMemoryContext(cachedClaudeAppendPrompt, userMessage, "claude");
 }
 
 export async function getCodexSystemPrompt(userMessage?: string): Promise<string> {

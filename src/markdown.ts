@@ -15,7 +15,7 @@ function escapeHtml(text: string): string {
 
 /**
  * Strip <think> and <thinking> blocks from AI model output.
- * Newer models (e.g. claude-sonnet-4-6) output these spontaneously.
+ * Some reasoning models output these spontaneously.
  */
 export function stripThinking(text: string): string {
   const thinkClose = "<" + "/think>";

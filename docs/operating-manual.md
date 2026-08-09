@@ -84,12 +84,12 @@ Providers are not interchangeable. Use `/model` or `chris model` to see the curr
 
 | Provider | Best use | Memory and tools |
 |----------|----------|------------------|
-| Claude Agent | Default personal assistant path | Memory read/write, semantic recall, journal, scheduler, custom tools, native coding tools |
 | OpenAI Responses | Personal assistant chat with OpenAI models and vision | Memory read/write, semantic recall, journal, scheduler, shared tools, image support |
 | Codex Agent | Coding-focused workspace work | Identity and recalled memory are injected, but direct memory write and journal tools are not wired into the Codex CLI subprocess |
-| MiniMax | General assistant chat through MiniMax | Memory read/write, semantic recall, journal, scheduler, shared tools, image support |
+| Grok Agent | Alternative agentic workspace work | Identity/context injection and native workspace tools; Chris-specific tools are limited initially |
+| DeepSeek | Economical text assistant and reasoning | Memory read/write, semantic recall, journal, scheduler, and shared text tools; images route via OpenAI |
 
-Use Claude or OpenAI Responses when the job depends on the fullest personal-assistant behavior. Use Codex Agent when the job is primarily codebase work and native Codex workspace tooling is the point.
+Use OpenAI Responses or DeepSeek when the job depends on Chris's memory and shared tools. Use Codex Agent or Grok Agent when native workspace tooling is the point.
 
 ## Routine Recovery Checks
 
@@ -99,7 +99,7 @@ These prompts should feel like Chris Assistant, not a provider-branded shell:
 who are you?
 where do you run?
 what memory/tools do you have?
-how are you different from Claude Code?
+which provider are you using, and what can it access?
 ```
 
 For runtime diagnostics, use:
@@ -109,3 +109,10 @@ chris doctor
 chris prompt inspect
 chris codex status
 ```
+
+If a provider fails, check authentication without printing credentials:
+
+- OpenAI Responses: `chris openai status`
+- Codex Agent: `chris codex status`
+- Grok Agent: use the Grok readiness check exposed by the installed build
+- DeepSeek: confirm `DEEPSEEK_API_KEY` is present with `chris doctor`; the value must remain redacted

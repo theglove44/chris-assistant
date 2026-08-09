@@ -84,7 +84,7 @@ describe("event log", () => {
       await recordMessageEvent({ chatId: 42, role: "user", content: "hello", ts });
       await recordToolCompleted({
         name: "ssh",
-        provider: "claude",
+        provider: "openai",
         args: { command: "echo secret-token" },
         result: "secret-output",
       });
@@ -94,7 +94,7 @@ describe("event log", () => {
     const events = await readEvents(eventDate(ts));
     expect([...new Set(events.map((event) => event.correlationId))]).toHaveLength(1);
     const tool = events.find((event) => event.type === "tool.completed")!;
-    expect(tool.payload).toMatchObject({ name: "ssh", provider: "claude", isError: false });
+    expect(tool.payload).toMatchObject({ name: "ssh", provider: "openai", isError: false });
     expect(JSON.stringify(tool.payload)).not.toContain("secret");
   });
 

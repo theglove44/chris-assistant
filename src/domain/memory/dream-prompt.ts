@@ -1,6 +1,6 @@
 /**
  * 4-phase consolidation prompt for DreamTask.
- * Based on Claude Code's consolidationPrompt.ts pattern:
+ * Consolidation prompt pattern:
  * Orient -> Gather -> Consolidate -> Prune
  */
 

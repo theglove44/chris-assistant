@@ -1,7 +1,7 @@
 /**
  * DreamTask — Background memory consolidation service.
  *
- * Inspired by Claude Code's autoDream system. Runs after conversations
+ * Runs after conversations
  * when enough time has passed and enough new sessions have accumulated.
  *
  * 3-gate system (cheapest checks first):

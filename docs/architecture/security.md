@@ -50,7 +50,10 @@ Sliding window rate limiter (10 messages/minute) in `src/rate-limit.ts`. Integra
 ## Authentication
 
 - **Telegram**: Auth guard only responds to `TELEGRAM_ALLOWED_USER_ID`. Unauthorized `/start` gets a polite rejection; all other messages silently ignored.
-- **Token files**: Both `minimax-oauth.ts` and `openai-oauth.ts` use `writeFileSync` with `{ mode: 0o600 }` for token files.
+- **OpenAI Responses**: OAuth metadata is stored owner-only under `~/.chris-assistant/`; configuration and diagnostics redact it.
+- **Codex and Grok agents**: Their CLIs own OAuth state outside the repository. The bot must not copy, rewrite, or print those files.
+- **DeepSeek**: `DEEPSEEK_API_KEY` is read from the local `.env` and must be redacted from config, doctor, dashboard, errors, and logs.
+- **Repository hygiene**: Never commit `.env`, OAuth files, browser cookies, API keys, private messages, schedules, or runtime state.
 - **Error messages**: `telegram.ts` shows generic "Something went wrong" on errors. Raw error details stay in console logs only.
 
 ## SSH Tool Safety
@@ -60,3 +63,7 @@ Sliding window rate limiter (10 messages/minute) in `src/rate-limit.ts`. Integra
 - Absolute binary paths — works under pm2 daemon (no PATH dependency)
 - Local SCP paths validated through `resolveSafePath()` — can't escape workspace
 - No `git_push` tool — deliberate safety choice to prevent unreviewed pushes
+
+## Agent-provider process boundaries
+
+Codex and Grok execute native workspace tools outside the shared function-tool loop. Both require an explicit workspace, bounded runtime, cancellation, and a non-bypass permission policy. Being OAuth-authenticated does not grant permission to weaken the sandbox or expose live `~/.chris-assistant/` data.

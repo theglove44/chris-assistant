@@ -18,7 +18,7 @@ chris-assistant/              ← This repo (bot server + CLI)
 │   ├── channels/             # Telegram and Discord transport adapters
 │   ├── domain/               # Core domains: conversations, memory, schedules
 │   ├── infra/                # Shared infrastructure: config, storage
-│   ├── providers/            # Claude, OpenAI, Codex Agent, MiniMax providers
+│   ├── providers/            # OpenAI Responses, Codex Agent, Grok Agent, DeepSeek
 │   ├── tools/                # Tool platform + tool modules
 │   ├── dashboard/            # Dashboard runtime + HTML UI
 │   ├── skills/               # Dynamic workflow system
@@ -75,7 +75,7 @@ User sends Telegram or Discord message
   ├── ChatService
   │   ├── image routing (vision always via OpenAI image model)
   │   ├── provider selection from model string
-  │   ├── session helpers (Claude/Codex)
+  │   ├── session helpers (Codex/Grok)
   │   └── streaming callback plumbing
   │
   ├── Provider
@@ -87,7 +87,7 @@ User sends Telegram or Discord message
   │   ├── filtering / allowedTools
   │   ├── loop guard
   │   ├── OpenAI adapter
-  │   └── Claude MCP adapter
+  │   └── provider-specific agent adapters
   │
   ├── Domain persistence
   │   ├── rolling conversation history

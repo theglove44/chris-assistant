@@ -2,7 +2,7 @@ import { z } from "zod";
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import { registerTool } from "./registry.js";
-import { checkSsrf } from "./ssrf.js";
+import { safeGet } from "./safe-http.js";
 import { LIMITS } from "../infra/config/limits.js";
 
 const MAX_CONTENT_LENGTH = LIMITS.maxToolOutput;
@@ -65,31 +65,25 @@ registerTool({
       return `Error: Invalid URL "${url}" — must start with http:// or https://`;
     }
 
-    const ssrfError = await checkSsrf(url);
-    if (ssrfError !== null) {
-      console.warn("[fetch-url] SSRF blocked: %s", url);
-      return ssrfError;
-    }
-
     console.log("[fetch-url] Fetching: %s", url);
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
     try {
-      const res = await fetch(url, {
+      const res = await safeGet(url, {
         signal: controller.signal,
         headers: {
           "User-Agent": "chris-assistant/1.0",
         },
       });
 
-      if (!res.ok) {
+      if (res.status < 200 || res.status >= 300) {
         console.error("[fetch-url] HTTP error (%d): %s", res.status, url);
         return `Error fetching ${url}: HTTP ${res.status} ${res.statusText}`;
       }
 
-      const contentType = res.headers.get("content-type") ?? "";
+      const contentType = res.headers["content-type"] ?? "";
 
       // Reject binary content early — reading it as text produces garbage and
       // wastes context window. Return a clear error so the model doesn't try

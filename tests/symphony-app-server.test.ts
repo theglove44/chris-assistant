@@ -117,12 +117,6 @@ function makeConfig(command: string, workspaceRoot: string): SymphonyConfig {
       stallTimeoutMs: 5_000,
       serviceName: "test-symphony",
     },
-    claudeCode: {
-      model: "claude-sonnet-4-6",
-      maxTurnsPerQuery: null,
-      systemPromptAppend: null,
-      turnTimeoutMs: 3_600_000,
-    },
     server: { host: "127.0.0.1", port: null },
   };
 }
