@@ -54,6 +54,7 @@
   },
   "overrides": {
     "ip-address": "10.4.0",
+    "qs": "6.15.3",
     "pm2": {
       "js-yaml": "4.3.1"
     }
