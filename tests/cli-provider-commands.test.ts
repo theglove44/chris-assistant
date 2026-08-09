@@ -7,6 +7,8 @@ const fixture = vi.hoisted(() => ({
   envPath: `/private/tmp/chris-cli-provider-test-${process.pid}/.env`,
 }));
 
+const originalHome = process.env.HOME;
+
 vi.mock("@octokit/rest", () => ({
   Octokit: class { repos = { get: vi.fn(async () => ({})) }; },
 }));
@@ -34,6 +36,9 @@ describe("provider CLI commands with isolated configuration", () => {
 
   beforeAll(async () => {
     fs.mkdirSync(fixture.dir, { recursive: true });
+    fs.mkdirSync(`${fixture.dir}/.pm2`, { recursive: true });
+    fs.writeFileSync(`${fixture.dir}/.pm2/dump.pm2`, '{"TOKEN":"protected"}\n', { mode: 0o600 });
+    process.env.HOME = fixture.dir;
     process.env.CHRIS_ASSISTANT_ENV_FILE = fixture.envPath;
     fs.writeFileSync(fixture.envPath, [
       "TELEGRAM_BOT_TOKEN=fake-telegram-token",
@@ -54,6 +59,7 @@ describe("provider CLI commands with isolated configuration", () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     fs.rmSync(fixture.dir, { recursive: true, force: true });
+    process.env.HOME = originalHome;
     delete process.env.CHRIS_ASSISTANT_ENV_FILE;
   });
 
@@ -74,6 +80,7 @@ describe("provider CLI commands with isolated configuration", () => {
     const output = logs.join("\n");
     expect(output).toContain("Grok CLI runtime");
     expect(output).toContain("DeepSeek API key");
+    expect(output).not.toContain("contents match common secret-name patterns");
     expect(output).not.toContain("fake-deepseek-key");
     expect(output).not.toContain("fake-telegram-token");
   });

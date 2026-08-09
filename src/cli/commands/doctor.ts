@@ -332,7 +332,10 @@ export function registerDoctorCommand(program: Command) {
               return "warn";
             }
 
-            if (!looseMode && !regexHit) {
+            // A 0600 file is protected even when it contains secrets (which is
+            // the normal PM2 case). Only warn when another local user could
+            // read the snapshot; regex matches add context to that warning.
+            if (!looseMode) {
               return "pass";
             }
 
