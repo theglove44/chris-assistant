@@ -11,8 +11,8 @@ What to adopt from [OpenClaw's tool ecosystem](https://docs.openclaw.ai/tools), 
 
 | Area | Chris-Assistant | OpenClaw | Gap |
 |------|----------------|----------|-----|
-| Web search | `web_search` — Brave API, query only, top 5 | `web_search` — Brave/Perplexity, count/country/freshness params | Minor |
-| URL fetch | `fetch_url` — regex HTML strip, 15s, 50KB | `web_fetch` — Readability parser, markdown/text modes, Firecrawl fallback, caching | Moderate |
+| Web search | `web_search` — Firecrawl v2 with count/freshness/country/location | `web_search` — Brave/Perplexity, count/country/freshness params | Parity |
+| URL fetch | `scrape_url` — Firecrawl Markdown plus local `fetch_url` fallback | `web_fetch` — Readability parser, markdown/text modes, Firecrawl fallback, caching | Parity |
 | Code execution | `run_code` — execFile, 4 languages, 10s | `exec` — full shell, background, PTY, multiple hosts, 1800s, approvals | Large |
 | File read/write/list/search | 5 tools, workspace-scoped, path guard | `group:fs` | Parity |
 | File edit | `edit_file` — single exact-match replace | `apply_patch` — multi-file multi-hunk structured patches | Large |
@@ -28,7 +28,7 @@ Low-effort improvements, each a small change to existing code.
 
 | # | Impact | Status | Item | Description |
 |---|--------|--------|------|-------------|
-| 1 | 🟠 | ⬜ | **Enhanced `web_search` params** | Add count, freshness, country params. Brave API already supports them. |
+| 1 | 🟠 | ✅ | **Enhanced `web_search` params** | Firecrawl search supports count, freshness, country, and location; `scrape_url` provides clean Markdown. |
 | 2 | 🟡 | ⬜ | **Better loop detection** | Per-tool-name counter + three-tier thresholds. |
 | 3 | 🟠 | ⬜ | **Readability-based `web_fetch`** | Replace regex HTML stripping with Mozilla Readability + linkedom. |
 

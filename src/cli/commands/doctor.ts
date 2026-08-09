@@ -231,25 +231,30 @@ export function registerDoctorCommand(program: Command) {
           },
         },
         {
-          name: "Brave Search API key",
+          name: "Firecrawl API key",
           run: async () => {
-            if (!env.BRAVE_SEARCH_API_KEY) {
-              console.log('    Not set — web search tool will be disabled');
+            if (!env.FIRECRAWL_API_KEY) {
+              console.log('    Not set — web search and scrape tools will be disabled');
               return "warn";
             }
-            // Quick validation — try a search
+            // Validate auth without consuming a search/scrape credit.
             try {
-              const res = await fetch("https://api.search.brave.com/res/v1/web/search?q=test&count=1", {
+              const res = await fetch("https://api.firecrawl.dev/v2/team/credit-usage", {
                 headers: {
-                  "Accept": "application/json",
-                  "X-Subscription-Token": env.BRAVE_SEARCH_API_KEY,
+                  Authorization: `Bearer ${env.FIRECRAWL_API_KEY}`,
                 },
               });
-              if (res.ok) return "pass";
+              if (res.ok) {
+                const payload = await res.json() as { data?: { remainingCredits?: number } };
+                if (typeof payload.data?.remainingCredits === "number") {
+                  console.log("    %d credits remaining", payload.data.remainingCredits);
+                }
+                return "pass";
+              }
               console.log("    API returned %d — check your key", res.status);
               return "fail";
             } catch (err: any) {
-              console.log("    Could not reach Brave Search API: %s", err.message);
+              console.log("    Could not reach Firecrawl API: %s", err.message);
               return "fail";
             }
           },

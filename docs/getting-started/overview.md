@@ -38,8 +38,8 @@ The assistant has its own identity, personality, and evolving memory. Everything
 - **Streaming responses** — All providers stream responses. Telegram message updates every 1.5s with a typing cursor.
 - **Image understanding** — Photos route through the configured OpenAI image model. DeepSeek, Codex Agent, and Grok Agent remain text-only until their image paths are explicitly verified.
 - **Document reading** — Send text files (.txt, .json, .csv, .md, etc.) and the AI reads the contents inline.
-- **Web search** — AI can search the web via Brave Search API (optional, needs API key).
-- **URL fetching** — AI can read any URL, with HTML stripping and 50KB truncation.
+- **Web search and scraping** — AI can search with Firecrawl and scrape pages into clean Markdown (optional, needs API key).
+- **URL fetching** — AI can also read URLs directly with local Readability extraction and 50KB truncation.
 - **Code execution** — AI can run JavaScript, TypeScript, Python, or shell commands via `child_process.execFile` (10s timeout, 50KB output limit). Not sandboxed — runs with bot's user privileges.
 - **File tools** — AI can read, write, edit, list, and search files in the active workspace. All paths scoped to `WORKSPACE_ROOT` (default `~/Projects`) with symlink-aware traversal guard.
 - **Git tools** — AI can check `git status`, view diffs, and commit changes in the active workspace. No `git push` — deliberate safety choice.

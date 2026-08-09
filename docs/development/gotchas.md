@@ -105,7 +105,7 @@ Fine-grained PATs have a max expiry of 1 year. Set a reminder to rotate.
 
 ## Web Search Tool
 
-Only registered when `BRAVE_SEARCH_API_KEY` is set. When absent, the tool definition is not sent to any provider — no dead tools in the API call.
+`web_search` and `scrape_url` are only registered when `FIRECRAWL_API_KEY` is set. When absent, their definitions are not sent to any provider — no dead tools in the API call.
 
 ## Dashboard Inline JS
 

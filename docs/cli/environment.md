@@ -18,7 +18,7 @@ Create `.env` with `chris setup`. Keep it local, restrict its filesystem permiss
 | `DEEPSEEK_API_KEY` | No | Required only for DeepSeek models; always redacted |
 | `DEEPSEEK_THINKING` | No | DeepSeek thinking mode: `enabled` (default) or `disabled` |
 | `IMAGE_MODEL` | No | OpenAI model used for image processing |
-| `BRAVE_SEARCH_API_KEY` | No | Enables web search |
+| `FIRECRAWL_API_KEY` | No | Enables Firecrawl web search and page scraping |
 | `WORKSPACE_ROOT` | No | Root for file and Git tools. Default: `~/Projects` |
 | `MAX_TOOL_TURNS` | No | Safety ceiling for tool rounds per message |
 | `DISCORD_BOT_TOKEN` | No | Enables Discord |

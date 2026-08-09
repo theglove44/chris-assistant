@@ -13,7 +13,7 @@ Tools and features that expand what the bot can do.
 
 | # | Impact | Status | Item | Description |
 |---|--------|--------|------|-------------|
-| 1 | 🔴 | ✅ | **Web search tool** | `src/tools/web-search.ts` — Brave Search API tool, conditionally registered when `BRAVE_SEARCH_API_KEY` is set. Returns top 5 results with titles, URLs, and snippets. All three providers pick it up automatically via the tool registry. `chris doctor` checks API key validity. |
+| 1 | 🔴 | ✅ | **Web search and scraping** | Firecrawl v2 powers `web_search` and `scrape_url`, conditionally registered when `FIRECRAWL_API_KEY` is set. `chris doctor` validates the key without consuming a search credit. |
 | 2 | 🟠 | ✅ | **Image and document handling** | Photos route through the configured OpenAI image model. Text documents are downloaded and prepended to the message. |
 | 3 | 🟠 | ✅ | **File and URL reading** | `src/tools/fetch-url.ts` — fetches any URL via native `fetch`, strips HTML to readable text, 15s timeout, 50KB truncation. Always registered (no API key). |
 | 4 | 🟡 | ✅ | **Code execution sandbox** | `src/tools/run-code.ts` — executes JS, TS, Python, and shell code via `child_process.execFile` (no shell injection). 10s timeout, 50KB output limit. TS uses project's tsx binary. |

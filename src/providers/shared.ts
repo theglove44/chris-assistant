@@ -243,9 +243,12 @@ export async function inspectPrompt(): Promise<string> {
 }
 
 function buildCapabilitiesSection(): string {
-  const hasBraveSearch = !!process.env.BRAVE_SEARCH_API_KEY;
+  const hasFirecrawl = !!process.env.FIRECRAWL_API_KEY;
   const projectActive = isProjectActive();
   const workspaceRoot = getWorkspaceRoot();
+  const webWorkflow = hasFirecrawl
+    ? "Start with web_search for discovery, then scrape_url for reliable page content. Use fetch_url for a quick direct read and browse_url for interactive or stubborn JavaScript-heavy pages."
+    : "Start with fetch_url for a quick direct read, then use browse_url for interactive or stubborn JavaScript-heavy pages.";
 
   let section = `# Your Capabilities
 
@@ -269,7 +272,7 @@ Triggers for each category:
 
 **Journal** — You have a daily journal via journal_entry. After substantive conversations — decisions made, important topics discussed, tasks completed, things learned about Chris, or mood observations — write a brief note. These notes persist and help you maintain continuity across conversations. Don't journal every message — focus on what's worth remembering tomorrow.
 
-**Web** — You can search the web${hasBraveSearch ? " (web_search)" : ""}, fetch URLs (fetch_url), and browse JS-heavy sites (browse_url) to get current information. Use these when Chris asks about something you don't know, need real-time data, or want to verify facts. Start with fetch_url for speed — use browse_url only when a page returns empty or broken content (SPAs, React apps, dynamic pages). **Important:** fetch_url/browse_url are for web pages and text content only — never use them to fetch image URLs. When Chris sends you an image, you can see it directly via your vision capabilities — describe it immediately without any tool calls.
+**Web** — You can search the web${hasFirecrawl ? " (web_search) and scrape pages into clean Markdown (scrape_url)" : ""}, fetch URLs directly (fetch_url), and browse JS-heavy sites (browse_url) to get current information. Use these when Chris asks about something you don't know, need real-time data, or want to verify facts. ${webWorkflow} **Important:** web tools are for pages and text content only — never use them to fetch image URLs. When Chris sends you an image, you can see it directly via your vision capabilities — describe it immediately without any tool calls.
 
 **Coding** — You have full coding capabilities: read, write, and edit files; search codebases; run code (JS, TS, Python, shell); and use git (status, diff, commit).
 

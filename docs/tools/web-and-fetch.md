@@ -7,17 +7,29 @@ description: Web search and URL fetching tools
 
 ## Web Search (`web_search`)
 
-`src/tools/web-search.ts` — Brave Search API tool, conditionally registered only when `BRAVE_SEARCH_API_KEY` is set.
+`src/tools/web-search.ts` — Firecrawl v2 Search API tool, conditionally registered only when `FIRECRAWL_API_KEY` is set.
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `query` | Yes | Search query string |
+| `count` | No | Number of results (1-10, default 8) |
+| `freshness` | No | Past day, week, month, or year (`pd`, `pw`, `pm`, `py`) |
+| `country` | No | ISO country code such as `UK` or `US` |
+| `location` | No | Geo-targeting location string |
 
-Returns top 5 results with titles, URLs, and snippets. Uses native `fetch` — no additional npm dependencies.
+Returns titles, URLs, and descriptions. Uses the native Firecrawl v2 API with no additional npm dependency.
 
 ::: tip Optional tool
-When `BRAVE_SEARCH_API_KEY` is absent, the tool definition is not sent to any provider — no dead tools in the API call.
+When `FIRECRAWL_API_KEY` is absent, neither `web_search` nor `scrape_url` is sent to a provider — no dead tools in the API call.
 :::
+
+## URL Scrape (`scrape_url`)
+
+`src/tools/scrape-url.ts` — sends a public HTTP(S) URL to Firecrawl and returns its main content as clean Markdown. Output is truncated to the normal tool-output limit, and private/internal destinations are rejected before the API request.
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `url` | Yes | Public HTTP(S) URL to scrape |
 
 ## URL Fetch (`fetch_url`)
 

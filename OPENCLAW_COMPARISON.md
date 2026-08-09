@@ -13,8 +13,8 @@ Areas where chris-assistant already matches or is close to OpenClaw.
 
 | Area | Chris-Assistant | OpenClaw | Gap |
 |------|----------------|----------|-----|
-| Web search | `web_search` — Brave API, count/freshness/country params | `web_search` — Brave/Perplexity, count/country/freshness params | Parity |
-| URL fetch | `fetch_url` — Readability + regex fallback, 15s, 50KB | `web_fetch` — Readability parser, markdown/text modes, Firecrawl fallback, caching | Minor |
+| Web search | `web_search` — Firecrawl v2, count/freshness/country/location params | `web_search` — Brave/Perplexity, count/country/freshness params | Parity |
+| URL fetch | `scrape_url` — Firecrawl Markdown plus local `fetch_url` Readability fallback | `web_fetch` — Readability parser, markdown/text modes, Firecrawl fallback, caching | Parity |
 | Code execution | `run_code` — execFile, 4 languages, 10s | `exec` — full shell, background, PTY, multiple hosts, 1800s, approvals | Large |
 | File read/write/list/search | 5 tools, workspace-scoped, path guard | `group:fs` | Parity |
 | File edit | `edit_file` — single exact-match replace | `apply_patch` — multi-file multi-hunk structured patches | Large |
@@ -32,7 +32,7 @@ Low-effort improvements that can all be done in a single session. Each is a smal
 
 | # | Impact | Status | Item | Description |
 |---|--------|--------|------|-------------|
-| 1 | 🟠 | ✅ | **Enhanced `web_search` params** | Added optional `count` (1-10, default 5), `freshness` (pd/pw/pm/py), and `country` params to `web-search.ts`. All three passed through to Brave API. |
+| 1 | 🟠 | ✅ | **Enhanced `web_search` params** | Firecrawl search supports optional `count` (1-10), `freshness` (pd/pw/pm/py), `country`, and `location`; `scrape_url` extracts clean Markdown. |
 | 2 | 🟠 | ✅ | **Fix `run_code` working directory** | Already implemented — `run-code.ts` sets `cwd: getWorkspaceRoot()` on execFile options. |
 | 3 | 🟡 | ✅ | **Env sanitization for `run_code`** | Already implemented — `run-code.ts` uses `SAFE_ENV_KEYS` allowlist, only passes PATH/HOME/SHELL/LANG/TMPDIR/etc. All secrets automatically excluded. |
 | 4 | 🟠 | ✅ | **Readability-based `web_fetch`** | `fetch-url.ts` now uses Mozilla Readability + linkedom for clean article extraction, falling back to regex `stripHtml` when Readability returns nothing. New deps: `@mozilla/readability`, `linkedom`. Strips nav menus, footers, ads automatically. |
@@ -60,7 +60,7 @@ Valuable features that aren't urgent today. Build when the triggering condition 
 | 8 | 🟠 | ⬜ | **Semantic memory search** | Memory files > ~10KB | Start with BM25 keyword search over memory files (`search_memory` tool). Later add OpenAI embeddings for vector search (we already have auth). OpenClaw uses hybrid 70/30 vector/keyword with MMR re-ranking and temporal decay. Currently all memory fits in the system prompt — this becomes needed when it doesn't. |
 | 9 | 🟡 | ⬜ | **Image analysis tool** | When AI needs to examine images during tool loops | `analyze_image` tool — takes a workspace-relative path or URL plus a prompt, sends it through the configured OpenAI image model, and returns text. |
 | 10 | 🟡 | ⬜ | **Sub-agent spawning** | When tool turn limits become a bottleneck | `spawn_subtask` tool — launches isolated `chat()` call with separate context and conversation history. Returns result as tool output. 1 level nesting max, 3 concurrent limit. Enables parallel research/work during complex tasks. OpenClaw supports 5 nesting levels and 8 concurrent — we start simpler. |
-| 11 | 🟢 | ⬜ | **Response caching for web tools** | When Brave API costs or rate limits matter | In-memory Map with 15-min TTL for `web_search` and `fetch_url`. Key = URL/query, value = response + timestamp. Prevents redundant API calls when AI retries or re-fetches the same content. ~20 min to build. |
+| 11 | 🟢 | ⬜ | **Response caching for web tools** | When Firecrawl credits or rate limits matter | In-memory Map with 15-min TTL for `web_search` and `scrape_url`. Key = URL/query, value = response + timestamp. Prevents redundant API calls when AI retries or re-scrapes the same content. ~20 min to build. |
 
 ---
 
@@ -91,7 +91,6 @@ Features from OpenClaw that don't make sense for a single-user personal Telegram
 | **Exec approvals** | Single user, single machine. No approval workflows needed. |
 | **Elevated mode** | No sandbox/gateway distinction. |
 | **Chrome extension relay** | No browser automation. |
-| **Firecrawl integration** | Paid service for JS-heavy sites. Not worth cost for personal use. |
 | **llm-task** | Only useful with Lobster-style workflows. Revisit if we build pipelines. |
 
 ---

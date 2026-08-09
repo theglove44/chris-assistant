@@ -21,7 +21,7 @@ export interface AppConfig {
     botToken: string | null;
     guildId: string | null;
   };
-  braveSearchApiKey: string | null;
+  firecrawlApiKey: string | null;
   deepseek: {
     apiKey: string | null;
     thinking: "enabled" | "disabled";

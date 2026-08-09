@@ -57,10 +57,10 @@ export function registerSetupCommand(program: Command) {
       const githubToken = await ask(rl, "GITHUB_TOKEN: ");
       const githubRepo = await ask(rl, "GITHUB_MEMORY_REPO (e.g. your-username/chris-assistant-memory): ");
 
-      // Brave Search (optional)
+      // Firecrawl (optional)
       console.log("\n--- Web Search (optional) ---");
-      console.log("Get a free API key at brave.com/search/api for the web search tool.");
-      const braveKey = await ask(rl, "BRAVE_SEARCH_API_KEY (press Enter to skip): ");
+      console.log("Get an API key at firecrawl.dev for web search and page scraping.");
+      const firecrawlKey = await ask(rl, "FIRECRAWL_API_KEY (press Enter to skip): ");
 
       rl.close();
 
@@ -77,8 +77,8 @@ export function registerSetupCommand(program: Command) {
       addLine("GITHUB_TOKEN", githubToken || "your_github_pat_here", "GitHub memory repo");
       addLine("GITHUB_MEMORY_REPO", githubRepo || "");
       envLines.push("");
-      if (braveKey) {
-        addLine("BRAVE_SEARCH_API_KEY", braveKey, "Web search (Brave Search API)");
+      if (firecrawlKey) {
+        addLine("FIRECRAWL_API_KEY", firecrawlKey, "Web search and scraping (Firecrawl API)");
         envLines.push("");
       }
 

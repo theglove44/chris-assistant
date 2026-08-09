@@ -16,7 +16,7 @@ Tools and features that expand what the bot can do.
 
 | # | Impact | Status | Item | Description |
 |---|--------|--------|------|-------------|
-| 1 | 🔴 | ✅ | **Web search tool** | Brave Search API, conditionally registered when `BRAVE_SEARCH_API_KEY` is set. Returns top 5 results. |
+| 1 | 🔴 | ✅ | **Web search and scraping** | Firecrawl v2 powers `web_search` and `scrape_url`, conditionally registered when `FIRECRAWL_API_KEY` is set. |
 | 2 | 🟠 | ✅ | **Image and document handling** | Photos route through the configured OpenAI image model. Text documents are read inline; the other text providers remain image-agnostic. |
 | 3 | 🟠 | ✅ | **File and URL reading** | Fetches any URL, strips HTML to readable text, 15s timeout, 50KB truncation. |
 | 4 | 🟡 | ✅ | **Code execution sandbox** | JS, TS, Python, shell via `execFile`. 10s timeout, 50KB output limit. |

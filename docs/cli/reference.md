@@ -105,7 +105,7 @@ chris doctor             # Run all health checks:
                          #   - OpenAI Responses OAuth (when selected)
                          #   - Codex and Grok CLI readiness (when selected)
                          #   - DeepSeek key presence without printing it (when selected)
-                         #   - Brave Search API key (optional)
+                         #   - Firecrawl API key and remaining credits (optional)
                          #   - Bot process is running
 
 chris doctor --fix       # Auto-diagnose and repair:

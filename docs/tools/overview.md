@@ -16,7 +16,8 @@ The assistant has access to a set of tools that all providers pick up automatica
 | Tool | Category | Description |
 |------|----------|-------------|
 | `update_memory` | Always | Persist facts to GitHub memory repo |
-| `web_search` | Always | Search the web via Brave Search API (optional — needs API key) |
+| `web_search` | Optional | Search the web through Firecrawl (needs API key) |
+| `scrape_url` | Optional | Scrape a public page into clean Markdown through Firecrawl (needs API key) |
 | `fetch_url` | Always | Read any URL with HTML stripping, 15s timeout, 50KB truncation |
 | `run_code` | Always | Execute JS, TS, Python, or shell commands (10s timeout) |
 | `manage_schedule` | Always | Create, list, delete, or toggle cron-scheduled tasks |

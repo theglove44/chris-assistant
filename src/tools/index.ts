@@ -5,6 +5,7 @@ import "./memory.js";
 import "./usage.js";
 import "./decisions.js";
 import "./web-search.js";
+import "./scrape-url.js";
 import "./fetch-url.js";
 import "./browse-url.js";
 import "./run-code.js";

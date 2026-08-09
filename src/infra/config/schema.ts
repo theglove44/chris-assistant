@@ -26,7 +26,7 @@ export const envSchema = z.object({
   GITHUB_MEMORY_REPO: envString.regex(/^[^/]+\/[^/]+$/, "Expected owner/repo format"),
   DISCORD_BOT_TOKEN: z.string().optional(),
   DISCORD_GUILD_ID: z.string().optional(),
-  BRAVE_SEARCH_API_KEY: z.string().optional(),
+  FIRECRAWL_API_KEY: z.string().optional(),
   MAX_TOOL_TURNS: z.coerce.number().int().positive().optional(),
   DASHBOARD_PORT: z.coerce.number().int().positive().optional(),
   DASHBOARD_TOKEN: z.string().optional(),

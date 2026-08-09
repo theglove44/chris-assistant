@@ -147,7 +147,7 @@ The v1 event store double-writes incoming messages, outgoing responses, and regi
 5 tools (`read_file`, `write_file`, `edit_file`, `list_files`, `search_files`) scoped to `WORKSPACE_ROOT`. `edit_file` requires exactly one match. `list_files` prunes `node_modules`/`.git`, cap 200. `search_files` uses `grep -rn`.
 
 ### Web Search
-Brave Search API, only registered when `BRAVE_SEARCH_API_KEY` set. Supports `count` (1-10), `freshness`, `country`.
+Firecrawl v2 Search API, only registered when `FIRECRAWL_API_KEY` is set. Supports `count` (1-10), `freshness`, `country`, and `location`. The same key enables `scrape_url` for clean Markdown extraction.
 
 ### URL Fetch
 Native fetch, 15s timeout. HTML extracted via Readability + linkedom, regex fallback. 50KB truncation. SSRF protection blocks private IPs.

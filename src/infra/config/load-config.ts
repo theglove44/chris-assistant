@@ -68,7 +68,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): { config: AppC
         botToken: normalizeOptional(values.DISCORD_BOT_TOKEN),
         guildId: normalizeOptional(values.DISCORD_GUILD_ID),
       },
-      braveSearchApiKey: normalizeOptional(values.BRAVE_SEARCH_API_KEY),
+      firecrawlApiKey: normalizeOptional(values.FIRECRAWL_API_KEY),
       deepseek: {
         apiKey: normalizeOptional(values.DEEPSEEK_API_KEY),
         thinking: values.DEEPSEEK_THINKING ?? "enabled",

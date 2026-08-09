@@ -39,7 +39,7 @@ registerTool({
     allowed_tools: z.array(z.string()).optional().describe(
       "Optional list of tool names the scheduled task is allowed to use. When set, ONLY these tools are available during execution — all others are hidden from the AI. " +
       "When omitted, all tools are available. Use this to restrict dangerous tasks. " +
-      "Available tools: update_memory, web_search, fetch_url, ssh, recall_conversations, journal_entry, manage_schedule, run_code, read_file, write_file, edit_file, list_files, search_files, git_status, git_diff, git_commit.",
+      "Available tools: update_memory, web_search, scrape_url, fetch_url, ssh, recall_conversations, journal_entry, manage_schedule, run_code, read_file, write_file, edit_file, list_files, search_files, git_status, git_diff, git_commit.",
     ),
   },
   jsonSchemaParameters: {

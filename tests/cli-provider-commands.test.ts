@@ -46,6 +46,7 @@ describe("provider CLI commands with isolated configuration", () => {
       "GITHUB_TOKEN=fake-github-token",
       "GITHUB_MEMORY_REPO=owner/repo",
       "DEEPSEEK_API_KEY=fake-deepseek-key",
+      "FIRECRAWL_API_KEY=fake-firecrawl-key",
       "AI_MODEL=gpt-4o",
       "",
     ].join("\n"));
@@ -80,8 +81,10 @@ describe("provider CLI commands with isolated configuration", () => {
     const output = logs.join("\n");
     expect(output).toContain("Grok CLI runtime");
     expect(output).toContain("DeepSeek API key");
+    expect(output).toContain("Firecrawl API key");
     expect(output).not.toContain("contents match common secret-name patterns");
     expect(output).not.toContain("fake-deepseek-key");
+    expect(output).not.toContain("fake-firecrawl-key");
     expect(output).not.toContain("fake-telegram-token");
   });
 });

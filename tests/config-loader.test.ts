@@ -61,7 +61,7 @@ describe("loadConfig", () => {
       DEEPSEEK_THINKING: "disabled",
       DISCORD_BOT_TOKEN: "discord-token",
       DISCORD_GUILD_ID: "guild-123",
-      BRAVE_SEARCH_API_KEY: "brave-key",
+      FIRECRAWL_API_KEY: "firecrawl-key",
       MAX_TOOL_TURNS: "77",
       DASHBOARD_PORT: "4000",
       DASHBOARD_TOKEN: "secret",
@@ -77,7 +77,7 @@ describe("loadConfig", () => {
     expect(config.deepseek).toEqual({ apiKey: "deepseek-key", thinking: "disabled" });
     expect(config.discord.botToken).toBe("discord-token");
     expect(config.discord.guildId).toBe("guild-123");
-    expect(config.braveSearchApiKey).toBe("brave-key");
+    expect(config.firecrawlApiKey).toBe("firecrawl-key");
     expect(config.maxToolTurns).toBe(77);
     expect(config.dashboard.port).toBe(4000);
     expect(config.dashboard.token).toBe("secret");

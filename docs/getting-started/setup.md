@@ -100,14 +100,14 @@ Run `chris model` for the authoritative aliases and effort levels implemented by
 
 ## 8. (Optional) Set up web search
 
-Get a free Brave Search API key at [brave.com/search/api](https://brave.com/search/api), then:
+Get an API key from [Firecrawl](https://www.firecrawl.dev/), then:
 
 ```bash
-chris config set BRAVE_SEARCH_API_KEY your_key_here
+chris config set FIRECRAWL_API_KEY your_key_here
 chris restart
 ```
 
-When the key is set, the AI gains a `web_search` tool. When absent, the tool is simply not registered — no dead tools in API calls.
+When the key is set, the AI gains `web_search` and `scrape_url`. When absent, neither tool is registered — no dead tools in API calls.
 
 ## Running on Mac Mini
 

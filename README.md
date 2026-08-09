@@ -16,7 +16,7 @@ Built for a single user. Not a platform, not a framework — just a really good 
 | | |
 |---|---|
 | **Memory** | Learns about you over time. Facts stored as markdown in a private GitHub repo — fully auditable, version-controlled. |
-| **Web** | Searches the web (Brave Search), fetches and reads URLs, browses pages. |
+| **Web** | Searches and scrapes the web with Firecrawl, fetches URLs directly, and browses dynamic pages. |
 | **Code** | Runs JavaScript, TypeScript, Python, and shell commands. Reads, writes, and edits files. Full git integration. |
 | **Calendar & Mail** | Native macOS Calendar (EventKit) and Mail integration. "Move my dentist appointment to Friday at 3pm" just works. |
 | **SSH** | Connects to Tailscale devices, runs commands in persistent tmux sessions you can attach to from your phone. |
@@ -157,10 +157,10 @@ Message your bot on Telegram. That's it.
 <details>
 <summary><strong>Web search</strong></summary>
 
-Get a free API key at [brave.com/search/api](https://brave.com/search/api):
+Get an API key from [Firecrawl](https://www.firecrawl.dev/):
 
 ```bash
-chris config set BRAVE_SEARCH_API_KEY your_key
+chris config set FIRECRAWL_API_KEY your_key
 chris restart
 ```
 
@@ -264,7 +264,7 @@ Maintenance:
 | `AI_REASONING_EFFORT` | No | Requested thinking level; validated against the selected model |
 | `DEEPSEEK_API_KEY` | No | DeepSeek API key. Required only for DeepSeek models; redact from output and never commit it |
 | `DEEPSEEK_THINKING` | No | DeepSeek thinking mode: `enabled` (default) or `disabled` |
-| `BRAVE_SEARCH_API_KEY` | No | Enables web search tool |
+| `FIRECRAWL_API_KEY` | No | Enables Firecrawl web search and page scraping tools |
 | `WORKSPACE_ROOT` | No | Root for file/git tools (default: `~/Projects`) |
 | `IMAGE_MODEL` | No | Model for image generation (default: `gpt-5.2`) |
 | `MAX_TOOL_TURNS` | No | Max tool call turns per conversation (default: 200) |
