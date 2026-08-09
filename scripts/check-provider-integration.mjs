@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const mode = process.argv[2] ?? "baseline";
@@ -34,22 +35,17 @@ function read(path) {
   return readFileSync(join(repoRoot, path), "utf8");
 }
 
-function walk(path) {
-  const absolute = join(repoRoot, path);
-  if (!existsSync(absolute)) return [];
-  if (!statSync(absolute).isDirectory()) return [path];
-
-  return readdirSync(absolute, { withFileTypes: true }).flatMap((entry) => {
-    const child = join(path, entry.name);
-    return entry.isDirectory() ? walk(child) : [child];
-  });
-}
-
 function searchableFiles(paths) {
   const textExtensions = new Set([".json", ".md", ".mjs", ".ts"]);
-  return paths
-    .flatMap(walk)
-    .filter((path) => textExtensions.has(extname(path)) || path === ".env.example");
+  const visibleFiles = execFileSync(
+    "git",
+    ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+    { cwd: repoRoot, encoding: "utf8" },
+  ).split("\0").filter(Boolean);
+  return visibleFiles.filter((path) =>
+    paths.some((root) => path === root || path.startsWith(`${root}/`))
+    && (textExtensions.has(extname(path)) || path === ".env.example"),
+  );
 }
 
 function findMatches(paths, pattern) {
