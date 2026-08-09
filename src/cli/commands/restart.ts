@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { withPm2, getBotProcess, PM2_NAME } from "../pm2-helper.js";
+import { withPm2, getBotProcess, PM2_NAME, restartProcessWithFreshEnv } from "../pm2-helper.js";
 
 export function registerRestartCommand(program: Command) {
   program
@@ -14,13 +14,8 @@ export function registerRestartCommand(program: Command) {
       }
 
       await withPm2(async (pm2) => {
-        return new Promise<void>((resolve, reject) => {
-          pm2.restart(PM2_NAME, (err) => {
-            if (err) return reject(err);
-            console.log("Bot restarted.");
-            resolve();
-          });
-        });
+        await restartProcessWithFreshEnv(pm2, PM2_NAME);
+        console.log("Bot restarted with refreshed environment.");
       });
     });
 }

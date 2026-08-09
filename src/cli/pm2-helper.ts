@@ -62,3 +62,19 @@ export async function getProcess(name: string): Promise<ProcessInfo | null> {
 export async function getBotProcess(): Promise<ProcessInfo | null> {
   return getProcess(PM2_NAME);
 }
+
+/** Restart a PM2 process while replacing its stored env with the CLI's current env. */
+export function restartProcessWithFreshEnv(pm2Instance: typeof pm2, name: string): Promise<void> {
+  type RestartWithOptions = (
+    process: string | number,
+    options: { updateEnv: boolean },
+    callback: (error?: Error | null) => void,
+  ) => void;
+  const restart = pm2Instance.restart.bind(pm2Instance) as unknown as RestartWithOptions;
+  return new Promise((resolve, reject) => {
+    restart(name, { updateEnv: true }, (error) => {
+      if (error) return reject(error);
+      resolve();
+    });
+  });
+}

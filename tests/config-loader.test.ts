@@ -1,5 +1,8 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { loadConfig } from "../src/infra/config/load-config.js";
+import { loadConfig, loadRuntimeConfig } from "../src/infra/config/load-config.js";
 
 describe("loadConfig", () => {
   const baseEnv = {
@@ -30,6 +33,31 @@ describe("loadConfig", () => {
       journalGapDays: 2,
     });
     expect(repo).toEqual({ owner: "owner", name: "repo" });
+  });
+
+  it("treats project .env model settings as authoritative over stale PM2 env", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "chris-runtime-config-"));
+    const envPath = path.join(dir, ".env");
+    fs.writeFileSync(envPath, [
+      "TELEGRAM_BOT_TOKEN=telegram-token",
+      "TELEGRAM_ALLOWED_USER_ID=12345",
+      "GITHUB_TOKEN=github-token",
+      "GITHUB_MEMORY_REPO=owner/repo",
+      "AI_MODEL=deepseek-v4-flash",
+      "",
+    ].join("\n"));
+
+    try {
+      const { config } = loadRuntimeConfig({
+        ...baseEnv,
+        AI_MODEL: "gpt-5.6-terra",
+        AI_REASONING_EFFORT: "medium",
+      }, envPath);
+      expect(config.model).toBe("deepseek-v4-flash");
+      expect(config.reasoningEffort).toBeNull();
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("loads notice-loop settings", () => {

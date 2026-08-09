@@ -1,4 +1,8 @@
 import "dotenv/config";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { parse as parseDotenv } from "dotenv";
 import { envSchema, normalizeOptional } from "./schema.js";
 import type { AppConfig } from "./types.js";
 import { resolveReasoningEffort, strictProviderForModel } from "../../providers/model-routing.js";
@@ -7,6 +11,9 @@ export interface RepoRef {
   owner: string;
   name: string;
 }
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const DEFAULT_ENV_PATH = resolve(__dirname, "../../..", ".env");
 
 function formatZodError(error: { issues: Array<{ path: PropertyKey[]; message: string }> }): string {
   return error.issues
@@ -102,4 +109,24 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): { config: AppC
     },
     repo: { owner, name },
   };
+}
+
+/**
+ * Load runtime config with the project .env as the source of truth for the
+ * CLI-managed model selection. Other settings retain normal process-env
+ * precedence. PM2 otherwise retains model/effort keys removed from .env.
+ */
+export function loadRuntimeConfig(
+  env: NodeJS.ProcessEnv = process.env,
+  envPath = process.env.CHRIS_ASSISTANT_ENV_FILE || DEFAULT_ENV_PATH,
+): { config: AppConfig; repo: RepoRef } {
+  if (!existsSync(envPath)) return loadConfig(env);
+
+  const fileValues = parseDotenv(readFileSync(envPath));
+  const runtimeEnv = { ...fileValues, ...env };
+  for (const key of ["AI_MODEL", "AI_REASONING_EFFORT"] as const) {
+    delete runtimeEnv[key];
+    if (fileValues[key] !== undefined) runtimeEnv[key] = fileValues[key];
+  }
+  return loadConfig(runtimeEnv);
 }

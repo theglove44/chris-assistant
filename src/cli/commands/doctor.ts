@@ -4,7 +4,13 @@ import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { execFileSync } from "child_process";
 import { Octokit } from "@octokit/rest";
-import { getBotProcess, withPm2, PM2_NAME, PROJECT_ROOT } from "../pm2-helper.js";
+import {
+  getBotProcess,
+  withPm2,
+  PM2_NAME,
+  PROJECT_ROOT,
+  restartProcessWithFreshEnv,
+} from "../pm2-helper.js";
 import { loadTokens as loadOpenaiTokens } from "../../providers/openai-oauth.js";
 import { getCodexStatus } from "../../codex.js";
 import { getGrokStatus } from "../../grok.js";
@@ -486,12 +492,7 @@ export function registerDoctorCommand(program: Command) {
               return;
             }
             await withPm2(async (pm2Instance) => {
-              return new Promise<void>((resolve, reject) => {
-                pm2Instance.restart(PM2_NAME, (err) => {
-                  if (err) return reject(err);
-                  resolve();
-                });
-              });
+              await restartProcessWithFreshEnv(pm2Instance, PM2_NAME);
             });
 
             // Wait a moment and check status

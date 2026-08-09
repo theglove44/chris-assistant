@@ -1,6 +1,6 @@
-import { loadConfig } from "./infra/config/load-config.js";
+import { loadRuntimeConfig } from "./infra/config/load-config.js";
 
-const loaded = loadConfig();
+const loaded = loadRuntimeConfig();
 
 export const config = loaded.config;
 export const repoOwner = loaded.repo.owner;
